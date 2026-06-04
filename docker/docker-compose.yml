@@ -1,0 +1,46 @@
+version: '3.8'
+
+services:
+  mysql:
+    image: mysql:8.0
+    container_name: rombom-mysql
+    environment:
+      MYSQL_ROOT_PASSWORD: root123456
+      MYSQL_DATABASE: rombom
+      MYSQL_USER: rombom
+      MYSQL_PASSWORD: rombom123456
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+      - ./database/schema:/docker-entrypoint-initdb.d
+    networks:
+      - rombom-network
+
+  redis:
+    image: redis:7-alpine
+    container_name: rombom-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - rombom-network
+
+  adminer:
+    image: adminer
+    container_name: rombom-adminer
+    ports:
+      - "8080:8080"
+    depends_on:
+      - mysql
+    networks:
+      - rombom-network
+
+volumes:
+  mysql_data:
+  redis_data:
+
+networks:
+  rombom-network:
+    driver: bridge
