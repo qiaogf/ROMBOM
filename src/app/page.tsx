@@ -1,5 +1,6 @@
 import { getFeaturedProducts, getCategories, getTopSellers, getNewestProducts } from "@/actions/products";
 import { HeroBanner, CategoryGrid, ProductGrid, ProductList, Newsletter } from "@/components/home";
+import { RetryButton } from "@/components/RetryButton";
 
 export const dynamic = "force-dynamic";
 
@@ -59,12 +60,7 @@ export default async function Home() {
           </div>
           <h1 className="text-2xl font-bold text-slate-900 mb-2">Service Unavailable</h1>
           <p className="text-slate-500 mb-6">We're experiencing temporary connectivity issues. Please try again later.</p>
-          <button
-            onClick={() => window.location.reload()}
-            className="px-6 py-3 bg-slate-900 text-white font-medium rounded-xl hover:bg-slate-800 transition-colors"
-          >
-            Refresh Page
-          </button>
+          <RetryButton className="px-6 py-3 bg-slate-900 text-white font-medium rounded-xl hover:bg-slate-800 transition-colors" />
         </div>
       </div>
     );

@@ -158,7 +158,7 @@ export function CheckoutContent({ cart }: CheckoutContentProps) {
           </div>
         )}
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 lg:gap-8">
+        <form onSubmit={handleSubmit} className="grid grid-cols-1 lg:grid-cols-3 gap-6 lg:gap-8">
           <div className="lg:col-span-2 space-y-6">
             <div className="card p-6">
               <h2 className="text-lg font-semibold text-slate-900 mb-6 flex items-center gap-2">
@@ -168,7 +168,7 @@ export function CheckoutContent({ cart }: CheckoutContentProps) {
                 </svg>
                 Shipping Address
               </h2>
-              <form onSubmit={handleSubmit} className="space-y-5">
+              <div className="space-y-5">
                 <div>
                   <label className="block text-sm font-medium text-slate-700 mb-2">
                     Full Name <span className="text-red-500">*</span>
@@ -277,7 +277,7 @@ export function CheckoutContent({ cart }: CheckoutContentProps) {
                     placeholder="Any special instructions for shipping..."
                   />
                 </div>
-              </form>
+              </div>
             </div>
 
             <div className="card p-6">
@@ -412,10 +412,7 @@ export function CheckoutContent({ cart }: CheckoutContentProps) {
               )}
 
               <button
-                onClick={(e) => {
-                  e.preventDefault();
-                  handleSubmit(e);
-                }}
+                type="submit"
                 disabled={isLoading}
                 className="w-full mt-6 py-4 bg-slate-900 text-white font-semibold rounded-xl hover:bg-slate-800 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 flex items-center justify-center gap-2 group"
               >
@@ -444,7 +441,7 @@ export function CheckoutContent({ cart }: CheckoutContentProps) {
               </div>
             </div>
           </div>
-        </div>
+        </form>
       </div>
     </div>
   );

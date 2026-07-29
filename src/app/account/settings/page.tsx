@@ -176,9 +176,12 @@ export default async function SettingsPage() {
                         <p className="font-medium text-slate-900">Change Password</p>
                         <p className="text-sm text-slate-500">Update your account password</p>
                       </div>
-                      <button className="px-4 py-2 bg-slate-900 text-white text-sm font-medium rounded-lg hover:bg-slate-800 transition-colors">
-                        Change
-                      </button>
+                      <Link
+                      href="/account/settings"
+                      className="px-4 py-2 bg-slate-900 text-white text-sm font-medium rounded-lg hover:bg-slate-800 transition-colors"
+                    >
+                      Change
+                    </Link>
                     </div>
                   </div>
                 </div>
@@ -186,13 +189,13 @@ export default async function SettingsPage() {
                 <div>
                   <h2 className="text-lg font-semibold text-slate-900 mb-6">Account Actions</h2>
                   <div className="space-y-4">
-                    <button className="w-full bg-red-50 text-red-600 rounded-xl p-4 flex items-center justify-between hover:bg-red-100 transition-colors">
+                    <div className="w-full bg-red-50 text-red-600 rounded-xl p-4 flex items-center justify-between">
                       <div>
                         <p className="font-medium">Delete Account</p>
                         <p className="text-sm text-red-500">Permanently delete your account and all data</p>
                       </div>
                       <span className="text-sm font-medium">Delete</span>
-                    </button>
+                    </div>
                   </div>
                 </div>
               </div>

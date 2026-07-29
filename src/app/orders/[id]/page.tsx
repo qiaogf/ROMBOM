@@ -232,16 +232,10 @@ export default async function OrderDetailPage({ params }: { params: { id: string
                         key={item.id}
                         className="flex gap-4 p-4 bg-slate-50 rounded-xl hover:bg-slate-100 transition-colors"
                       >
-                        <div className="w-20 h-20 bg-slate-50 rounded-lg flex-shrink-0 overflow-hidden">
-                          <img
-                            src={`https://neeko-copilot.bytedance.net/api/text_to_image?prompt=${encodeURIComponent(item.nameEn || item.name)}&image_size=square`}
-                            alt={item.nameEn || item.name}
-                            className="w-full h-full object-cover"
-                            onError={(e) => {
-                              const target = e.target as HTMLImageElement;
-                              target.src = `data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='100' height='100' viewBox='0 0 24 24' fill='none' stroke='%23cbd5e1' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z'/%3E%3Cpolyline points='3.27 6.96 12 12.01 20.73 6.96'/%3E%3Cline x1='12' y1='22.08' x2='12' y2='12'/%3E%3C/svg%3E`;
-                            }}
-                          />
+                        <div className="w-20 h-20 bg-slate-50 rounded-lg flex-shrink-0 overflow-hidden flex items-center justify-center">
+                          <div className="w-12 h-12 bg-slate-100 rounded-lg flex items-center justify-center">
+                            <Package className="w-6 h-6 text-slate-300" />
+                          </div>
                         </div>
                         <div className="flex-1 min-w-0">
                           <h4 className="font-medium text-slate-900 line-clamp-2">

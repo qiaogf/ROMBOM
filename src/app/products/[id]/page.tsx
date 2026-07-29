@@ -2,6 +2,7 @@ import Link from "next/link";
 import { getProductById } from "@/actions/products";
 import { ProductDetailContent } from "./ProductDetailContent";
 import type { ProductWithCategory } from "@/actions/products";
+import { RetryButton } from "@/components/RetryButton";
 
 interface ProductDetailPageProps {
   params: {
@@ -50,12 +51,7 @@ export default async function ProductDetailPage({ params }: ProductDetailPagePro
           </div>
           <h1 className="text-2xl font-bold text-slate-900 mb-2">Service Unavailable</h1>
           <p className="text-slate-500 mb-6">We're experiencing temporary connectivity issues. Please try again later.</p>
-          <button
-            onClick={() => window.location.reload()}
-            className="btn-primary"
-          >
-            Refresh Page
-          </button>
+          <RetryButton className="btn-primary" />
         </div>
       </div>
     );

@@ -1,4 +1,4 @@
-// @ts-ignore - turbopackIgnore: true - Prisma client is generated outside the app root
+/* turbopackIgnore: true */
 import { PrismaClient } from "@/../prisma/generated/client";
 
 declare global {

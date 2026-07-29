@@ -1,6 +1,8 @@
+import Link from "next/link";
 import { getPaginatedProducts, getAllCategories } from "@/actions/products";
 import { ProductCard } from "@/components/home/ProductCard";
 import { CategoryFilter, Pagination } from "@/components/products";
+import { RetryButton } from "@/components/RetryButton";
 import type { Category } from "@/../prisma/generated/client";
 
 interface ProductsPageProps {
@@ -82,12 +84,12 @@ export default async function ProductsPage({ searchParams }: ProductsPageProps) 
                 </div>
                 <h3 className="text-lg font-semibold text-slate-900 mb-2">No products found</h3>
                 <p className="text-slate-500 mb-6">We couldn't find any products matching your selection.</p>
-                <a
+                <Link
                   href="/products"
                   className="btn-primary"
                 >
                   Browse All Products
-                </a>
+                </Link>
               </div>
             )}
           </main>
@@ -107,12 +109,7 @@ export default async function ProductsPage({ searchParams }: ProductsPageProps) 
           </div>
           <h1 className="text-2xl font-bold text-slate-900 mb-2">Service Unavailable</h1>
           <p className="text-slate-500 mb-6">We're experiencing temporary connectivity issues. Please try again later.</p>
-          <button
-            onClick={() => window.location.reload()}
-            className="btn-primary"
-          >
-            Refresh Page
-          </button>
+          <RetryButton className="btn-primary" />
         </div>
       </div>
     );

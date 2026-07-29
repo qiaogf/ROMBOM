@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { getAllCategories } from "@/actions/products";
+import { RetryButton } from "@/components/RetryButton";
 import type { Category } from "@/../prisma/generated/client";
 
 export const dynamic = "force-dynamic";
@@ -121,12 +122,7 @@ export default async function CategoriesPage() {
           </div>
           <h1 className="text-2xl font-bold text-slate-900 mb-2">Service Unavailable</h1>
           <p className="text-slate-500 mb-6">We're experiencing temporary connectivity issues. Please try again later.</p>
-          <button
-            onClick={() => window.location.reload()}
-            className="btn-primary"
-          >
-            Refresh Page
-          </button>
+          <RetryButton className="btn-primary" />
         </div>
       </div>
     );
