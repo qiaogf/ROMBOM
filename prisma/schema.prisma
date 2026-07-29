@@ -1,190 +1,217 @@
 generator client {
-  provider = "prisma-client-js"
-  output = "./generated/client"
+  provider      = "prisma-client-js"
+  output        = "./generated/client"
+  binaryTargets = ["native", "rhel-openssl-3.0.x"]
 }
 
 datasource db {
   provider = "postgresql"
-}
-
-model Product {
-  id                  String    @id @default(cuid())
-  name                String
-  nameEn              String?
-  description         String
-  descriptionEn       String?
-  price               Decimal   @db.Decimal(10, 2)
-  originalPrice       Decimal?  @db.Decimal(10, 2)
-  currency            String    @default("USD")
-  country             String?
-  weight              Float?
-  weightUnit          String?   @default("kg")
-  sku                 String    @unique
-  stock               Int       @default(0)
-  categoryId          String
-  images              String[]
-  featured            Boolean   @default(false)
-  published           Boolean   @default(true)
-  createdAt           DateTime  @default(now())
-  updatedAt           DateTime  @updatedAt
-
-  category            Category  @relation(fields: [categoryId], references: [id])
-  orderItems          OrderItem[]
-  cartItems           CartItem[]
-  reviews             Review[]
-}
-
-model Category {
-  id                  String    @id @default(cuid())
-  name                String
-  nameEn              String?
-  slug                String    @unique
-  description         String?
-  descriptionEn       String?
-  parentId            String?
-  createdAt           DateTime  @default(now())
-  updatedAt           DateTime  @updatedAt
-
-  parent              Category? @relation("CategoryParent", fields: [parentId], references: [id], onDelete: SetNull)
-  children            Category[] @relation("CategoryParent")
-  products            Product[]
-}
-
-model Order {
-  id                  String    @id @default(cuid())
-  orderNumber         String    @unique
-  userId              String
-  status              OrderStatus @default(PENDING)
-  totalAmount         Decimal   @db.Decimal(10, 2)
-  currency            String    @default("USD")
-  shippingAddress     Address   @relation("OrderShipping", fields: [shippingAddressId], references: [id])
-  shippingAddressId   String
-  billingAddress      Address?  @relation("OrderBilling", fields: [billingAddressId], references: [id])
-  billingAddressId    String?
-  shippingMethod      String
-  shippingCost        Decimal   @db.Decimal(10, 2) @default(0)
-  trackingNumber      String?
-  country             String?
-  createdAt           DateTime  @default(now())
-  updatedAt           DateTime  @updatedAt
-
-  user                User      @relation(fields: [userId], references: [id])
-  items               OrderItem[]
-  payment             Payment?
-}
-
-model OrderItem {
-  id                  String    @id @default(cuid())
-  orderId             String
-  productId           String
-  quantity            Int       @default(1)
-  price               Decimal   @db.Decimal(10, 2)
-  currency            String    @default("USD")
-  name                String
-  nameEn              String?
-  sku                 String
-
-  order               Order     @relation(fields: [orderId], references: [id], onDelete: Cascade)
-  product             Product   @relation(fields: [productId], references: [id])
+  url      = env("DATABASE_URL")
 }
 
 model User {
-  id                  String    @id @default(cuid())
-  email               String    @unique
-  firstName           String
-  lastName            String
-  phone               String?
-  country             String?
-  currency            String?   @default("USD")
-  passwordHash        String
-  role                UserRole  @default(CUSTOMER)
-  createdAt           DateTime  @default(now())
-  updatedAt           DateTime  @updatedAt
+  id               String    @id @default(cuid())
+  email            String    @unique
+  passwordHash     String
+  firstName        String
+  lastName         String
+  country          String?
+  currency         String    @default("USD")
+  phone            String?
+  isActive         Boolean   @default(true)
+  role             UserRole  @default(CUSTOMER)
+  lastLoginAt      DateTime?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
 
-  orders              Order[]
-  addresses           Address[]
-  cart                Cart?
-  reviews             Review[]
+  orders           Order[]
+  cart             Cart?
+  addresses        Address[]
+  reviews          Review[]
 }
 
-model Address {
-  id                  String    @id @default(cuid())
-  userId              String
-  firstName           String
-  lastName            String
-  company             String?
-  address1            String
-  address2            String?
-  city                String
-  state               String?
-  postalCode          String
-  country             String
-  phone               String?
-  isDefault           Boolean   @default(false)
-  createdAt           DateTime  @default(now())
-  updatedAt           DateTime  @updatedAt
+model Category {
+  id               String    @id @default(cuid())
+  name             String
+  nameEn           String?
+  slug             String    @unique
+  description      String?
+  descriptionEn    String?
+  imageUrl         String?
+  sortOrder        Int       @default(0)
+  isActive         Boolean   @default(true)
+  parentId         String?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
 
-  user                User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-  shippingOrders      Order[]   @relation("OrderShipping")
-  billingOrders       Order[]   @relation("OrderBilling")
+  parent           Category? @relation("CategoryHierarchy", fields: [parentId], references: [id], onDelete: SetNull)
+  children         Category[] @relation("CategoryHierarchy")
+  products         Product[]
+}
+
+model Product {
+  id               String    @id @default(cuid())
+  sku              String    @unique
+  name             String
+  nameEn           String?
+  description      String
+  descriptionEn    String?
+  price            Decimal   @db.Decimal(10, 2)
+  originalPrice    Decimal?  @db.Decimal(10, 2)
+  currency         String    @default("USD")
+  country          String?
+  weight           Decimal?  @db.Decimal(8, 3)
+  weightUnit       String    @default("kg")
+  stock            Int       @default(0)
+  reservedStock    Int       @default(0)
+  images           String[]
+  thumbnail        String?
+  featured         Boolean   @default(false)
+  isActive         Boolean   @default(true)
+  salesCount       Int       @default(0)
+  viewCount        Int       @default(0)
+  ratingAverage    Decimal?  @db.Decimal(2, 1)
+  ratingCount      Int       @default(0)
+  categoryId       String
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  category         Category  @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+  cartItems        CartItem[]
+  orderItems       OrderItem[]
+  reviews          Review[]
 }
 
 model Cart {
-  id                  String    @id @default(cuid())
-  userId              String    @unique
-  createdAt           DateTime  @default(now())
-  updatedAt           DateTime  @updatedAt
+  id               String    @id @default(cuid())
+  userId           String    @unique
+  totalAmount      Decimal   @default(0) @db.Decimal(10, 2)
+  currency         String    @default("USD")
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
 
-  user                User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-  items               CartItem[]
+  user             User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  items            CartItem[]
 }
 
 model CartItem {
-  id                  String    @id @default(cuid())
-  cartId              String
-  productId           String
-  quantity            Int       @default(1)
+  id               String    @id @default(cuid())
+  cartId           String
+  productId        String
+  quantity         Int       @default(1)
+  unitPrice        Decimal   @db.Decimal(10, 2)
+  currency         String    @default("USD")
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
 
-  cart                Cart      @relation(fields: [cartId], references: [id], onDelete: Cascade)
-  product             Product   @relation(fields: [productId], references: [id])
+  cart             Cart      @relation(fields: [cartId], references: [id], onDelete: Cascade)
+  product          Product   @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@unique([cartId, productId])
+}
+
+model Order {
+  id               String    @id @default(cuid())
+  orderNumber      String    @unique
+  userId           String
+  status           OrderStatus @default(PENDING)
+  totalAmount      Decimal   @db.Decimal(10, 2)
+  currency         String    @default("USD")
+  subtotal         Decimal   @db.Decimal(10, 2)
+  shippingCost     Decimal   @default(0) @db.Decimal(10, 2)
+  taxAmount        Decimal   @default(0) @db.Decimal(10, 2)
+  discountAmount   Decimal   @default(0) @db.Decimal(10, 2)
+  shippingCountry  String
+  shippingCity     String
+  shippingAddress  String
+  shippingZip      String
+  shippingName     String
+  shippingPhone    String?
+  trackingNumber   String?
+  shippingMethod   String?
+  notes            String?
+  paymentMethod    String?
+  paymentStatus    PaymentStatus @default(PENDING)
+  paidAt           DateTime?
+  shippedAt        DateTime?
+  deliveredAt      DateTime?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  user             User      @relation(fields: [userId], references: [id], onDelete: Restrict)
+  items            OrderItem[]
+}
+
+model OrderItem {
+  id               String    @id @default(cuid())
+  orderId          String
+  productId        String
+  sku              String
+  name             String
+  nameEn           String?
+  description      String?
+  descriptionEn    String?
+  quantity         Int       @default(1)
+  unitPrice        Decimal   @db.Decimal(10, 2)
+  currency         String    @default("USD")
+  subtotal         Decimal   @db.Decimal(10, 2)
+  weight           Decimal?  @db.Decimal(8, 3)
+  weightUnit       String    @default("kg")
+  createdAt        DateTime  @default(now())
+
+  order            Order     @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  product          Product   @relation(fields: [productId], references: [id], onDelete: Restrict)
+
+  @@index([orderId])
+  @@index([productId])
+}
+
+model Address {
+  id               String    @id @default(cuid())
+  userId           String
+  firstName        String
+  lastName         String
+  company          String?
+  addressLine1     String
+  addressLine2     String?
+  city             String
+  state            String?
+  postalCode       String
+  country          String
+  phone            String?
+  isDefault        Boolean   @default(false)
+  addressType      AddressType @default(SHIPPING)
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  user             User      @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
 model Review {
-  id                  String    @id @default(cuid())
-  productId           String
-  userId              String
-  rating              Int
-  title               String?
-  titleEn             String?
-  comment             String?
-  commentEn           String?
-  createdAt           DateTime  @default(now())
+  id               String    @id @default(cuid())
+  productId        String
+  userId           String
+  rating           Int
+  title            String?
+  titleEn          String?
+  comment          String?
+  commentEn        String?
+  isVerified       Boolean   @default(false)
+  isApproved       Boolean   @default(false)
+  helpfulVotes     Int       @default(0)
+  createdAt        DateTime  @default(now())
 
-  product             Product   @relation(fields: [productId], references: [id])
-  user                User      @relation(fields: [userId], references: [id])
+  product          Product   @relation(fields: [productId], references: [id], onDelete: Cascade)
+  user             User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([productId, userId])
+  @@index([productId, isApproved])
 }
 
-model Payment {
-  id                  String    @id @default(cuid())
-  orderId             String    @unique
-  method              String
-  amount              Decimal   @db.Decimal(10, 2)
-  currency            String    @default("USD")
-  status              PaymentStatus @default(PENDING)
-  transactionId       String?
-  createdAt           DateTime  @default(now())
-  updatedAt           DateTime  @updatedAt
-
-  order               Order     @relation(fields: [orderId], references: [id])
-}
-
-model Settings {
-  id                  String    @id @default(cuid())
-  key                 String    @unique
-  value               String
-  description         String?
-  createdAt           DateTime  @default(now())
-  updatedAt           DateTime  @updatedAt
+enum UserRole {
+  CUSTOMER
+  ADMIN
+  SUPERADMIN
 }
 
 enum OrderStatus {
@@ -194,12 +221,7 @@ enum OrderStatus {
   DELIVERED
   CANCELLED
   REFUNDED
-}
-
-enum UserRole {
-  CUSTOMER
-  ADMIN
-  SUPERADMIN
+  ON_HOLD
 }
 
 enum PaymentStatus {
@@ -207,4 +229,11 @@ enum PaymentStatus {
   PROCESSING
   SUCCESS
   FAILED
+  REFUNDED
+}
+
+enum AddressType {
+  SHIPPING
+  BILLING
+  BOTH
 }
