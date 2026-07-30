@@ -23,9 +23,10 @@ const isValidCuid = (id: string): boolean => {
 };
 
 export default async function OrderDetailPage({ params }: { params: { id: string } }) {
+  const resolvedParams = await params;
   const userId = await getCurrentUserId();
   
-  if (!isValidCuid(params.id)) {
+  if (!isValidCuid(resolvedParams.id)) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-indigo-50">
         <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-16 text-center">
@@ -46,7 +47,7 @@ export default async function OrderDetailPage({ params }: { params: { id: string
     );
   }
   
-  const order = userId ? await getOrderById(params.id) : null;
+  const order = userId ? await getOrderById(resolvedParams.id) : null;
 
   if (!userId) {
     return (

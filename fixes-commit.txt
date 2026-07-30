@@ -1,0 +1,7 @@
+feat: fix critical production bugs - params await, password validation, seed data
+
+- Fix product detail page: await params in Next.js 16 style (id was undefined)
+- Fix order detail page: await params in Next.js 16 style
+- Fix password validation: align client-side with server-side (8 chars + complexity)
+- Seed database with 16 products across 5 categories
+- Fix standalone server startup for production testing

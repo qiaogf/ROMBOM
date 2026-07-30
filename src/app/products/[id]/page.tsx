@@ -14,7 +14,8 @@ export const dynamic = "force-dynamic";
 
 export default async function ProductDetailPage({ params }: ProductDetailPageProps) {
   try {
-    const product = await getProductById(params.id);
+    const resolvedParams = await params;
+    const product = await getProductById(resolvedParams.id);
 
     if (!product) {
     return (

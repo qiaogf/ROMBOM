@@ -37,6 +37,14 @@ export default function RegisterPage() {
     return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
   };
 
+  const validatePassword = (password: string): string => {
+    if (password.length < 8) return "Password must be at least 8 characters";
+    if (!/[a-z]/.test(password)) return "Password must contain at least one lowercase letter";
+    if (!/[A-Z]/.test(password)) return "Password must contain at least one uppercase letter";
+    if (!/[0-9]/.test(password)) return "Password must contain at least one number";
+    return "";
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
@@ -73,8 +81,9 @@ export default function RegisterPage() {
       return;
     }
 
-    if (formData.password.length < 6) {
-      setError("Password must be at least 6 characters");
+    const pwdError = validatePassword(formData.password);
+    if (pwdError) {
+      setError(pwdError);
       setIsLoading(false);
       return;
     }
@@ -125,8 +134,7 @@ export default function RegisterPage() {
 
   const passwordError = touched.password && !formData.password.trim()
     ? "Password is required"
-    : touched.password && formData.password.length < 6
-    ? "Must be at least 6 characters"
+    : touched.password ? validatePassword(formData.password)
     : "";
 
   const confirmPasswordError = touched.confirmPassword && formData.password !== formData.confirmPassword
