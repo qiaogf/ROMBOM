@@ -1,78 +1,38 @@
 import { cookies } from "next/headers";
 import crypto from "crypto";
-
-export interface SessionUser {
-  id: string;
-  email: string;
-  firstName: string;
-  lastName: string;
-  country: string | null;
-  isActive: boolean;
-}
-
-export interface Session {
-  userId: string;
-  user: SessionUser | null;
-  isAuthenticated: boolean;
-}
+import { PrismaClient } from "@/../prisma/generated/client";
 
 const SESSION_COOKIE_NAME = "session";
 const USER_ID_COOKIE_NAME = "userId";
 const CSRF_COOKIE_NAME = "csrf_token";
 const SESSION_MAX_AGE = 60 * 60 * 24 * 7;
 
-const sessionStore = new Map<string, { userId: string; createdAt: number }>();
-const csrfTokenStore = new Map<string, Set<string>>();
-const RATE_LIMIT_WINDOW = 60000;
-const RATE_LIMIT_MAX_ATTEMPTS = 10;
-const rateLimitStore = new Map<string, number[]>();
-
-setInterval(() => {
-  const now = Date.now();
-  for (const [key, timestamps] of rateLimitStore.entries()) {
-    const valid = timestamps.filter((t) => now - t < RATE_LIMIT_WINDOW);
-    if (valid.length === 0) {
-      rateLimitStore.delete(key);
-    } else {
-      rateLimitStore.set(key, valid);
-    }
-  }
-  for (const [key, { createdAt }] of sessionStore.entries()) {
-    if (now - createdAt > SESSION_MAX_AGE * 1000) {
-      sessionStore.delete(key);
-      csrfTokenStore.delete(key);
-    }
-  }
-}, 60000);
-
-export function checkRateLimit(key: string): { allowed: boolean; remaining: number } {
-  const now = Date.now();
-  const timestamps = rateLimitStore.get(key) || [];
-  const valid = timestamps.filter((t) => now - t < RATE_LIMIT_WINDOW);
-
-  if (valid.length >= RATE_LIMIT_MAX_ATTEMPTS) {
-    rateLimitStore.set(key, valid);
-    return { allowed: false, remaining: 0 };
-  }
-
-  valid.push(now);
-  rateLimitStore.set(key, valid);
-  return { allowed: true, remaining: RATE_LIMIT_MAX_ATTEMPTS - valid.length };
-}
-
 function isValidIdFormat(id: string): boolean {
   return /^[a-zA-Z0-9_-]+$/.test(id) && id.length <= 255;
 }
 
+async function getPrisma(): Promise<PrismaClient> {
+  const { prisma } = await import("./prisma");
+  return prisma as unknown as PrismaClient;
+}
+
 export async function generateSession(userId: string): Promise<void> {
+  const prisma = await getPrisma();
   const sessionToken = crypto.randomBytes(32).toString("hex");
   const csrfToken = crypto.randomBytes(32).toString("hex");
 
-  sessionStore.set(sessionToken, { userId, createdAt: Date.now() });
-  if (!csrfTokenStore.has(sessionToken)) {
-    csrfTokenStore.set(sessionToken, new Set());
-  }
-  csrfTokenStore.get(sessionToken)!.add(csrfToken);
+  await prisma.session.deleteMany({
+    where: { userId, expiresAt: { lt: new Date() } },
+  });
+
+  await prisma.session.create({
+    data: {
+      sessionToken,
+      userId,
+      csrfToken,
+      expiresAt: new Date(Date.now() + SESSION_MAX_AGE * 1000),
+    },
+  });
 
   const cookieStore = await cookies();
 
@@ -116,25 +76,28 @@ export async function validateCSRFToken(formToken?: string): Promise<boolean> {
     return false;
   }
 
-  const validTokens = csrfTokenStore.get(sessionToken);
-  if (!validTokens || !validTokens.has(cookieToken)) {
+  const prisma = await getPrisma();
+  const session = await prisma.session.findUnique({
+    where: { sessionToken },
+    select: { csrfToken: true, expiresAt: true },
+  });
+
+  if (!session || session.expiresAt < new Date()) {
     return false;
   }
 
-  if (formToken !== cookieToken) {
+  if (formToken !== cookieToken || cookieToken !== session.csrfToken) {
     return false;
   }
 
-  validTokens.delete(cookieToken);
   return true;
 }
 
 export async function getSession(): Promise<Session> {
   const cookieStore = await cookies();
-  const userId = cookieStore.get(USER_ID_COOKIE_NAME)?.value;
   const sessionToken = cookieStore.get(SESSION_COOKIE_NAME)?.value;
 
-  if (!userId || !sessionToken) {
+  if (!sessionToken) {
     return {
       userId: "",
       user: null,
@@ -142,49 +105,38 @@ export async function getSession(): Promise<Session> {
     };
   }
 
-  if (!isValidIdFormat(userId)) {
-    await clearSession();
-    return {
-      userId: "",
-      user: null,
-      isAuthenticated: false,
-    };
-  }
+  const prisma = await getPrisma();
 
-  const storedSession = sessionStore.get(sessionToken);
-  if (!storedSession || storedSession.userId !== userId) {
-    await clearSession();
-    return {
-      userId: "",
-      user: null,
-      isAuthenticated: false,
-    };
-  }
-
-  if (Date.now() - storedSession.createdAt > SESSION_MAX_AGE * 1000) {
-    await clearSession();
-    return {
-      userId: "",
-      user: null,
-      isAuthenticated: false,
-    };
-  }
-
-  const { prisma } = await import("./prisma");
-
-  const user = await prisma.user.findUnique({
-    where: { id: userId },
+  const session = await prisma.session.findUnique({
+    where: { sessionToken },
     select: {
-      id: true,
-      email: true,
-      firstName: true,
-      lastName: true,
-      country: true,
-      isActive: true,
+      userId: true,
+      expiresAt: true,
+      user: {
+        select: {
+          id: true,
+          email: true,
+          firstName: true,
+          lastName: true,
+          country: true,
+          isActive: true,
+        },
+      },
     },
   });
 
-  if (!user || !user.isActive) {
+  if (!session || session.expiresAt < new Date()) {
+    if (session) {
+      await clearSession();
+    }
+    return {
+      userId: "",
+      user: null,
+      isAuthenticated: false,
+    };
+  }
+
+  if (!session.user || !session.user.isActive) {
     await clearSession();
     return {
       userId: "",
@@ -194,8 +146,8 @@ export async function getSession(): Promise<Session> {
   }
 
   return {
-    userId,
-    user,
+    userId: session.userId,
+    user: session.user,
     isAuthenticated: true,
   };
 }
@@ -215,24 +167,15 @@ export async function clearSession(): Promise<void> {
   const sessionToken = cookieStore.get(SESSION_COOKIE_NAME)?.value;
 
   if (sessionToken) {
-    sessionStore.delete(sessionToken);
-    csrfTokenStore.delete(sessionToken);
+    const prisma = await getPrisma();
+    await prisma.session.deleteMany({
+      where: { sessionToken },
+    });
   }
 
-  cookieStore.delete({
-    name: SESSION_COOKIE_NAME,
-    path: "/",
-  });
-
-  cookieStore.delete({
-    name: USER_ID_COOKIE_NAME,
-    path: "/",
-  });
-
-  cookieStore.delete({
-    name: CSRF_COOKIE_NAME,
-    path: "/",
-  });
+  cookieStore.delete({ name: SESSION_COOKIE_NAME, path: "/" });
+  cookieStore.delete({ name: USER_ID_COOKIE_NAME, path: "/" });
+  cookieStore.delete({ name: CSRF_COOKIE_NAME, path: "/" });
 }
 
 export function isAuthenticated(): Promise<boolean> {
@@ -252,4 +195,19 @@ export function sanitizeInput(input: string, maxLength: number): string {
 
 export function sanitizeEmail(email: string): string {
   return email.trim().toLowerCase();
+}
+
+export interface SessionUser {
+  id: string;
+  email: string;
+  firstName: string;
+  lastName: string;
+  country: string | null;
+  isActive: boolean;
+}
+
+export interface Session {
+  userId: string;
+  user: SessionUser | null;
+  isAuthenticated: boolean;
 }

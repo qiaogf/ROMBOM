@@ -24,23 +24,11 @@ export interface CreateOrderData {
   notes?: string;
 }
 
-const RATE_LIMIT_WINDOW_MS = 1000;
-const MAX_ORDER_OPERATIONS = 3;
-const orderRateLimit = new Map<string, number[]>();
-
 const idempotencyStore = new Map<string, { orderId: string; createdAt: number }>();
 const IDEMPOTENCY_WINDOW_MS = 30000;
 
 setInterval(() => {
   const now = Date.now();
-  for (const [key, timestamps] of orderRateLimit.entries()) {
-    const valid = timestamps.filter((t) => now - t < RATE_LIMIT_WINDOW_MS);
-    if (valid.length === 0) {
-      orderRateLimit.delete(key);
-    } else {
-      orderRateLimit.set(key, valid);
-    }
-  }
   for (const [key, value] of idempotencyStore.entries()) {
     if (now - value.createdAt > IDEMPOTENCY_WINDOW_MS) {
       idempotencyStore.delete(key);
@@ -91,22 +79,6 @@ function validateShippingData(data: CreateOrderData): { valid: boolean; message:
   return { valid: true, message: "" };
 }
 
-function checkOrderRateLimit(userId: string, operation: string): { allowed: boolean; message: string } {
-  const key = `${userId}:${operation}`;
-  const now = Date.now();
-  const timestamps = orderRateLimit.get(key) || [];
-  const valid = timestamps.filter((t) => now - t < RATE_LIMIT_WINDOW_MS);
-
-  if (valid.length >= MAX_ORDER_OPERATIONS) {
-    orderRateLimit.set(key, valid);
-    return { allowed: false, message: "Too many order operations. Please wait a moment." };
-  }
-
-  valid.push(now);
-  orderRateLimit.set(key, valid);
-  return { allowed: true, message: "" };
-}
-
 function generateIdempotencyKey(userId: string, data: CreateOrderData): string {
   const content = `${userId}:${data.shippingCountry}:${data.shippingCity}:${data.shippingAddress}:${data.shippingZip}:${data.shippingName}:${data.paymentMethod || "default"}`;
   let hash = 0;
@@ -128,11 +100,6 @@ export async function createOrder(data: CreateOrderData): Promise<OrderActionRes
     const shippingValidation = validateShippingData(data);
     if (!shippingValidation.valid) {
       return { success: false, message: shippingValidation.message };
-    }
-
-    const rateLimit = checkOrderRateLimit(userId, "createOrder");
-    if (!rateLimit.allowed) {
-      return { success: false, message: rateLimit.message };
     }
 
     const idempotencyKey = generateIdempotencyKey(userId, data);
@@ -365,11 +332,6 @@ export async function cancelOrder(orderId: string): Promise<OrderActionResult> {
 
     if (!/^[a-zA-Z0-9_-]+$/.test(orderId) || orderId.length > 255) {
       return { success: false, message: "Invalid order ID" };
-    }
-
-    const rateLimit = checkOrderRateLimit(userId, "cancelOrder");
-    if (!rateLimit.allowed) {
-      return { success: false, message: rateLimit.message };
     }
 
     return prisma.$transaction(async (tx) => {

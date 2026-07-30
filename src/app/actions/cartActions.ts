@@ -39,37 +39,6 @@ export interface CartSummary {
 
 const MAX_QUANTITY_PER_ITEM = 999;
 const MAX_CART_ITEMS = 100;
-const RATE_LIMIT_WINDOW_MS = 1000;
-const MAX_OPERATIONS_PER_WINDOW = 5;
-const operationRateLimit = new Map<string, number[]>();
-
-setInterval(() => {
-  const now = Date.now();
-  for (const [key, timestamps] of operationRateLimit.entries()) {
-    const valid = timestamps.filter((t) => now - t < RATE_LIMIT_WINDOW_MS);
-    if (valid.length === 0) {
-      operationRateLimit.delete(key);
-    } else {
-      operationRateLimit.set(key, valid);
-    }
-  }
-}, 30000);
-
-function checkOperationRateLimit(userId: string, operation: string): { allowed: boolean } {
-  const key = `${userId}:${operation}`;
-  const now = Date.now();
-  const timestamps = operationRateLimit.get(key) || [];
-  const valid = timestamps.filter((t) => now - t < RATE_LIMIT_WINDOW_MS);
-
-  if (valid.length >= MAX_OPERATIONS_PER_WINDOW) {
-    operationRateLimit.set(key, valid);
-    return { allowed: false };
-  }
-
-  valid.push(now);
-  operationRateLimit.set(key, valid);
-  return { allowed: true };
-}
 
 function validateProductId(productId: string): boolean {
   return /^[a-zA-Z0-9_-]+$/.test(productId) && productId.length <= 255;
@@ -153,11 +122,6 @@ export async function addToCart(productId: string, quantity: number = 1): Promis
     const userId = await getCurrentUserId();
     if (!userId) {
       return { success: false, message: "Please login to add items to cart" };
-    }
-
-    const rateLimit = checkOperationRateLimit(userId, "addToCart");
-    if (!rateLimit.allowed) {
-      return { success: false, message: "Too many operations. Please wait a moment." };
     }
 
     const product = await prisma.product.findUnique({
@@ -304,11 +268,6 @@ export async function updateCartItem(itemId: string, quantity: number): Promise<
       return { success: false, message: "Please login to update cart" };
     }
 
-    const rateLimit = checkOperationRateLimit(userId, "updateCartItem");
-    if (!rateLimit.allowed) {
-      return { success: false, message: "Too many operations. Please wait a moment." };
-    }
-
     return prisma.$transaction(async (tx) => {
       const cartItem = await tx.cartItem.findUnique({
         where: { id: itemId },
@@ -382,11 +341,6 @@ export async function removeFromCart(itemId: string): Promise<CartActionResult> 
       return { success: false, message: "Please login to remove items from cart" };
     }
 
-    const rateLimit = checkOperationRateLimit(userId, "removeFromCart");
-    if (!rateLimit.allowed) {
-      return { success: false, message: "Too many operations. Please wait a moment." };
-    }
-
     const cartItem = await prisma.cartItem.findUnique({
       where: { id: itemId },
       include: { cart: true },
@@ -442,11 +396,6 @@ export async function clearCart(): Promise<CartActionResult> {
     const userId = await getCurrentUserId();
     if (!userId) {
       return { success: false, message: "Please login to clear cart" };
-    }
-
-    const rateLimit = checkOperationRateLimit(userId, "clearCart");
-    if (!rateLimit.allowed) {
-      return { success: false, message: "Too many operations. Please wait a moment." };
     }
 
     return prisma.$transaction(async (tx) => {

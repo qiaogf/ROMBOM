@@ -28,6 +28,22 @@ model User {
   cart             Cart?
   addresses        Address[]
   reviews          Review[]
+  sessions         Session[]
+}
+
+model Session {
+  id               String    @id @default(cuid())
+  sessionToken     String    @unique
+  userId           String
+  csrfToken        String
+  expiresAt        DateTime
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  user             User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([sessionToken])
+  @@index([userId])
 }
 
 model Category {

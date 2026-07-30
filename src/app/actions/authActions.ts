@@ -1,7 +1,7 @@
 "use server";
 
 import { prisma } from "@/lib/prisma";
-import { generateSession, clearSession, getCurrentUserId as getCurrentUserIdFromAuth, checkRateLimit, sanitizeInput, sanitizeEmail } from "@/lib/auth";
+import { generateSession, clearSession, getCurrentUserId as getCurrentUserIdFromAuth, sanitizeInput, sanitizeEmail } from "@/lib/auth";
 import crypto from "crypto";
 
 export { getCurrentUserIdFromAuth as getCurrentUserId };
@@ -20,19 +20,6 @@ export interface RegisterData {
   country?: string;
   phone?: string;
 }
-
-const RATE_LIMIT_WINDOW_MS = 60000;
-const MAX_LOGIN_ATTEMPTS = 5;
-const loginAttempts = new Map<string, { count: number; lockUntil: number }>();
-
-setInterval(() => {
-  const now = Date.now();
-  for (const [key, value] of loginAttempts.entries()) {
-    if (now > value.lockUntil && value.count === 0) {
-      loginAttempts.delete(key);
-    }
-  }
-}, 30000);
 
 function validateEmailFormat(email: string): boolean {
   const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
@@ -56,47 +43,6 @@ function validatePasswordStrength(password: string): { valid: boolean; message: 
     return { valid: false, message: "Password must contain at least one number" };
   }
   return { valid: true, message: "" };
-}
-
-function checkLoginRateLimit(email: string): { allowed: boolean; message: string } {
-  const now = Date.now();
-  const record = loginAttempts.get(email);
-
-  if (record) {
-    if (now < record.lockUntil) {
-      const waitMinutes = Math.ceil((record.lockUntil - now) / 60000);
-      return {
-        allowed: false,
-        message: `Too many login attempts. Please try again in ${waitMinutes} minute(s).`,
-      };
-    }
-    if (record.count >= MAX_LOGIN_ATTEMPTS) {
-      loginAttempts.set(email, { count: 0, lockUntil: now + RATE_LIMIT_WINDOW_MS });
-      return {
-        allowed: false,
-        message: `Too many login attempts. Please try again in 1 minute.`,
-      };
-    }
-  }
-
-  return { allowed: true, message: "" };
-}
-
-function recordLoginAttempt(email: string, success: boolean): void {
-  const now = Date.now();
-  const record = loginAttempts.get(email) || { count: 0, lockUntil: 0 };
-
-  if (success) {
-    loginAttempts.delete(email);
-    return;
-  }
-
-  record.count += 1;
-  if (record.count >= MAX_LOGIN_ATTEMPTS) {
-    record.lockUntil = now + RATE_LIMIT_WINDOW_MS;
-    record.count = 0;
-  }
-  loginAttempts.set(email, record);
 }
 
 export async function register(data: RegisterData): Promise<AuthResult> {
@@ -129,11 +75,6 @@ export async function register(data: RegisterData): Promise<AuthResult> {
 
     if (!firstName || !lastName) {
       return { success: false, message: "Name fields contain invalid characters" };
-    }
-
-    const rateLimit = checkRateLimit(`register:${email}`);
-    if (!rateLimit.allowed) {
-      return { success: false, message: "Too many registration attempts. Please try again later." };
     }
 
     const existingUser = await prisma.user.findUnique({ where: { email } });
@@ -186,19 +127,8 @@ export async function login(data: LoginData): Promise<AuthResult> {
       return { success: false, message: "Please enter a valid email address" };
     }
 
-    const rateLimit = checkRateLimit(`login:${email}`);
-    if (!rateLimit.allowed) {
-      return { success: false, message: "Too many login attempts. Please try again later." };
-    }
-
-    const loginRateLimit = checkLoginRateLimit(email);
-    if (!loginRateLimit.allowed) {
-      return { success: false, message: loginRateLimit.message };
-    }
-
     const user = await prisma.user.findUnique({ where: { email } });
     if (!user) {
-      recordLoginAttempt(email, false);
       return { success: false, message: "Invalid email or password" };
     }
 
@@ -215,11 +145,8 @@ export async function login(data: LoginData): Promise<AuthResult> {
     const isPasswordValid = hash === computedHash;
 
     if (!isPasswordValid) {
-      recordLoginAttempt(email, false);
       return { success: false, message: "Invalid email or password" };
     }
-
-    recordLoginAttempt(email, true);
 
     await prisma.user.update({
       where: { id: user.id },

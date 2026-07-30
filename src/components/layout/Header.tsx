@@ -1,193 +1,81 @@
 "use client";
 
 import Link from "next/link";
-import { ShoppingCart, Menu, X, User, LogOut } from "lucide-react";
-import { useState, useEffect } from "react";
-import { getCurrentUserId, logout } from "@/app/actions/authActions";
-import { getCartItemCount } from "@/app/actions/cartActions";
-import { usePathname, useRouter } from "next/navigation";
+import { useCart } from "@/hooks/useCart";
+import { SearchBar } from "./SearchBar";
 
 export function Header() {
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const [cartCount, setCartCount] = useState(0);
-  const [userId, setUserId] = useState<string | null>(null);
-  const [isLoggingOut, setIsLoggingOut] = useState(false);
-  const pathname = usePathname();
-  const router = useRouter();
-
-  useEffect(() => {
-    const fetchData = async () => {
-      const id = await getCurrentUserId();
-      const count = await getCartItemCount();
-      setUserId(id);
-      setCartCount(count);
-    };
-    fetchData();
-  }, [pathname]);
-
-  const handleLogout = async () => {
-    setIsLoggingOut(true);
-    await logout();
-    setUserId(null);
-    setCartCount(0);
-    router.push("/");
-  };
-
-  const navLinks = [
-    { href: "/", label: "Home" },
-    { href: "/products", label: "Products" },
-    { href: "/categories", label: "Categories" },
-  ];
+  const { itemCount } = useCart();
 
   return (
-    <header className="fixed top-0 left-0 right-0 z-50 bg-white/95 backdrop-blur-md border-b border-slate-100">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex items-center justify-between h-16 sm:h-20">
-          <Link href="/" className="flex items-center gap-2">
-            <span className="text-xl sm:text-2xl font-bold text-slate-900 tracking-tight">GlobalShop</span>
+    <header className="sticky top-0 z-50 bg-white border-b border-slate-200">
+      <div className="max-w-[1280px] mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="flex items-center h-12 gap-4">
+          <Link href="/" className="flex items-center gap-1.5 flex-shrink-0">
+            <span className="text-slate-900 font-bold text-base leading-none">
+              GlobalShop
+            </span>
           </Link>
 
-          <nav className="hidden md:flex items-center gap-6 sm:gap-8">
-            {navLinks.map((link) => (
-              <Link
-                key={link.href}
-                href={link.href}
-                className="text-sm font-medium text-slate-600 hover:text-slate-900 transition-colors duration-200"
-              >
-                {link.label}
-              </Link>
-            ))}
-          </nav>
+          <div className="flex-1 max-w-2xl min-w-0 hidden sm:block">
+            <SearchBar />
+          </div>
 
-          <div className="flex items-center gap-2 sm:gap-4">
-            {userId ? (
-              <div className="hidden sm:flex items-center gap-4">
-                <Link
-                  href="/account"
-                  className="flex items-center gap-2 text-slate-600 hover:text-slate-900 transition-colors"
-                >
-                  <User className="w-5 h-5" />
-                  <span className="text-sm font-medium">Account</span>
-                </Link>
-                <button
-                  onClick={handleLogout}
-                  disabled={isLoggingOut}
-                  className="flex items-center gap-2 text-slate-600 hover:text-slate-900 transition-colors"
-                >
-                  <LogOut className="w-5 h-5" />
-                  <span className="text-sm font-medium">Logout</span>
-                </button>
-              </div>
-            ) : (
-              <div className="hidden sm:flex items-center gap-3">
-                <Link
-                  href="/account/login"
-                  className="flex items-center gap-2 text-slate-600 hover:text-slate-900 transition-colors"
-                >
-                  <User className="w-5 h-5" />
-                  <span className="text-sm font-medium">Login</span>
-                </Link>
-                <Link
-                  href="/account/register"
-                  className="btn-primary px-4 py-2 text-sm"
-                >
-                  Register
-                </Link>
-              </div>
-            )}
-            
+          <div className="flex items-center gap-1 sm:gap-2 ml-auto sm:ml-0">
+            <Link
+              href="/products"
+              className="hidden md:inline-flex items-center px-2 py-1.5 text-sm text-slate-700 hover:text-slate-900 font-medium"
+            >
+              Products
+            </Link>
+            <Link
+              href="/categories"
+              className="hidden md:inline-flex items-center px-2 py-1.5 text-sm text-slate-700 hover:text-slate-900 font-medium"
+            >
+              Categories
+            </Link>
+            <Link
+              href="/products"
+              className="sm:hidden inline-flex items-center justify-center p-1.5 text-slate-600 hover:text-slate-900"
+              aria-label="Products"
+            >
+              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+              </svg>
+            </Link>
+
+            <div className="h-4 w-px bg-slate-200 hidden sm:block mx-1"></div>
+
+            <Link
+              href="/account"
+              className="inline-flex items-center justify-center p-1.5 text-slate-600 hover:text-slate-900"
+              aria-label="Account"
+            >
+              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+              </svg>
+            </Link>
+
             <Link
               href="/cart"
-              className="relative flex items-center text-slate-600 hover:text-slate-900 transition-colors"
-              aria-label="Shopping cart"
+              className="relative inline-flex items-center justify-center p-1.5 text-slate-600 hover:text-slate-900"
+              aria-label="Cart"
             >
-              <ShoppingCart className="w-5 h-5" />
-              {cartCount > 0 && (
-                <span className="absolute -top-1 -right-2 w-5 h-5 bg-indigo-600 text-white text-xs font-medium rounded-full flex items-center justify-center">
-                  {cartCount > 99 ? "99+" : cartCount}
+              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z" />
+              </svg>
+              {itemCount > 0 && (
+                <span className="absolute -top-1 -right-1 flex items-center justify-center w-4 h-4 text-[10px] font-bold text-white bg-red-600 rounded-sm">
+                  {itemCount > 99 ? "99+" : itemCount}
                 </span>
               )}
             </Link>
-            
-            <button
-              className="md:hidden p-2 text-slate-600 hover:text-slate-900 transition-colors"
-              onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-              aria-label="Toggle menu"
-              aria-expanded={mobileMenuOpen}
-            >
-              {mobileMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
-            </button>
           </div>
         </div>
 
-        {mobileMenuOpen && (
-          <nav className="md:hidden py-4 border-t border-slate-100">
-            <div className="flex flex-col gap-1">
-              {navLinks.map((link) => (
-                <Link
-                  key={link.href}
-                  href={link.href}
-                  className="px-4 py-3 text-base font-medium text-slate-700 hover:text-slate-900 hover:bg-slate-50 rounded-lg transition-all duration-200"
-                  onClick={() => setMobileMenuOpen(false)}
-                >
-                  {link.label}
-                </Link>
-              ))}
-              <div className="border-t border-slate-100 my-2"></div>
-              {userId ? (
-                <>
-                  <Link
-                    href="/account"
-                    className="px-4 py-3 text-base font-medium text-slate-700 hover:text-slate-900 hover:bg-slate-50 rounded-lg transition-all duration-200 flex items-center gap-3"
-                    onClick={() => setMobileMenuOpen(false)}
-                  >
-                    <User className="w-5 h-5" />
-                    <span>Account</span>
-                  </Link>
-                  <button
-                    onClick={handleLogout}
-                    disabled={isLoggingOut}
-                    className="px-4 py-3 text-base font-medium text-red-600 hover:text-red-700 hover:bg-red-50 rounded-lg transition-all duration-200 flex items-center gap-3 w-full"
-                  >
-                    <LogOut className="w-5 h-5" />
-                    <span>{isLoggingOut ? "Logging out..." : "Logout"}</span>
-                  </button>
-                </>
-              ) : (
-                <div className="space-y-2">
-                  <Link
-                    href="/account/login"
-                    className="px-4 py-3 text-base font-medium text-slate-700 hover:text-slate-900 hover:bg-slate-50 rounded-lg transition-all duration-200 flex items-center gap-3"
-                    onClick={() => setMobileMenuOpen(false)}
-                  >
-                    <User className="w-5 h-5" />
-                    <span>Login</span>
-                  </Link>
-                  <Link
-                    href="/account/register"
-                    className="btn-primary px-4 py-3 w-full"
-                    onClick={() => setMobileMenuOpen(false)}
-                  >
-                    <span>Create Account</span>
-                  </Link>
-                </div>
-              )}
-              <Link
-                href="/cart"
-                className="px-4 py-3 text-base font-medium text-slate-700 hover:text-slate-900 hover:bg-slate-50 rounded-lg transition-all duration-200 flex items-center gap-3"
-                onClick={() => setMobileMenuOpen(false)}
-              >
-                <ShoppingCart className="w-5 h-5" />
-                <span>Cart</span>
-                {cartCount > 0 && (
-                  <span className="ml-auto w-5 h-5 bg-indigo-600 text-white text-xs font-medium rounded-full flex items-center justify-center">
-                    {cartCount}
-                  </span>
-                )}
-              </Link>
-            </div>
-          </nav>
-        )}
+        <div className="sm:hidden pb-2">
+          <SearchBar />
+        </div>
       </div>
     </header>
   );

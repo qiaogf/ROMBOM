@@ -1,7 +1,62 @@
 import type { ReactNode } from "react";
+import type { Metadata, Viewport } from "next";
+import { Inter } from "next/font/google";
 import { Header } from "@/components/layout/Header";
 import { Footer } from "@/components/layout/Footer";
 import "./globals.css";
+
+const inter = Inter({
+  subsets: ["latin"],
+  weight: ["300", "400", "500", "600", "700", "800"],
+  display: "swap",
+  variable: "--font-inter",
+});
+
+const siteUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
+
+export const metadata: Metadata = {
+  metadataBase: new URL(siteUrl),
+  title: {
+    default: "GlobalShop - Premium Cross-Border Store",
+    template: "%s | GlobalShop",
+  },
+  description: "GlobalShop - Premium cross-border e-commerce store. Discover quality products from around the world with fast shipping, secure payments, and exceptional customer service.",
+  keywords: ["cross-border", "ecommerce", "online shopping", "global store", "international trade", "premium products", "worldwide shipping"],
+  authors: [{ name: "GlobalShop" }],
+  robots: { index: true, follow: true },
+  openGraph: {
+    type: "website",
+    locale: "en_US",
+    url: siteUrl,
+    siteName: "GlobalShop",
+    title: "GlobalShop - Premium Cross-Border Store",
+    description: "Discover quality products from around the world with fast shipping, secure payments, and exceptional customer service.",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "GlobalShop - Premium Cross-Border Store",
+    description: "Discover quality products from around the world with fast shipping, secure payments, and exceptional customer service.",
+  },
+  icons: {
+    icon: "/favicon.ico",
+    apple: "/favicon.ico",
+  },
+  alternates: {
+    canonical: "/",
+  },
+  other: {
+    "apple-mobile-web-app-capable": "yes",
+    "apple-mobile-web-app-status-bar-style": "default",
+    "format-detection": "telephone=no",
+  },
+};
+
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  maximumScale: 5,
+  themeColor: "#ffffff",
+};
 
 interface RootLayoutProps {
   children: ReactNode;
@@ -9,35 +64,10 @@ interface RootLayoutProps {
 
 export default function RootLayout({ children }: RootLayoutProps) {
   return (
-    <html lang="en" className="scroll-smooth">
-      <head>
-        <meta charSet="UTF-8" />
-        <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, viewport-fit=cover" />
-        <meta name="description" content="GlobalShop - Premium cross-border e-commerce store. Discover quality products from around the world with fast shipping, secure payments, and exceptional customer service." />
-        <meta name="keywords" content="cross-border, ecommerce, online shopping, global store, international trade, premium products, worldwide shipping" />
-        <meta name="robots" content="index, follow" />
-        <meta name="googlebot" content="index, follow" />
-        <meta name="theme-color" content="#ffffff" />
-        <meta name="apple-mobile-web-app-capable" content="yes" />
-        <meta name="apple-mobile-web-app-status-bar-style" content="default" />
-        <meta name="format-detection" content="telephone=no" />
-        <meta property="og:title" content="GlobalShop - Premium Cross-Border Store" />
-        <meta property="og:description" content="Discover quality products from around the world with fast shipping, secure payments, and exceptional customer service." />
-        <meta property="og:type" content="website" />
-        <meta property="og:locale" content="en_US" />
-        <meta property="twitter:card" content="summary_large_image" />
-        <meta property="twitter:title" content="GlobalShop - Premium Cross-Border Store" />
-        <meta property="twitter:description" content="Discover quality products from around the world with fast shipping, secure payments, and exceptional customer service." />
-        <link rel="preconnect" href="https://fonts.googleapis.com" />
-        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="" />
-        <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
-        <link rel="icon" href="/favicon.ico" sizes="any" />
-        <link rel="apple-touch-icon" href="/favicon.ico" />
-        <title>GlobalShop - Premium Cross-Border Store</title>
-      </head>
+    <html lang="en" className={`scroll-smooth ${inter.variable}`}>
       <body className="min-h-screen flex flex-col bg-background text-foreground antialiased">
         <Header />
-        <main className="flex-1 pt-16 sm:pt-20">
+        <main className="flex-1 pt-12">
           {children}
         </main>
         <Footer />

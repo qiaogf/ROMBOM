@@ -2,28 +2,34 @@
 
 export function Newsletter() {
   return (
-    <section className="py-12 sm:py-16 lg:py-20 bg-slate-900">
-      <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-        <h2 className="text-2xl sm:text-3xl font-bold text-white mb-3">Stay Updated</h2>
-        <p className="text-slate-400 mb-8 text-sm sm:text-base">
-          Subscribe to our newsletter for exclusive offers and new arrivals.
-        </p>
-        <form className="flex flex-col sm:flex-row gap-3 max-w-md mx-auto">
-          <input
-            type="email"
-            placeholder="Enter your email"
-            className="flex-1 px-5 py-3.5 bg-white/10 border border-white/10 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all"
-          />
-          <button
-            type="submit"
-            className="px-6 py-3.5 bg-indigo-600 hover:bg-indigo-500 text-white font-semibold rounded-lg transition-colors duration-200 whitespace-nowrap"
+    <section className="border-t border-slate-200 bg-slate-50">
+      <div className="max-w-[1280px] mx-auto px-4 sm:px-6 lg:px-8 py-6">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+          <div>
+            <h2 className="text-sm font-semibold text-slate-900">
+              Stay in the loop
+            </h2>
+            <p className="text-xs text-slate-500">
+              Get product updates and exclusive offers.
+            </p>
+          </div>
+          <form
+            className="flex items-center gap-2 w-full sm:w-auto"
+            onSubmit={(e) => e.preventDefault()}
           >
-            Subscribe
-          </button>
-        </form>
-        <p className="text-xs text-slate-500 mt-4">
-          By subscribing, you agree to our Privacy Policy.
-        </p>
+            <input
+              type="email"
+              placeholder="your@email.com"
+              className="flex-1 sm:w-56 px-3 py-1.5 text-xs bg-white border border-slate-300 rounded-md focus:outline-none focus:ring-1 focus:ring-slate-400 focus:border-slate-400"
+            />
+            <button
+              type="submit"
+              className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-white text-xs font-medium rounded-md transition-colors"
+            >
+              Subscribe
+            </button>
+          </form>
+        </div>
       </div>
     </section>
   );
