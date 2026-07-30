@@ -154,22 +154,3 @@ coverage/
 .env.backup
 .env.production
 .env.staging
-
-# Ad-hoc one-off scripts (never commit check/cleanup JS helpers)
-check-*.js
-cleanup-*.js
-git-check-*.js
-*-check.js
-*-cleanup.js
-
-# Wrong lockfiles (project uses pnpm only)
-package-lock.json
-yarn.lock
-pnpm-workspace.yaml
-
-# Chinese-named working folders
-*/网页/
-网页/
-文档/
-截图/
-交付/

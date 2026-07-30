@@ -12,25 +12,17 @@ interface ProductListProps {
   showDate?: boolean;
 }
 
-export function ProductList({
-  products,
-  title,
-  subtitle,
-  showRank = false,
-  showDate = false,
-}: ProductListProps) {
-  if (products.length === 0) return null;
-
+export function ProductList({ products, title, subtitle, showRank = false, showDate = false }: ProductListProps) {
   return (
     <div>
-      <div className="flex items-center justify-between mb-3">
+      <div className="flex items-center justify-between mb-6">
         <div>
-          <h2 className="text-base font-semibold text-slate-900">{title}</h2>
-          {subtitle && <p className="text-xs text-slate-500">{subtitle}</p>}
+          <h2 className="text-xl sm:text-2xl font-bold text-slate-900">{title}</h2>
+          {subtitle && <p className="text-slate-500 text-sm mt-1">{subtitle}</p>}
         </div>
       </div>
 
-      <div className="border border-slate-200 rounded-md divide-y divide-slate-200">
+      <div className="space-y-3">
         {products.map((product, index) => {
           const displayImage = product.thumbnail || product.images[0] || null;
           const displayName = product.nameEn || product.name;
@@ -40,53 +32,46 @@ export function ProductList({
             <Link
               key={product.id}
               href={`/products/${product.id}`}
-              className="flex items-center gap-3 p-2.5 hover:bg-slate-50 transition-colors group"
+              className="flex items-center gap-4 p-3 bg-white rounded-xl ring-1 ring-slate-100 hover:ring-indigo-200 hover:shadow-md transition-all duration-300 group"
             >
               {showRank && (
-                <div className="flex-shrink-0 w-5 text-xs font-bold text-slate-400 text-right">
+                <div className="flex-shrink-0 w-7 h-7 bg-indigo-50 text-indigo-600 rounded-full flex items-center justify-center text-sm font-bold group-hover:bg-indigo-100 transition-colors">
                   {index + 1}
                 </div>
               )}
 
-              <div className="flex-shrink-0 w-10 h-10 bg-slate-50 rounded overflow-hidden border border-slate-100">
+              <div className="flex-shrink-0 w-16 h-16 bg-slate-50 rounded-lg overflow-hidden">
                 {displayImage ? (
                   <img
                     src={displayImage}
                     alt={displayName}
-                    className="w-full h-full object-cover"
+                    className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300"
                   />
                 ) : (
                   <div className="w-full h-full flex items-center justify-center">
-                    <div className="w-4 h-4 bg-slate-200 rounded-sm"></div>
+                    <div className="w-8 h-8 bg-slate-100 rounded"></div>
                   </div>
                 )}
               </div>
 
               <div className="flex-1 min-w-0">
-                <h3 className="text-sm font-medium text-slate-900 truncate group-hover:text-slate-700">
+                <h3 className="font-medium text-slate-900 truncate group-hover:text-indigo-600 transition-colors text-sm sm:text-base">
                   {displayName}
                 </h3>
-                <p className="text-[11px] text-slate-400">
+                <p className="text-xs text-slate-400 mt-0.5">
                   {showDate && product.createdAt && (
-                    <>
-                      Added{" "}
-                      {new Date(product.createdAt).toLocaleDateString("en-US", {
-                        month: "short",
-                        day: "numeric",
-                      })}
-                    </>
+                    <>Added {new Date(product.createdAt).toLocaleDateString("en-US", { month: "short", day: "numeric" })}</>
                   )}
                   {showRank && product.salesCount > 0 && (
                     <>Sold {product.salesCount}+ times</>
                   )}
                 </p>
+                <p className="text-base font-bold text-slate-900 mt-1">{formatUSD(price)}</p>
               </div>
 
-              <div className="flex-shrink-0 text-right">
-                <p className="text-sm font-bold text-slate-900">
-                  {formatUSD(price)}
-                </p>
-              </div>
+              <svg className="w-5 h-5 text-slate-300 group-hover:text-indigo-400 transition-colors flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+              </svg>
             </Link>
           );
         })}

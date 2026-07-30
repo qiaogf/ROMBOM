@@ -8,11 +8,7 @@ interface QuantitySelectorProps {
   onChange: (quantity: number) => void;
 }
 
-export function QuantitySelector({
-  stock,
-  initialValue = 1,
-  onChange,
-}: QuantitySelectorProps) {
+export function QuantitySelector({ stock, initialValue = 1, onChange }: QuantitySelectorProps) {
   const [quantity, setQuantity] = useState(Math.min(initialValue, stock));
 
   const handleDecrease = () => {
@@ -40,41 +36,43 @@ export function QuantitySelector({
   };
 
   return (
-    <div className="flex items-center gap-2">
+    <div className="flex items-center gap-3">
       <button
         onClick={handleDecrease}
         disabled={quantity <= 1}
-        className="w-7 h-7 border border-slate-300 rounded flex items-center justify-center text-slate-600 hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+        className="w-10 h-10 rounded-lg border border-slate-200 flex items-center justify-center text-slate-600 hover:bg-slate-50 hover:border-slate-300 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-transparent transition-all"
         aria-label="Decrease quantity"
       >
-        <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 12H4" />
         </svg>
       </button>
 
-      <input
-        type="number"
-        min="1"
-        max={stock}
-        value={quantity}
-        onChange={handleInputChange}
-        className="w-12 h-7 text-center border border-slate-300 rounded text-xs text-slate-900 font-medium focus:outline-none focus:ring-1 focus:ring-slate-400 focus:border-slate-400"
-      />
+      <div className="relative">
+        <input
+          type="number"
+          min="1"
+          max={stock}
+          value={quantity}
+          onChange={handleInputChange}
+          className="w-16 h-10 text-center rounded-lg border border-slate-200 text-slate-900 font-medium focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+        />
+      </div>
 
       <button
         onClick={handleIncrease}
         disabled={quantity >= stock}
-        className="w-7 h-7 border border-slate-300 rounded flex items-center justify-center text-slate-600 hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+        className="w-10 h-10 rounded-lg border border-slate-200 flex items-center justify-center text-slate-600 hover:bg-slate-50 hover:border-slate-300 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-transparent transition-all"
         aria-label="Increase quantity"
       >
-        <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
         </svg>
       </button>
 
       {stock > 0 && stock <= 10 && (
-        <span className="text-xs text-amber-600 ml-1">
-          Only {stock} left
+        <span className="text-sm text-amber-600 font-medium ml-2">
+          Only {stock} left in stock
         </span>
       )}
     </div>

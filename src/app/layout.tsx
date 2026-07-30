@@ -67,7 +67,7 @@ export default function RootLayout({ children }: RootLayoutProps) {
     <html lang="en" className={`scroll-smooth ${inter.variable}`}>
       <body className="min-h-screen flex flex-col bg-background text-foreground antialiased">
         <Header />
-        <main className="flex-1 pt-12">
+        <main className="flex-1 pt-16 sm:pt-20">
           {children}
         </main>
         <Footer />
