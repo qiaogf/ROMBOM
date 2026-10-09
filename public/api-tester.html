@@ -247,7 +247,6 @@
     <table id="resultTable">
       <thead>
         <tr>
-          <th>Brand</th>
           <th>Model</th>
           <th>Price</th>
           <th>Condition</th>
@@ -255,7 +254,7 @@
         </tr>
       </thead>
       <tbody id="resultBody">
-        <tr><td colspan="5" class="empty-row">Click "Query" to load data</td></tr>
+        <tr><td colspan="4" class="empty-row">Click "Query" to load data</td></tr>
       </tbody>
     </table>
   </div>
@@ -277,6 +276,27 @@
   var queryBtn  = $("queryBtn"), exportBtn = $("exportBtn"), toggleKey = $("toggleKey");
   var statusEl  = $("status"),  alertArea = $("alertArea");
   var resultBody = $("resultBody");
+
+  // ----- Smart default Server URL -----
+  // file:// 双击打开 → 保持默认 http://localhost:3000。
+  // http(s) 打开时做同源探测（无 Key 请求 /api/model-prices）：
+  //   401 → 同源即 API 服务器（Next / Vercel），直接用同源；
+  //   404 → 同源只是静态预览服务器（如 2051 托管 public/，不转发 /api），
+  //         回退为 主机名:3000（手机打开时 localhost 会指向手机自身，必须用 PC 的局域网地址）。
+  // 用户手动改过 Server URL 则不覆盖。
+  (function () {
+    if (location.protocol === "file:") return;
+    var touched = false;
+    serverEl.addEventListener("input", function () { touched = true; });
+    fetch(location.origin + "/api/model-prices").then(function (r) {
+      if (touched) return;
+      if (r.status === 401) {
+        serverEl.value = location.origin;
+      } else {
+        serverEl.value = location.protocol + "//" + location.hostname + ":3000";
+      }
+    }).catch(function () { /* 探测失败保持默认值 */ });
+  })();
 
   // ----- Helpers -----
   function trim(s) { return (s || "").trim(); }
@@ -314,19 +334,17 @@
 
   function renderRows(rows) {
     if (!rows || rows.length === 0) {
-      resultBody.innerHTML = '<tr><td colspan="5" class="empty-row">No data</td></tr>';
+      resultBody.innerHTML = '<tr><td colspan="4" class="empty-row">No data</td></tr>';
       return;
     }
     var html = "";
     for (var i = 0; i < rows.length; i++) {
       var r = rows[i];
-      var brand = r.brand ? escapeHtml(r.brand) : '<span style="color:#999">—</span>';
       var model = escapeHtml(r.model || "");
       var price = formatPrice(r.price);
       var cond  = r.condition ? escapeHtml(r.condition) : '<span style="color:#999">—</span>';
       var lead  = r.leadTime ? escapeHtml(r.leadTime) : '<span style="color:#999">—</span>';
       html += '<tr>'
-            + '<td>' + brand + '</td>'
             + '<td>' + model + '</td>'
             + '<td class="price">' + price + '</td>'
             + '<td>' + cond + '</td>'
@@ -389,7 +407,7 @@
 
     setLoading(true);
     statusEl.textContent = "Querying…";
-    resultBody.innerHTML = '<tr><td colspan="5" class="empty-row">Loading…</td></tr>';
+    resultBody.innerHTML = '<tr><td colspan="4" class="empty-row">Loading…</td></tr>';
 
     var started = performance.now();
 
@@ -477,7 +495,6 @@
     // 英文列名导出
     var exportRows = currentData.map(function (r) {
       return {
-        "Brand":        r.brand || "",
         "Model":        r.model || "",
         "Price (USD)":  (r.price !== null && r.price !== undefined) ? Number(r.price) : "",
         "Condition":    r.condition || "",
@@ -487,7 +504,7 @@
 
     var ws = XLSX.utils.json_to_sheet(exportRows);
     // 列宽优化
-    ws["!cols"] = [{ wch: 20 }, { wch: 22 }, { wch: 14 }, { wch: 16 }, { wch: 18 }];
+    ws["!cols"] = [{ wch: 22 }, { wch: 14 }, { wch: 16 }, { wch: 18 }];
     var wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, "API Prices");
 
