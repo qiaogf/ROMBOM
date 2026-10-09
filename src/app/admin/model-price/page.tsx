@@ -13,10 +13,10 @@ import {
 
 export const dynamic = "force-dynamic";
 
-// Model Prices 模板（7 列，与 Supplier Portal 模板格式一致）
-const PRICE_TEMPLATE_CSV = `Series,Model,Unit Price,MOQ,Product Condition,Stock Status,Lead Time
-Siemens S7-1200,6ES7214-1AG40-0XB0,128.00,1,New Original,in_stock,3-5 days
-Siemens S7-1500,6ES7511-1AK02-0AB0,455.00,1,New Original,lead_time,2-3 weeks`;
+// Model Prices 模板（5 列）：Series = "品牌 系列" 组合；Lead Time 合并库存状态（In stock / 货期文本 / Out of stock）
+const PRICE_TEMPLATE_CSV = `Series,Model,Price,Condition,Lead Time
+Siemens S7-1200,6ES7214-1AG40-0XB0,128.00,New Original,In stock
+Siemens S7-1500,6ES7511-1AK02-0AB0,455.00,New Original,2-3 weeks`;
 
 function toStr(value: string | string[] | undefined): string | undefined {
   if (value === undefined) return undefined;
@@ -99,7 +99,7 @@ export default async function ModelPriceListPage({
             </div>
             <ImportFormBase
               batchType="price"
-              subtitle=".xlsx / .xls / .csv · Required: Model, Unit Price · Series column assigns each row"
+              subtitle=".xlsx / .xls / .csv · Required: Series, Model, Price · Series = Brand + Series (e.g. Siemens S7-1200)"
               seriesOptions={seriesOptions}
             />
           </div>

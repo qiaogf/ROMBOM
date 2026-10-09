@@ -152,9 +152,10 @@ export async function POST(request: Request) {
       if (!seriesStr) {
         throw new Error('Column "Series" is empty. Each row must specify an existing series name.');
       }
-      const rowSeriesId = seriesMap.get(seriesStr.toLowerCase());
+      const seriesKey = seriesStr.toLowerCase().replace(/\s+/g, " ").trim();
+      const rowSeriesId = seriesMap.get(seriesKey);
       if (!rowSeriesId) {
-        throw new Error(`Series "${seriesStr}" not found in the system. Please use an existing series name or slug.`);
+        throw new Error(`Series "${seriesStr}" not found in the system. Please use "Brand Series" (e.g. Siemens S7-1200), a series name, or a slug.`);
       }
       if (!model) {
         throw new Error("Model is required.");

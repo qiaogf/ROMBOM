@@ -19,6 +19,19 @@ function toStockStatus(value: string | undefined): StockStatus {
   return "in_stock";
 }
 
+/**
+ * 新模板（5 列）无 Stock Status 列：从合并后的 Lead Time 文本推断库存状态。
+ * "In stock"/现货 → in_stock；"Out of stock"/缺货 → out_of_stock；
+ * 其余货期文本（如 3-5 days、2-3 weeks）→ lead_time；空值默认 in_stock。
+ */
+function inferStockFromLeadTime(leadTime: string | null): StockStatus {
+  const v = (leadTime ?? "").trim().toLowerCase();
+  if (!v) return "in_stock";
+  if (v.includes("out") || v.includes("缺货")) return "out_of_stock";
+  if (v.includes("stock") || v.includes("现货")) return "in_stock";
+  return "lead_time";
+}
+
 function toInt(value: string | undefined, fallback = 1): number {
   if (!value) return fallback;
   const n = parseInt(value, 10);
@@ -93,7 +106,7 @@ export async function POST(request: Request) {
   }
   if (missing.length > 0) {
     const hint = batchType === "price"
-      ? "Required: Model, Unit Price. Optional: Series, Markup, Sell Price, MOQ, Product Condition, Stock Status, Lead Time."
+      ? "Required: Model, Price. Optional: Series (Brand + Series, e.g. Siemens S7-1200), Condition, Lead Time (In stock / Out of stock / lead-time text such as 3-5 days), Markup, Sell Price, MOQ, Stock Status. Legacy headers (Unit Price, Product Condition) are also accepted."
       : "Required: Name, Model. Optional: Description, Origin, Certifications, Length, Width, Height, Diameter, Dimension Unit, Weight, Packing Weight, Weight Unit, Battery Attributes, Datasheet Link, Brand, Series, Unit Price, MOQ, Unit, Stock Status, Lead Time, Cost Price, Product Condition.";
     return NextResponse.json({
       success: false,
@@ -175,10 +188,12 @@ export async function POST(request: Request) {
     // CSV Series 列解析：填了但不存在 → 报错；未填 → 回退表单所选系列
     let rowSeriesId: string | null = null;
     if (seriesStr) {
-      rowSeriesId = seriesMap.get(seriesStr.toLowerCase()) ?? null;
+      // 折叠多余空白，兼容 "Siemens  S7-1200" 这类手误
+      const seriesKey = seriesStr.toLowerCase().replace(/\s+/g, " ").trim();
+      rowSeriesId = seriesMap.get(seriesKey) ?? null;
       if (!rowSeriesId) {
         failureCount++;
-        errors.push({ row: rowNumber, message: `Series "${seriesStr}" not found in the system. Please use an existing series name or slug, or leave the column empty to use the selected series.` });
+        errors.push({ row: rowNumber, message: `Series "${seriesStr}" not found in the system. Please use "Brand Series" (e.g. Siemens S7-1200), an existing series name or slug, or leave the column empty to use the selected series.` });
         continue;
       }
     }
@@ -276,7 +291,10 @@ export async function POST(request: Request) {
           markup,
           moq: toInt(moqRaw, 1),
           condition,
-          stockStatus: toStockStatus(stockStatusRaw),
+          // 新模板无 Stock Status 列时，从合并后的 Lead Time 文本推断；旧模板仍按原列解析
+          stockStatus: "stockstatus" in idx
+            ? toStockStatus(stockStatusRaw)
+            : inferStockFromLeadTime(leadTime),
           leadTime,
         },
       });

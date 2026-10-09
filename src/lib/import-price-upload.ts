@@ -5,13 +5,25 @@
 import { prisma } from "@/lib/prisma";
 import { parseCsv, parseExcel, resolveHeader } from "@/lib/import-price";
 
-/** 加载启用系列的 名称(小写)/slug → seriesId 映射（逐行 Series 列解析用） */
+/**
+ * 加载启用系列的键 → seriesId 映射（逐行 Series 列解析用）。
+ * 支持三种写法（优先级：组合全名 > 系列名 > slug）：
+ *   - "Siemens S7-1200"（品牌 + 空格 + 系列名，新模板格式）
+ *   - "S7-1200"（系列名）
+ *   - "s7-1200"（slug）
+ */
 export async function loadActiveSeriesMap(): Promise<Map<string, string>> {
   const activeSeries = await prisma.series.findMany({
     where: { isActive: true },
-    select: { seriesId: true, seriesName: true, slug: true },
+    select: {
+      seriesId: true,
+      seriesName: true,
+      slug: true,
+      brand: { select: { brandName: true } },
+    },
   });
   const seriesMap = new Map<string, string>();
+  // 先注册系列名 / slug 低优先级键，再用组合全名覆盖（组合键优先级最高）
   for (const s of activeSeries) {
     if (!seriesMap.has(s.seriesName.toLowerCase())) {
       seriesMap.set(s.seriesName.toLowerCase(), s.seriesId);
@@ -19,6 +31,11 @@ export async function loadActiveSeriesMap(): Promise<Map<string, string>> {
     if (!seriesMap.has(s.slug)) {
       seriesMap.set(s.slug, s.seriesId);
     }
+  }
+  for (const s of activeSeries) {
+    // 组合全名最具体，覆盖任何同名的低优先级键
+    const combo = `${s.brand.brandName} ${s.seriesName}`.trim().toLowerCase();
+    if (combo) seriesMap.set(combo, s.seriesId);
   }
   return seriesMap;
 }
