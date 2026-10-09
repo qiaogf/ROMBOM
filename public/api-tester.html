@@ -1,655 +1,140 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="zh-CN">
 <head>
-<meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>API Price Tester</title>
-<!--
-  Cross-border API endpoint tester.
-  Single-file native JS — no build, no framework. Open via file:// double-click.
-  Endpoint: GET {server}/api/model-prices
-    Header: x-api-key: {account API key}
-    Query:  ?model=&limit=&offset=
-    Response (success): { success: true, total, limit, offset, rows: [{ model, price, condition, leadTime }] }
-    Response (error):   { success: false, error: "..." }
--->
-<style>
-  :root {
-    --bg: #f7f8fa;
-    --card: #ffffff;
-    --ink: #0f172a;
-    --ink-soft: #475569;
-    --ink-faint: #94a3b8;
-    --line: #e2e8f0;
-    --line-strong: #cbd5e1;
-    --accent: #0f172a;
-    --accent-soft: #1e3a8a;
-    --danger: #b91c1c;
-    --danger-soft: #fef2f2;
-    --ok: #065f46;
-    --ok-soft: #ecfdf5;
-    --warn: #92400e;
-    --warn-soft: #fffbeb;
-    --radius: 10px;
-    --shadow: 0 1px 2px rgba(15,23,42,0.04), 0 8px 24px rgba(15,23,42,0.06);
-  }
-
-  * { box-sizing: border-box; }
-  html, body { margin: 0; padding: 0; }
-  body {
-    font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", sans-serif;
-    background: var(--bg);
-    color: var(--ink);
-    line-height: 1.5;
-    -webkit-font-smoothing: antialiased;
-    text-rendering: optimizeLegibility;
-  }
-
-  .page {
-    max-width: 960px;
-    margin: 0 auto;
-    padding: 40px 24px 80px;
-  }
-  @media (max-width: 640px) {
-    .page { padding: 24px 16px 60px; }
-  }
-
-  /* Header */
-  .header { margin-bottom: 28px; }
-  .header h1 {
-    margin: 0;
-    font-size: 22px;
-    font-weight: 600;
-    letter-spacing: -0.01em;
-  }
-  .header p {
-    margin: 6px 0 0;
-    font-size: 14px;
-    color: var(--ink-soft);
-  }
-  .badge {
-    display: inline-block;
-    padding: 2px 8px;
-    margin-left: 8px;
-    font-size: 11px;
-    font-weight: 500;
-    letter-spacing: 0.04em;
-    text-transform: uppercase;
-    color: var(--ink-faint);
-    background: #f1f5f9;
-    border-radius: 4px;
-    vertical-align: middle;
-  }
-
-  /* Card */
-  .card {
-    background: var(--card);
-    border: 1px solid var(--line);
-    border-radius: var(--radius);
-    box-shadow: var(--shadow);
-    padding: 28px;
-    margin-bottom: 24px;
-  }
-  @media (max-width: 640px) {
-    .card { padding: 20px; }
-  }
-
-  /* Form grid */
-  .grid {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 16px 18px;
-  }
-  @media (max-width: 640px) {
-    .grid { grid-template-columns: 1fr; gap: 14px; }
-  }
-  .field-full { grid-column: 1 / -1; }
-
-  /* Fields */
-  label {
-    display: block;
-    font-size: 12px;
-    font-weight: 600;
-    letter-spacing: 0.04em;
-    text-transform: uppercase;
-    color: var(--ink-soft);
-    margin-bottom: 6px;
-  }
-  .input-wrap {
-    position: relative;
-    display: flex;
-    align-items: center;
-  }
-  input[type="text"],
-  input[type="password"],
-  input[type="number"] {
-    width: 100%;
-    padding: 10px 12px;
-    font-size: 14px;
-    font-family: inherit;
-    color: var(--ink);
-    background: #fff;
-    border: 1px solid var(--line-strong);
-    border-radius: 6px;
-    transition: border-color 120ms ease, box-shadow 120ms ease;
-  }
-  input:focus {
-    outline: none;
-    border-color: var(--accent-soft);
-    box-shadow: 0 0 0 3px rgba(30,58,138,0.12);
-  }
-  input::placeholder { color: var(--ink-faint); }
-
-  .toggle-btn {
-    position: absolute;
-    right: 6px;
-    top: 50%;
-    transform: translateY(-50%);
-    background: transparent;
-    border: 0;
-    padding: 6px 8px;
-    font-size: 12px;
-    color: var(--ink-soft);
-    cursor: pointer;
-    border-radius: 4px;
-  }
-  .toggle-btn:hover { color: var(--ink); background: #f1f5f9; }
-
-  /* Buttons */
-  .actions {
-    display: flex;
-    gap: 12px;
-    align-items: center;
-    margin-top: 22px;
-    flex-wrap: wrap;
-  }
-  button.primary {
-    background: var(--accent);
-    color: #fff;
-    border: 1px solid var(--accent);
-    padding: 11px 22px;
-    font-size: 14px;
-    font-weight: 600;
-    letter-spacing: 0.01em;
-    border-radius: 6px;
-    cursor: pointer;
-    transition: background 120ms ease, border-color 120ms ease;
-  }
-  button.primary:hover:not(:disabled) { background: #1e293b; }
-  button.primary:disabled {
-    opacity: 0.55;
-    cursor: not-allowed;
-  }
-  button.ghost {
-    background: transparent;
-    color: var(--ink-soft);
-    border: 1px solid var(--line-strong);
-    padding: 10px 16px;
-    font-size: 13px;
-    border-radius: 6px;
-    cursor: pointer;
-  }
-  button.ghost:hover { color: var(--ink); border-color: var(--ink-soft); }
-
-  /* Status */
-  .status {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 12px;
-    padding: 14px 18px;
-    background: #f8fafc;
-    border: 1px solid var(--line);
-    border-radius: 8px;
-    margin-bottom: 18px;
-    font-size: 13px;
-    color: var(--ink-soft);
-    flex-wrap: wrap;
-  }
-  .status .meta { display: flex; gap: 18px; flex-wrap: wrap; }
-  .status .meta b { color: var(--ink); font-weight: 600; }
-  .status .timer { color: var(--ink-faint); font-variant-numeric: tabular-nums; }
-
-  /* Table */
-  .table-wrap {
-    overflow-x: auto;
-    border: 1px solid var(--line);
-    border-radius: 8px;
-    background: #fff;
-  }
-  table {
-    width: 100%;
-    border-collapse: collapse;
-    font-size: 14px;
-    min-width: 480px;
-  }
-  thead th {
-    text-align: left;
-    padding: 12px 16px;
-    font-size: 11px;
-    font-weight: 600;
-    letter-spacing: 0.06em;
-    text-transform: uppercase;
-    color: var(--ink-soft);
-    background: #f8fafc;
-    border-bottom: 1px solid var(--line);
-    white-space: nowrap;
-  }
-  thead th.right { text-align: right; }
-  tbody td {
-    padding: 12px 16px;
-    border-bottom: 1px solid var(--line);
-    color: var(--ink);
-    vertical-align: top;
-  }
-  tbody tr:last-child td { border-bottom: 0; }
-  tbody tr:hover td { background: #fafbfd; }
-  td.right { text-align: right; font-variant-numeric: tabular-nums; }
-  td.price { font-weight: 600; }
-  td.muted { color: var(--ink-faint); }
-  td .pill {
-    display: inline-block;
-    padding: 2px 8px;
-    font-size: 12px;
-    border-radius: 4px;
-    background: #f1f5f9;
-    color: var(--ink-soft);
-  }
-
-  /* Empty / error */
-  .note {
-    padding: 32px 24px;
-    text-align: center;
-    color: var(--ink-soft);
-    font-size: 14px;
-  }
-  .note .icon {
-    display: block;
-    font-size: 22px;
-    margin-bottom: 8px;
-    color: var(--ink-faint);
-  }
-  .alert {
-    padding: 14px 16px;
-    border-radius: 8px;
-    font-size: 13px;
-    line-height: 1.55;
-    display: flex;
-    gap: 10px;
-    align-items: flex-start;
-    margin-bottom: 16px;
-  }
-  .alert-error { background: var(--danger-soft); color: var(--danger); border: 1px solid #fecaca; }
-  .alert-warn  { background: var(--warn-soft);  color: var(--warn);  border: 1px solid #fde68a; }
-  .alert-ok    { background: var(--ok-soft);    color: var(--ok);    border: 1px solid #a7f3d0; }
-  .alert .label { font-weight: 600; }
-  .alert code {
-    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-    font-size: 12px;
-    background: rgba(0,0,0,0.04);
-    padding: 1px 6px;
-    border-radius: 4px;
-  }
-
-  /* Footer */
-  .footer {
-    text-align: center;
-    font-size: 12px;
-    color: var(--ink-faint);
-    padding-top: 24px;
-  }
-  .footer code {
-    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-    font-size: 11px;
-    color: var(--ink-soft);
-  }
-
-  /* Spinner */
-  .spinner {
-    width: 14px;
-    height: 14px;
-    border: 2px solid rgba(255,255,255,0.4);
-    border-top-color: #fff;
-    border-radius: 50%;
-    animation: spin 600ms linear infinite;
-    display: inline-block;
-    vertical-align: -2px;
-    margin-right: 8px;
-  }
-  @keyframes spin { to { transform: rotate(360deg); } }
-
-  .hidden { display: none !important; }
-</style>
+  <meta charset="UTF-8">
+  <title>API 测试工具 - 查询并导出Excel</title>
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  <style>
+    body { font-family: "Microsoft YaHei", Arial, sans-serif; max-width: 1100px; margin: 30px auto; padding: 20px; background: #f8f9fa; }
+    h1 { font-size: 22px; }
+    .box { background: #fff; border: 1px solid #e0e0e0; padding: 20px; margin: 12px 0; border-radius: 8px; }
+    label { display: inline-block; width: 120px; font-size: 14px; color: #333; }
+    input[type="text"] { padding: 8px; margin: 4px; font-size: 14px; width: 380px; border: 1px solid #ccc; border-radius: 4px; }
+    button { padding: 9px 20px; margin: 5px; font-size: 14px; border: none; border-radius: 4px; cursor: pointer; }
+    .btn-query { background: #0070f3; color: #fff; }
+    .btn-query:hover { background: #0051cc; }
+    .btn-export { background: #16a34a; color: #fff; }
+    .btn-export:hover { background: #15803d; }
+    table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 14px; }
+    th, td { border: 1px solid #ddd; padding: 8px 12px; text-align: left; }
+    th { background: #f1f3f5; }
+    .tip { color: #888; font-size: 13px; margin-top: 8px; }
+    #status { color: #666; font-size: 13px; margin: 8px 0; }
+  </style>
 </head>
 <body>
-  <div class="page">
-    <header class="header">
-      <h1>API Price Tester <span class="badge">v1</span></h1>
-      <p>Query live model prices from the cross-border pricing endpoint.</p>
-    </header>
+  <h1>API 查询测试 & 导出 Excel</h1>
 
-    <!-- Request card -->
-    <section class="card" aria-label="Request parameters">
-      <div class="grid">
-        <div class="field-full">
-          <label for="server">Server URL</label>
-          <div class="input-wrap">
-            <input id="server" type="text" placeholder="http://localhost:3000"
-                   value="http://localhost:3000" autocomplete="off" spellcheck="false" />
-          </div>
-        </div>
-
-        <div class="field-full">
-          <label for="apiKey">API Key</label>
-          <div class="input-wrap">
-            <input id="apiKey" type="password" placeholder="Paste your account API key"
-                   autocomplete="off" spellcheck="false" />
-            <button type="button" class="toggle-btn" id="toggleKey" aria-label="Show or hide API key">Show</button>
-          </div>
-        </div>
-
-        <div>
-          <label for="model">Model (optional)</label>
-          <div class="input-wrap">
-            <input id="model" type="text" placeholder="e.g. A-100" autocomplete="off" spellcheck="false" />
-          </div>
-        </div>
-
-        <div class="grid-2cols">
-          <div class="grid" style="grid-template-columns: 1fr 1fr; gap: 16px;">
-            <div>
-              <label for="limit">Limit</label>
-              <div class="input-wrap">
-                <input id="limit" type="number" min="1" max="500" step="1" value="100" />
-              </div>
-            </div>
-            <div>
-              <label for="offset">Offset</label>
-              <div class="input-wrap">
-                <input id="offset" type="number" min="0" step="1" value="0" />
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <div class="actions">
-        <button id="queryBtn" class="primary" type="button">Query</button>
-        <button id="resetBtn" class="ghost" type="button">Reset</button>
-      </div>
-    </section>
-
-    <!-- Status bar -->
-    <div id="statusBar" class="status hidden" aria-live="polite">
-      <div class="meta">
-        <span>Total models: <b id="totalEl">—</b></span>
-        <span>Showing: <b id="rangeEl">—</b></span>
-        <span>Limit: <b id="limitEl">—</b></span>
-        <span>Offset: <b id="offsetEl">—</b></span>
-      </div>
-      <div class="timer" id="timerEl"></div>
-    </div>
-
-    <!-- Alert area -->
-    <div id="alertArea"></div>
-
-    <!-- Results -->
-    <div class="table-wrap hidden" id="tableWrap">
-      <table>
-        <thead>
-          <tr>
-            <th>Model</th>
-            <th class="right">Price (USD)</th>
-            <th>Condition</th>
-            <th>Lead Time</th>
-          </tr>
-        </thead>
-        <tbody id="rowsBody"></tbody>
-      </table>
-    </div>
-
-    <div id="emptyNote" class="note hidden">
-      <span class="icon">—</span>
-      No matching prices for the current filter.
-    </div>
-
-    <footer class="footer">
-      <p>Endpoint: <code>GET {server}/api/model-prices</code> &nbsp;·&nbsp; Header: <code>x-api-key: &lt;key&gt;</code></p>
-    </footer>
+  <div class="box">
+    <label>API 地址：</label>
+    <input type="text" id="apiUrl" value="http://localhost:3000/api/model-prices"><br>
+    <label>API Key：</label>
+    <input type="text" id="apiKey" value="你的API_KEY"><br>
+    <label>型号（选填）：</label>
+    <input type="text" id="model" placeholder="留空=拉取全部产品（分页），填型号=查单个"><br>
+    <button class="btn-query" onclick="query()">查询</button>
+    <button class="btn-export" onclick="exportExcel()">导出 Excel</button>
   </div>
 
-<script>
-(function () {
-  "use strict";
+  <div id="status"></div>
 
-  // ----- Elements -----
-  var $ = function (id) { return document.getElementById(id); };
-  var serverEl = $("server");
-  var apiKeyEl = $("apiKey");
-  var modelEl  = $("model");
-  var limitEl  = $("limit");
-  var offsetEl = $("offset");
-  var queryBtn = $("queryBtn");
-  var resetBtn = $("resetBtn");
-  var toggleKey = $("toggleKey");
+  <div class="box">
+    <h3 style="margin-top:0">查询结果</h3>
+    <table id="resultTable">
+      <thead>
+        <tr>
+          <th>型号 Model</th>
+          <th>单价 Price (USD)</th>
+          <th>货况 Condition</th>
+          <th>货期 Lead Time</th>
+        </tr>
+      </thead>
+      <tbody id="resultBody">
+        <tr><td colspan="4" style="text-align:center;color:#999">点击「查询」后显示数据</td></tr>
+      </tbody>
+    </table>
+    <div class="tip">说明：导出Excel时，会把当前表格里的所有行下载为 .xlsx 文件。</div>
+  </div>
 
-  var statusBar = $("statusBar");
-  var totalEl  = $("totalEl");
-  var rangeEl  = $("rangeEl");
-  var limitEl2 = $("limitEl");
-  var offsetEl2 = $("offsetEl");
-  var timerEl  = $("timerEl");
+  <script>
+    let currentData = []; // 保存当前查询结果，用于导出
 
-  var alertArea = $("alertArea");
-  var tableWrap = $("tableWrap");
-  var rowsBody  = $("rowsBody");
-  var emptyNote = $("emptyNote");
+    async function query() {
+      const url = document.getElementById('apiUrl').value.trim();
+      const key = document.getElementById('apiKey').value.trim();
+      const model = document.getElementById('model').value.trim();
+      const statusEl = document.getElementById('status');
+      const body = document.getElementById('resultBody');
 
-  // ----- Helpers -----
-  function trim(s) { return (s || "").trim(); }
-  function escapeHtml(s) {
-    if (s === null || s === undefined) return "";
-    return String(s)
-      .replace(/&/g, "&amp;")
-      .replace(/</g, "&lt;")
-      .replace(/>/g, "&gt;")
-      .replace(/"/g, "&quot;")
-      .replace(/'/g, "&#39;");
-  }
-  function formatPrice(n) {
-    if (n === null || n === undefined || isNaN(n)) return "—";
-    return Number(n).toFixed(2);
-  }
-  function clearAlerts() { alertArea.innerHTML = ""; }
-  function showAlert(kind, label, message) {
-    var div = document.createElement("div");
-    div.className = "alert alert-" + kind;
-    var html = '<span class="label">' + escapeHtml(label) + '</span>';
-    if (message) html += '<span> ' + escapeHtml(message) + '</span>';
-    div.innerHTML = html;
-    alertArea.appendChild(div);
-  }
+      statusEl.textContent = '查询中...';
+      body.innerHTML = '<tr><td colspan="4" style="text-align:center;color:#999">加载中...</td></tr>';
 
-  function hideResults() {
-    tableWrap.classList.add("hidden");
-    emptyNote.classList.add("hidden");
-    statusBar.classList.add("hidden");
-  }
-
-  function setLoading(isLoading) {
-    queryBtn.disabled = isLoading;
-    if (isLoading) {
-      queryBtn.innerHTML = '<span class="spinner"></span>Querying…';
-    } else {
-      queryBtn.textContent = "Query";
-    }
-  }
-
-  // ----- Show / hide API key -----
-  toggleKey.addEventListener("click", function () {
-    if (apiKeyEl.type === "password") {
-      apiKeyEl.type = "text";
-      toggleKey.textContent = "Hide";
-    } else {
-      apiKeyEl.type = "password";
-      toggleKey.textContent = "Show";
-    }
-  });
-
-  // ----- Reset -----
-  resetBtn.addEventListener("click", function () {
-    serverEl.value = "http://localhost:3000";
-    apiKeyEl.value = "";
-    modelEl.value = "";
-    limitEl.value = "100";
-    offsetEl.value = "0";
-    clearAlerts();
-    hideResults();
-    apiKeyEl.focus();
-  });
-
-  // ----- Enter to submit -----
-  [serverEl, apiKeyEl, modelEl, limitEl, offsetEl].forEach(function (el) {
-    el.addEventListener("keydown", function (e) {
-      if (e.key === "Enter") { e.preventDefault(); runQuery(); }
-    });
-  });
-
-  // ----- Query -----
-  queryBtn.addEventListener("click", runQuery);
-
-  async function runQuery() {
-    clearAlerts();
-    hideResults();
-
-    var server = trim(serverEl.value).replace(/\/+$/, "");
-    var apiKey = trim(apiKeyEl.value);
-    var model  = trim(modelEl.value);
-    var limitRaw = parseInt(limitEl.value, 10);
-    var offsetRaw = parseInt(offsetEl.value, 10);
-
-    // Validation
-    if (!server) {
-      showAlert("error", "Missing server URL.", "Enter the API server base URL (e.g. http://localhost:3000).");
-      serverEl.focus();
-      return;
-    }
-    if (!/^https?:\/\//i.test(server)) {
-      showAlert("error", "Invalid server URL.", "It must start with http:// or https://");
-      serverEl.focus();
-      return;
-    }
-    if (!apiKey) {
-      showAlert("error", "Missing API key.", "Paste your account API key to authenticate.");
-      apiKeyEl.focus();
-      return;
-    }
-    if (isNaN(limitRaw) || limitRaw < 1 || limitRaw > 500) {
-      showAlert("error", "Limit out of range.", "Limit must be an integer between 1 and 500.");
-      limitEl.focus();
-      return;
-    }
-    if (isNaN(offsetRaw) || offsetRaw < 0) {
-      showAlert("error", "Offset invalid.", "Offset must be a non-negative integer.");
-      offsetEl.focus();
-      return;
-    }
-
-    // Build URL
-    var url = server + "/api/model-prices?limit=" + encodeURIComponent(limitRaw)
-            + "&offset=" + encodeURIComponent(offsetRaw);
-    if (model) url += "&model=" + encodeURIComponent(model);
-
-    setLoading(true);
-    var started = performance.now();
-
-    try {
-      var res = await fetch(url, {
-        method: "GET",
-        headers: { "x-api-key": apiKey },
-        mode: "cors"
-      });
-
-      var elapsed = Math.max(1, Math.round(performance.now() - started));
-      var body;
       try {
-        body = await res.json();
-      } catch (jsonErr) {
-        showAlert("error", "Bad response.", "Server returned non-JSON body (HTTP " + res.status + ").");
-        return;
+        if (model) {
+          // 单型号查询
+          const res = await fetch(`${url}?model=${encodeURIComponent(model)}&limit=100&offset=0`, {
+            headers: { 'x-api-key': key }
+          });
+          const json = await res.json();
+          currentData = json.rows || [];
+        } else {
+          // 分页全量拉取
+          currentData = [];
+          let offset = 0;
+          const limit = 100;
+          while (true) {
+            statusEl.textContent = `分页拉取中... offset=${offset}`;
+            const res = await fetch(`${url}?limit=${limit}&offset=${offset}`, {
+              headers: { 'x-api-key': key }
+            });
+            const json = await res.json();
+            const rows = json.rows || [];
+            if (rows.length === 0) break;
+            currentData = currentData.concat(rows);
+            offset += limit;
+          }
+        }
+
+        // 渲染表格
+        if (currentData.length === 0) {
+          body.innerHTML = '<tr><td colspan="4" style="text-align:center;color:#999">未查询到数据</td></tr>';
+          statusEl.textContent = '查询完成，共 0 条。';
+        } else {
+          body.innerHTML = currentData.map(r => `
+            <tr>
+              <td>${r.model ?? ''}</td>
+              <td>${r.price ?? ''}</td>
+              <td>${r.condition ?? ''}</td>
+              <td>${r.leadTime ?? ''}</td>
+            </tr>
+          `).join('');
+          statusEl.textContent = `查询完成，共 ${currentData.length} 条。`;
+        }
+      } catch (err) {
+        statusEl.textContent = '请求出错: ' + err.message;
+        body.innerHTML = '<tr><td colspan="4" style="text-align:center;color:red">请求失败</td></tr>';
       }
-
-      if (!res.ok || body.success === false) {
-        var code = res.status;
-        var msg = (body && body.error) ? body.error : "Request failed.";
-        var label = code === 401 ? "401 Unauthorized"
-                  : code === 403 ? "403 Forbidden"
-                  : code === 404 ? "404 Not Found"
-                  : code >= 500 ? "Server error"
-                  : "Request error";
-        showAlert(
-          code === 401 || code === 403 ? "error" : (code >= 500 ? "warn" : "error"),
-          label + " (HTTP " + code + ")",
-          msg
-        );
-        return;
-      }
-
-      // Success
-      var total = Number(body.total) || 0;
-      var limit = Number(body.limit) || limitRaw;
-      var offset = Number(body.offset) || 0;
-      var rows = Array.isArray(body.rows) ? body.rows : [];
-
-      // Status bar
-      statusBar.classList.remove("hidden");
-      totalEl.textContent = total.toLocaleString();
-      limitEl2.textContent = limit;
-      offsetEl2.textContent = offset;
-      var shownFrom = total === 0 ? 0 : (offset + 1);
-      var shownTo = offset + rows.length;
-      rangeEl.textContent = total === 0 ? "0" : (shownFrom + "–" + shownTo);
-      timerEl.textContent = elapsed + " ms";
-
-      if (rows.length === 0) {
-        emptyNote.classList.remove("hidden");
-        showAlert("warn", "No rows returned.", "The endpoint responded successfully but no prices match the current filter.");
-        return;
-      }
-
-      // Render table
-      var html = "";
-      rows.forEach(function (r) {
-        var model = escapeHtml(r.model || "—");
-        var price = formatPrice(r.price);
-        var cond  = r.condition ? '<span class="pill">' + escapeHtml(r.condition) + '</span>' : '<span class="muted">—</span>';
-        var lead  = r.leadTime ? escapeHtml(r.leadTime) : '<span class="muted">—</span>';
-        html += '<tr>'
-              + '<td>' + model + '</td>'
-              + '<td class="right price">' + price + '</td>'
-              + '<td>' + cond + '</td>'
-              + '<td>' + lead + '</td>'
-              + '</tr>';
-      });
-      rowsBody.innerHTML = html;
-      tableWrap.classList.remove("hidden");
-      showAlert("ok", "Success.", rows.length + " row(s) returned.");
-    } catch (err) {
-      var msg = (err && err.message) ? err.message : "Network request failed.";
-      // Common file:// + CORS + offline failures
-      var hint = "";
-      if (/failed to fetch|networkerror/i.test(msg)) {
-        hint = "Check that the server is reachable and CORS allows this origin. If opening via file://, ensure the server is online and Access-Control-Allow-Origin is *.";
-      }
-      showAlert("error", "Network error.", msg + (hint ? " — " + hint : ""));
-    } finally {
-      setLoading(false);
     }
-  }
 
-  // Focus API key on load (server URL is pre-filled)
-  apiKeyEl.focus();
-})();
-</script>
+    function exportExcel() {
+      if (!currentData || currentData.length === 0) {
+        alert('没有数据可导出，请先查询！');
+        return;
+      }
+      // 整理成Excel列名
+      const exportRows = currentData.map(r => ({
+        '型号': r.model ?? '',
+        '单价(USD)': r.price ?? '',
+        '货况': r.condition ?? '',
+        '货期': r.leadTime ?? ''
+      }));
+      const ws = XLSX.utils.json_to_sheet(exportRows);
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, '产品报价库存');
+      const now = new Date();
+      const fileName = `产品报价库存_${now.getFullYear()}${String(now.getMonth()+1).padStart(2,'0')}${String(now.getDate()).padStart(2,'0')}.xlsx`;
+      XLSX.writeFile(wb, fileName);
+    }
+  </script>
 </body>
 </html>
