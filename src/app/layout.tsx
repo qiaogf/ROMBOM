@@ -1,8 +1,7 @@
 import type { ReactNode } from "react";
 import type { Metadata, Viewport } from "next";
 import { Inter } from "next/font/google";
-import { Header } from "@/components/layout/Header";
-import { Footer } from "@/components/layout/Footer";
+import { LayoutClientShell } from "@/components/layout/LayoutClientShell";
 import "./globals.css";
 
 const inter = Inter({
@@ -17,38 +16,56 @@ const siteUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
 export const metadata: Metadata = {
   metadataBase: new URL(siteUrl),
   title: {
-    default: "GlobalShop - Premium Cross-Border Store",
-    template: "%s | GlobalShop",
+    default: "Global-TECH - Cross-Border MRO Industrial Supply",
+    template: "%s | Global-TECH",
   },
-  description: "GlobalShop - Premium cross-border e-commerce store. Discover quality products from around the world with fast shipping, secure payments, and exceptional customer service.",
-  keywords: ["cross-border", "ecommerce", "online shopping", "global store", "international trade", "premium products", "worldwide shipping"],
-  authors: [{ name: "GlobalShop" }],
-  robots: { index: true, follow: true },
+  description:
+    "Global-TECH - Premium cross-border MRO industrial supply platform. Source industrial parts, automation components, and MRO products from trusted suppliers worldwide.",
+  keywords: [
+    "MRO",
+    "industrial supply",
+    "cross-border",
+    "automation",
+    "Siemens",
+    "industrial parts",
+    "B2B marketplace",
+  ],
+  authors: [{ name: "Global-TECH" }],
   openGraph: {
     type: "website",
     locale: "en_US",
     url: siteUrl,
-    siteName: "GlobalShop",
-    title: "GlobalShop - Premium Cross-Border Store",
-    description: "Discover quality products from around the world with fast shipping, secure payments, and exceptional customer service.",
+    siteName: "Global-TECH",
+    title: "Global-TECH - Cross-Border MRO Industrial Supply",
+    description:
+      "Premium cross-border MRO industrial supply platform. Source industrial parts, automation components, and MRO products from trusted suppliers worldwide.",
+    images: [
+      {
+        url: "/og-image.png",
+        width: 1200,
+        height: 630,
+        alt: "Global-TECH - Cross-Border MRO Industrial Supply",
+      },
+    ],
   },
   twitter: {
     card: "summary_large_image",
-    title: "GlobalShop - Premium Cross-Border Store",
-    description: "Discover quality products from around the world with fast shipping, secure payments, and exceptional customer service.",
+    title: "Global-TECH - Cross-Border MRO Industrial Supply",
+    description:
+      "Premium cross-border MRO industrial supply platform. Source industrial parts, automation components, and MRO products from trusted suppliers worldwide.",
+    images: ["/og-image.png"],
   },
-  icons: {
-    icon: "/favicon.ico",
-    apple: "/favicon.ico",
+  robots: {
+    index: true,
+    follow: true,
+    googleBot: {
+      index: true,
+      follow: true,
+      "max-image-preview": "large",
+      "max-snippet": -1,
+    },
   },
-  alternates: {
-    canonical: "/",
-  },
-  other: {
-    "apple-mobile-web-app-capable": "yes",
-    "apple-mobile-web-app-status-bar-style": "default",
-    "format-detection": "telephone=no",
-  },
+  icons: { icon: "/favicon.ico", apple: "/favicon.ico" },
 };
 
 export const viewport: Viewport = {
@@ -58,19 +75,12 @@ export const viewport: Viewport = {
   themeColor: "#ffffff",
 };
 
-interface RootLayoutProps {
-  children: ReactNode;
-}
-
-export default function RootLayout({ children }: RootLayoutProps) {
+export default function RootLayout({ children }: { children: ReactNode }) {
   return (
-    <html lang="en" className={`scroll-smooth ${inter.variable}`}>
-      <body className="min-h-screen flex flex-col bg-background text-foreground antialiased">
-        <Header />
-        <main className="flex-1 pt-16 sm:pt-20">
-          {children}
-        </main>
-        <Footer />
+    <html lang="en" data-scroll-behavior="smooth" className={`scroll-smooth ${inter.variable}`}>
+      {/* h-screen 回退 + dvh 动态视口：修复移动端浏览器地址栏可见时 100vh 大于实际可视高度、Footer 被推出屏幕且无法滚动到达的问题 */}
+      <body className="h-screen supports-[height:100dvh]:h-dvh flex flex-col bg-white text-slate-900 antialiased overflow-hidden">
+        <LayoutClientShell>{children}</LayoutClientShell>
       </body>
     </html>
   );

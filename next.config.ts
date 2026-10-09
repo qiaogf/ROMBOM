@@ -22,9 +22,6 @@ const nextConfig: NextConfig = {
     dangerouslyAllowSVG: true,
     contentSecurityPolicy: "default-src 'self'; script-src 'none'; sandbox;",
   },
-  experimental: {
-    optimizeCss: true,
-  },
   transpilePackages: [],
   compress: true,
   generateEtags: true,
@@ -34,6 +31,17 @@ const nextConfig: NextConfig = {
   },
   trailingSlash: false,
   skipTrailingSlashRedirect: false,
+  turbopack: {
+    // 抑制 Prisma 生成客户端内动态 require 触发的 NFT 全项目追踪告警
+    // 根因在 prisma/generated/client/runtime/library.js 内部，无法直接修改
+    // 此告警为良性：build 仍成功，仅记录日志噪音
+    ignoreIssue: [
+      {
+        path: "**/next.config.ts",
+        title: "Encountered unexpected file in NFT list",
+      },
+    ],
+  },
   async headers() {
     return [
       {

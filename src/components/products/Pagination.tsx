@@ -8,6 +8,46 @@ interface PaginationProps {
   categoryId?: string;
 }
 
+/** 前后翻页箭头（桌面与移动共用，样式与原实现逐字一致） */
+function PageArrow({
+  href,
+  disabled,
+  dir,
+}: {
+  href: string;
+  disabled: boolean;
+  dir: "left" | "right";
+}) {
+  const cls = `px-3 py-2 rounded-lg border border-slate-200 text-sm font-medium ${
+    disabled
+      ? "text-slate-300 cursor-not-allowed"
+      : "text-slate-600 hover:bg-slate-50 hover:border-slate-300 transition-all"
+  }`;
+  const icon = (
+    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth={2}
+        d={dir === "left" ? "M15 19l-7-7 7-7" : "M9 5l7 7-7 7"}
+      />
+    </svg>
+  );
+
+  if (disabled) {
+    return (
+      <span className={cls} aria-disabled="true">
+        {icon}
+      </span>
+    );
+  }
+  return (
+    <Link href={href} className={cls} aria-label={dir === "left" ? "Previous page" : "Next page"}>
+      {icon}
+    </Link>
+  );
+}
+
 export function Pagination({ page, totalPages, total, pageSize, categoryId }: PaginationProps) {
   const baseUrl = categoryId ? `/products?category=${categoryId}` : "/products";
 
@@ -25,7 +65,7 @@ export function Pagination({ page, totalPages, total, pageSize, categoryId }: Pa
   const maxVisible = 5;
 
   let startPage = Math.max(1, page - Math.floor(maxVisible / 2));
-  let endPage = Math.min(totalPages, startPage + maxVisible - 1);
+  const endPage = Math.min(totalPages, startPage + maxVisible - 1);
 
   if (endPage - startPage + 1 < maxVisible) {
     startPage = Math.max(1, endPage - maxVisible + 1);
@@ -55,23 +95,19 @@ export function Pagination({ page, totalPages, total, pageSize, categoryId }: Pa
         Showing <span className="font-medium text-slate-900">{startItem}</span> - <span className="font-medium text-slate-900">{endItem}</span> of <span className="font-medium text-slate-900">{total}</span> products
       </p>
 
-      <nav className="flex items-center gap-1">
-        {page > 1 ? (
-          <Link
-            href={getPageUrl(page - 1)}
-            className="px-3 py-2 rounded-lg border border-slate-200 text-sm font-medium text-slate-600 hover:bg-slate-50 hover:border-slate-300 transition-all"
-          >
-            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-            </svg>
-          </Link>
-        ) : (
-          <span className="px-3 py-2 rounded-lg border border-slate-200 text-sm font-medium text-slate-300 cursor-not-allowed">
-            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-            </svg>
-          </span>
-        )}
+      {/* 移动端紧凑分页：Prev / Page x of y / Next */}
+      <nav className="flex sm:hidden items-center gap-2">
+        <PageArrow href={getPageUrl(page - 1)} disabled={page <= 1} dir="left" />
+        <span className="text-sm text-slate-600 font-medium">
+          Page <span className="text-slate-900">{page}</span> of{" "}
+          <span className="text-slate-900">{totalPages}</span>
+        </span>
+        <PageArrow href={getPageUrl(page + 1)} disabled={page >= totalPages} dir="right" />
+      </nav>
+
+      {/* 桌面端完整页码分页 */}
+      <nav className="hidden sm:flex items-center gap-1">
+        <PageArrow href={getPageUrl(page - 1)} disabled={page <= 1} dir="left" />
 
         {pages.map(({ number, isEllipsis }) => (
           isEllipsis ? (
@@ -91,22 +127,7 @@ export function Pagination({ page, totalPages, total, pageSize, categoryId }: Pa
           )
         ))}
 
-        {page < totalPages ? (
-          <Link
-            href={getPageUrl(page + 1)}
-            className="px-3 py-2 rounded-lg border border-slate-200 text-sm font-medium text-slate-600 hover:bg-slate-50 hover:border-slate-300 transition-all"
-          >
-            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-            </svg>
-          </Link>
-        ) : (
-          <span className="px-3 py-2 rounded-lg border border-slate-200 text-sm font-medium text-slate-300 cursor-not-allowed">
-            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-            </svg>
-          </span>
-        )}
+        <PageArrow href={getPageUrl(page + 1)} disabled={page >= totalPages} dir="right" />
       </nav>
     </div>
   );

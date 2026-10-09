@@ -85,6 +85,7 @@ lerna-debug.log*
 *.komodoproject
 .komodo/
 .texpadtmp
+.trae/
 
 # ========================
 # OS Generated Files
@@ -154,3 +155,10 @@ coverage/
 .env.backup
 .env.production
 .env.staging
+plaintext
+# 环境变量文件
+.env
+.env.local
+.env.*
+# 允许保留模板示例文件
+!/.env.example

@@ -1,14 +1,24 @@
-import { cookies } from "next/headers";
+import { cookies, headers } from "next/headers";
 import crypto from "crypto";
 import { PrismaClient } from "@/../prisma/generated/client";
 
 const SESSION_COOKIE_NAME = "session";
-const USER_ID_COOKIE_NAME = "userId";
 const CSRF_COOKIE_NAME = "csrf_token";
 const SESSION_MAX_AGE = 60 * 60 * 24 * 7;
 
-function isValidIdFormat(id: string): boolean {
-  return /^[a-zA-Z0-9_-]+$/.test(id) && id.length <= 255;
+/**
+ * 根据实际请求协议判断是否标记 secure。
+ * 不能用 NODE_ENV：局域网 next start（HTTP）下 secure cookie 会被浏览器丢弃，
+ * 导致登录态无法保持。Vercel/HTTPS 部署时 x-forwarded-proto 为 https → secure=true。
+ */
+export async function isHttpsRequest(): Promise<boolean> {
+  try {
+    const h = await headers();
+    const proto = (h.get("x-forwarded-proto") || "").split(",")[0].trim();
+    return proto === "https";
+  } catch {
+    return false;
+  }
 }
 
 async function getPrisma(): Promise<PrismaClient> {
@@ -16,43 +26,39 @@ async function getPrisma(): Promise<PrismaClient> {
   return prisma as unknown as PrismaClient;
 }
 
-export async function generateSession(userId: string): Promise<void> {
+export async function generateSession(
+  customerId: string,
+  options?: { persistent?: boolean }
+): Promise<void> {
+  // persistent=false 时为会话级 Cookie（浏览器关闭即失效），对应"Stay logged in"未勾选
+  const persistent = options?.persistent ?? true;
   const prisma = await getPrisma();
   const sessionToken = crypto.randomBytes(32).toString("hex");
   const csrfToken = crypto.randomBytes(32).toString("hex");
 
   await prisma.session.deleteMany({
-    where: { userId, expiresAt: { lt: new Date() } },
+    where: { customerId, expiresAt: { lt: new Date() } },
   });
 
   await prisma.session.create({
     data: {
       sessionToken,
-      userId,
+      customerId,
       csrfToken,
       expiresAt: new Date(Date.now() + SESSION_MAX_AGE * 1000),
     },
   });
 
   const cookieStore = await cookies();
+  const secureCookie = await isHttpsRequest();
 
   cookieStore.set({
     name: SESSION_COOKIE_NAME,
     value: sessionToken,
     httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
+    secure: secureCookie,
     sameSite: "strict" as const,
-    maxAge: SESSION_MAX_AGE,
-    path: "/",
-  });
-
-  cookieStore.set({
-    name: USER_ID_COOKIE_NAME,
-    value: userId,
-    httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
-    sameSite: "strict" as const,
-    maxAge: SESSION_MAX_AGE,
+    ...(persistent ? { maxAge: SESSION_MAX_AGE } : {}),
     path: "/",
   });
 
@@ -60,9 +66,9 @@ export async function generateSession(userId: string): Promise<void> {
     name: CSRF_COOKIE_NAME,
     value: csrfToken,
     httpOnly: false,
-    secure: process.env.NODE_ENV === "production",
+    secure: secureCookie,
     sameSite: "lax" as const,
-    maxAge: SESSION_MAX_AGE,
+    ...(persistent ? { maxAge: SESSION_MAX_AGE } : {}),
     path: "/",
   });
 }
@@ -110,11 +116,11 @@ export async function getSession(): Promise<Session> {
   const session = await prisma.session.findUnique({
     where: { sessionToken },
     select: {
-      userId: true,
+      customerId: true,
       expiresAt: true,
-      user: {
+      customer: {
         select: {
-          id: true,
+          customerId: true,
           email: true,
           firstName: true,
           lastName: true,
@@ -136,7 +142,7 @@ export async function getSession(): Promise<Session> {
     };
   }
 
-  if (!session.user || !session.user.isActive) {
+  if (!session.customer || !session.customer.isActive) {
     await clearSession();
     return {
       userId: "",
@@ -146,8 +152,15 @@ export async function getSession(): Promise<Session> {
   }
 
   return {
-    userId: session.userId,
-    user: session.user,
+    userId: session.customerId,
+    user: {
+      id: session.customer.customerId,
+      email: session.customer.email,
+      firstName: session.customer.firstName,
+      lastName: session.customer.lastName,
+      country: session.customer.country,
+      isActive: session.customer.isActive,
+    },
     isAuthenticated: true,
   };
 }
@@ -174,7 +187,6 @@ export async function clearSession(): Promise<void> {
   }
 
   cookieStore.delete({ name: SESSION_COOKIE_NAME, path: "/" });
-  cookieStore.delete({ name: USER_ID_COOKIE_NAME, path: "/" });
   cookieStore.delete({ name: CSRF_COOKIE_NAME, path: "/" });
 }
 
@@ -200,8 +212,8 @@ export function sanitizeEmail(email: string): string {
 export interface SessionUser {
   id: string;
   email: string;
-  firstName: string;
-  lastName: string;
+  firstName: string | null;
+  lastName: string | null;
   country: string | null;
   isActive: boolean;
 }

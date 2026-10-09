@@ -1,8 +1,8 @@
 import Link from "next/link";
-import type { Category } from "@/../prisma/generated/client";
+import type { SerializableCategory } from "@/lib/serialize";
 
 interface CategoryFilterProps {
-  categories: Category[];
+  categories: SerializableCategory[];
   selectedCategoryId?: string;
 }
 
@@ -14,7 +14,7 @@ export function CategoryFilter({ categories, selectedCategoryId }: CategoryFilte
     }
     acc[key].push(cat);
     return acc;
-  }, {} as Record<string, Category[]>);
+  }, {} as Record<string, SerializableCategory[]>);
 
   const rootCategories = groupedCategories["root"] || [];
 
@@ -34,35 +34,35 @@ export function CategoryFilter({ categories, selectedCategoryId }: CategoryFilte
         </Link>
 
         {rootCategories.map((category) => {
-          const children = groupedCategories[category.id] || [];
-          const isSelected = selectedCategoryId === category.id;
+          const children = groupedCategories[category.categoryId] || [];
+          const isSelected = selectedCategoryId === category.categoryId;
 
           return (
-            <div key={category.id}>
+            <div key={category.categoryId}>
               <Link
-                href={`/products?category=${category.id}`}
+                href={`/products?category=${category.categoryId}`}
                 className={`block px-3 py-2 rounded-lg text-sm font-medium transition-all ${
                   isSelected
                     ? "bg-slate-900 text-white"
                     : "text-slate-600 hover:bg-slate-50"
                 }`}
               >
-                {category.nameEn || category.name}
+                {category.categoryName}
               </Link>
 
               {children.length > 0 && (
                 <div className="ml-3 mt-1 space-y-1 border-l border-slate-100 pl-3">
                   {children.map((child) => (
                     <Link
-                      key={child.id}
-                      href={`/products?category=${child.id}`}
+                      key={child.categoryId}
+                      href={`/products?category=${child.categoryId}`}
                       className={`block px-3 py-1.5 rounded-lg text-sm font-medium transition-all ${
-                        selectedCategoryId === child.id
+                        selectedCategoryId === child.categoryId
                           ? "bg-slate-900 text-white"
                           : "text-slate-600 hover:bg-slate-50"
                       }`}
                     >
-                      {child.nameEn || child.name}
+                      {child.categoryName}
                     </Link>
                   ))}
                 </div>
