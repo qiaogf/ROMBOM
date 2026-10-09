@@ -1,255 +1,575 @@
+// =================================================================
+// Prisma Schema — 跨境 MRO 工业品独立站
+// DB: SQLite (dev) → Neon Postgres (prod)
+// 业务关系:
+//   Category ↔ Brand (多对多)
+//   Supplier → Brand (一对多, 品牌归属供应商)
+//   Brand → Series (一对多)
+//   Series → ModelPrice (一对多)
+//   供应商只能操作自己 Brand 下属 Series / ModelPrice
+// 价格: Decimal 禁止 float; 主键: cuid; 全表: createdAt + updatedAt
+// =================================================================
+
 generator client {
-  provider      = "prisma-client-js"
-  output        = "./generated/client"
-  binaryTargets = ["native", "rhel-openssl-3.0.x"]
+  provider = "prisma-client-js"
+  output   = "./generated/client"
 }
 
 datasource db {
-  provider = "postgresql"
+  provider = "sqlite"
   url      = env("DATABASE_URL")
+  // ── 生产环境切换 Neon Postgres ──
+  // provider = "postgresql"
+  // url      = env("DATABASE_URL")
+  // 同时给 Decimal 字段加 @db.Decimal(18, 4)
 }
 
-model User {
-  id               String    @id @default(cuid())
-  email            String    @unique
-  passwordHash     String
-  firstName        String
-  lastName         String
-  country          String?
-  currency         String    @default("USD")
-  phone            String?
-  isActive         Boolean   @default(true)
-  role             UserRole  @default(CUSTOMER)
-  lastLoginAt      DateTime?
-  createdAt        DateTime  @default(now())
-  updatedAt        DateTime  @updatedAt
+// =================================================================
+// Enums
+// =================================================================
 
-  orders           Order[]
-  cart             Cart?
-  addresses        Address[]
-  reviews          Review[]
-  sessions         Session[]
+enum ProductStatus {
+  on_sale
+  off_sale
 }
 
-model Session {
-  id               String    @id @default(cuid())
-  sessionToken     String    @unique
-  userId           String
-  csrfToken        String
-  expiresAt        DateTime
-  createdAt        DateTime  @default(now())
-  updatedAt        DateTime  @updatedAt
-
-  user             User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  @@index([sessionToken])
-  @@index([userId])
+enum StockStatus {
+  in_stock
+  lead_time
+  out_of_stock
 }
 
-model Category {
-  id               String    @id @default(cuid())
-  name             String
-  nameEn           String?
-  slug             String    @unique
-  description      String?
-  descriptionEn    String?
-  imageUrl         String?
-  sortOrder        Int       @default(0)
-  isActive         Boolean   @default(true)
-  parentId         String?
-  createdAt        DateTime  @default(now())
-  updatedAt        DateTime  @updatedAt
-
-  parent           Category? @relation("CategoryHierarchy", fields: [parentId], references: [id], onDelete: SetNull)
-  children         Category[] @relation("CategoryHierarchy")
-  products         Product[]
-}
-
-model Product {
-  id               String    @id @default(cuid())
-  sku              String    @unique
-  name             String
-  nameEn           String?
-  description      String
-  descriptionEn    String?
-  price            Decimal   @db.Decimal(10, 2)
-  originalPrice    Decimal?  @db.Decimal(10, 2)
-  currency         String    @default("USD")
-  country          String?
-  weight           Decimal?  @db.Decimal(8, 3)
-  weightUnit       String    @default("kg")
-  stock            Int       @default(0)
-  reservedStock    Int       @default(0)
-  images           String[]
-  thumbnail        String?
-  featured         Boolean   @default(false)
-  isActive         Boolean   @default(true)
-  salesCount       Int       @default(0)
-  viewCount        Int       @default(0)
-  ratingAverage    Decimal?  @db.Decimal(2, 1)
-  ratingCount      Int       @default(0)
-  categoryId       String
-  createdAt        DateTime  @default(now())
-  updatedAt        DateTime  @updatedAt
-
-  category         Category  @relation(fields: [categoryId], references: [id], onDelete: Restrict)
-  cartItems        CartItem[]
-  orderItems       OrderItem[]
-  reviews          Review[]
-}
-
-model Cart {
-  id               String    @id @default(cuid())
-  userId           String    @unique
-  totalAmount      Decimal   @default(0) @db.Decimal(10, 2)
-  currency         String    @default("USD")
-  createdAt        DateTime  @default(now())
-  updatedAt        DateTime  @updatedAt
-
-  user             User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-  items            CartItem[]
-}
-
-model CartItem {
-  id               String    @id @default(cuid())
-  cartId           String
-  productId        String
-  quantity         Int       @default(1)
-  unitPrice        Decimal   @db.Decimal(10, 2)
-  currency         String    @default("USD")
-  createdAt        DateTime  @default(now())
-  updatedAt        DateTime  @updatedAt
-
-  cart             Cart      @relation(fields: [cartId], references: [id], onDelete: Cascade)
-  product          Product   @relation(fields: [productId], references: [id], onDelete: Cascade)
-
-  @@unique([cartId, productId])
-}
-
-model Order {
-  id               String    @id @default(cuid())
-  orderNumber      String    @unique
-  userId           String
-  status           OrderStatus @default(PENDING)
-  totalAmount      Decimal   @db.Decimal(10, 2)
-  currency         String    @default("USD")
-  subtotal         Decimal   @db.Decimal(10, 2)
-  shippingCost     Decimal   @default(0) @db.Decimal(10, 2)
-  taxAmount        Decimal   @default(0) @db.Decimal(10, 2)
-  discountAmount   Decimal   @default(0) @db.Decimal(10, 2)
-  shippingCountry  String
-  shippingCity     String
-  shippingAddress  String
-  shippingZip      String
-  shippingName     String
-  shippingPhone    String?
-  trackingNumber   String?
-  shippingMethod   String?
-  notes            String?
-  paymentMethod    String?
-  paymentStatus    PaymentStatus @default(PENDING)
-  paidAt           DateTime?
-  shippedAt        DateTime?
-  deliveredAt      DateTime?
-  createdAt        DateTime  @default(now())
-  updatedAt        DateTime  @updatedAt
-
-  user             User      @relation(fields: [userId], references: [id], onDelete: Restrict)
-  items            OrderItem[]
-}
-
-model OrderItem {
-  id               String    @id @default(cuid())
-  orderId          String
-  productId        String
-  sku              String
-  name             String
-  nameEn           String?
-  description      String?
-  descriptionEn    String?
-  quantity         Int       @default(1)
-  unitPrice        Decimal   @db.Decimal(10, 2)
-  currency         String    @default("USD")
-  subtotal         Decimal   @db.Decimal(10, 2)
-  weight           Decimal?  @db.Decimal(8, 3)
-  weightUnit       String    @default("kg")
-  createdAt        DateTime  @default(now())
-
-  order            Order     @relation(fields: [orderId], references: [id], onDelete: Cascade)
-  product          Product   @relation(fields: [productId], references: [id], onDelete: Restrict)
-
-  @@index([orderId])
-  @@index([productId])
-}
-
-model Address {
-  id               String    @id @default(cuid())
-  userId           String
-  firstName        String
-  lastName         String
-  company          String?
-  addressLine1     String
-  addressLine2     String?
-  city             String
-  state            String?
-  postalCode       String
-  country          String
-  phone            String?
-  isDefault        Boolean   @default(false)
-  addressType      AddressType @default(SHIPPING)
-  createdAt        DateTime  @default(now())
-  updatedAt        DateTime  @updatedAt
-
-  user             User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-}
-
-model Review {
-  id               String    @id @default(cuid())
-  productId        String
-  userId           String
-  rating           Int
-  title            String?
-  titleEn          String?
-  comment          String?
-  commentEn        String?
-  isVerified       Boolean   @default(false)
-  isApproved       Boolean   @default(false)
-  helpfulVotes     Int       @default(0)
-  createdAt        DateTime  @default(now())
-
-  product          Product   @relation(fields: [productId], references: [id], onDelete: Cascade)
-  user             User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  @@unique([productId, userId])
-  @@index([productId, isApproved])
-}
-
-enum UserRole {
-  CUSTOMER
-  ADMIN
-  SUPERADMIN
+enum BatchType {
+  product_info  // Import Products：产品属性文件（17 列）
+  price         // Model Prices：价格文件（9 列）
 }
 
 enum OrderStatus {
-  PENDING
-  PROCESSING
-  SHIPPED
-  DELIVERED
-  CANCELLED
-  REFUNDED
-  ON_HOLD
+  pending_review
+  negotiating
+  approved
+  purchasing
+  completed
+  cancelled
 }
 
-enum PaymentStatus {
-  PENDING
-  PROCESSING
-  SUCCESS
-  FAILED
-  REFUNDED
+// =================================================================
+// 1. 用户与认证 (Admin / Supplier / Customer 三类角色隔离)
+// =================================================================
+
+/// 管理员 — 后台全权限
+model AdminUser {
+  adminId      String         @id @default(cuid())
+  email        String         @unique
+  passwordHash String
+  name         String?
+  staffNo      String?
+  phone        String?
+  role         String         @default("admin")
+  isActive     Boolean        @default(true)
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+  importBatches   ImportBatch[] @relation("AdminImportBatches")
+  approvedBatches ImportBatch[] @relation("ApprovedBatches")
+
+  @@index([email])
 }
 
-enum AddressType {
-  SHIPPING
-  BILLING
-  BOTH
+/// 客户 — 前台购物
+model Customer {
+  customerId   String           @id @default(cuid())
+  email        String           @unique
+  passwordHash String
+  firstName    String?
+  lastName     String?
+  companyName  String?
+  contactName  String?
+  phone        String?
+  taxId        String?
+  country      String?
+  currency     String?          @default("USD")
+  city         String?
+  address      String?
+  zip          String?
+  paymentMethod String?
+  lastLoginAt  DateTime?
+  isActive     Boolean          @default(true)
+  createdAt    DateTime         @default(now())
+  updatedAt    DateTime         @updatedAt
+  cart         Cart[]
+  salesOrders  SalesOrder[]
+  sessions     Session[]
+  apiAccount   ApiAccount?   // 一对一：客户的对外 API 密钥账户（仅启用客户可开通）
+
+  @@index([email])
+}
+
+/// 供应商 — 实体与登录账号合一
+model Supplier {
+  supplierId     String          @id @default(cuid())
+  email          String          @unique
+  passwordHash   String
+  supplierName   String
+  name           String?
+  contactInfo    String?
+  country        String?
+  phone          String?
+  address        String?
+  website        String?
+  paymentTerm    String?
+  currency       String?         @default("USD")
+  taxId          String?
+  bankInfo       String?
+  isActive       Boolean         @default(true)
+  sortOrder      Int             @default(0)
+  priorityWeight   Int           @default(0)   // 优先权重：值越小优先级越高（同价时选用）
+  qualificationLevel Int         @default(0)   // 资质等级 0-5：0=未审核不分配PO，数字越大优先级越高
+  lastLoginAt    DateTime?
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
+  brands         Brand[]
+  supplierQuotes SupplierQuote[]
+  modelPrices    ModelPrice[]
+  importBatches  ImportBatch[] @relation("SupplierImportBatches")
+  purchaseOrders PurchaseOrder[]
+
+  @@index([supplierName])
+  @@index([email])
+}
+
+/// 导入批次 — 一次上传的价格文件
+/// 审核流程：所有新批次 approvalStatus=pending，管理员确认后(approved)才将 items 回放上线
+model ImportBatch {
+  importBatchId  String      @id @default(cuid())
+  fileName       String
+  sourceType     String      // "admin" | "supplier"
+  batchType      BatchType   @default(product_info) // product_info | price
+  adminId        String?
+  supplierId     String?
+  seriesId       String?     // 该文件归属的系列
+  recordCount    Int         @default(0)
+  errorCount     Int         @default(0)
+  importedAt     DateTime    @default(now())
+  approvalStatus String      @default("approved") // "pending" | "approved"（历史批次默认 approved 保持上线）
+  approvedAt     DateTime?
+  approvedById   String?
+  series         Series?     @relation(fields: [seriesId], references: [seriesId], onDelete: SetNull)
+  admin          AdminUser?  @relation("AdminImportBatches", fields: [adminId], references: [adminId], onDelete: SetNull)
+  supplier       Supplier?   @relation("SupplierImportBatches", fields: [supplierId], references: [supplierId], onDelete: SetNull)
+  approvedBy     AdminUser?  @relation("ApprovedBatches", fields: [approvedById], references: [adminId], onDelete: SetNull)
+  items          ImportBatchItem[]
+  modelPrices    ModelPrice[]
+  products       Product[]
+
+  @@index([importedAt])
+  @@index([sourceType])
+  @@index([seriesId])
+  @@index([approvalStatus])
+  @@index([batchType])
+  @@index([supplierId])
+}
+
+/// 导入批次暂存行 — 待确认文件解析出的每行数据；确认通过后回放到 ModelPrice/Product/SupplierQuote
+model ImportBatchItem {
+  itemId        String      @id @default(cuid())
+  importBatchId String
+  rowNumber     Int
+  seriesId      String?     // 该行 CSV Series 列解析出的系列，未匹配则为 null
+  productName   String
+  model         String
+  slug          String
+  description   String?
+  unit          String
+  costPrice     Decimal
+  sellPrice     Decimal
+  markup        Decimal?      // 加价百分比（%），null 表示未加价
+  moq           Int
+  condition     String?       // Product Condition（CSV 自由文本）
+  origin        String?       // 产地
+  certification String?      // 认证信息
+  length        Decimal?      // 长
+  width         Decimal?      // 宽
+  height        Decimal?      // 高
+  diameter      Decimal?      // 直径
+  dimensionUnit String?      // 尺寸单位
+  weight        Decimal?      // 重量
+  packingWeight Decimal?      // 包装重量
+  weightUnit    String?      // 重量单位
+  batteryAttributes String?  // 电池属性
+  datasheetLink String?      // 数据手册链接
+  brandName     String?      // 品牌名称（CSV 填写，冗余于 series.brand）
+  stockStatus   StockStatus
+  leadTime      String?
+  createdAt     DateTime    @default(now())
+  importBatch   ImportBatch @relation(fields: [importBatchId], references: [importBatchId], onDelete: Cascade)
+
+  @@unique([importBatchId, slug])
+  @@index([importBatchId])
+}
+
+model Session {
+  sessionToken String   @id
+  customerId   String
+  csrfToken    String
+  expiresAt    DateTime
+  createdAt    DateTime @default(now())
+  customer     Customer @relation(fields: [customerId], references: [customerId], onDelete: Cascade)
+
+  @@index([customerId])
+  @@index([expiresAt])
+}
+
+// =================================================================
+// 2. 供应商与品牌
+// =================================================================
+
+/// 品牌 — 归属一个 Supplier; 与 Category 多对多
+model Brand {
+  brandId     String          @id @default(cuid())
+  brandName   String          @unique
+  slug        String          @unique
+  logo        String?
+  description String?
+  supplierId  String?         // 品牌可选归属一个供应商（管理员自建品牌可为空）
+  sortOrder   Int             @default(0)
+  isActive    Boolean         @default(true)
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+  supplier    Supplier?       @relation(fields: [supplierId], references: [supplierId])
+  series      Series[]        // 品牌 → 系列 (一对多)
+  categories  CategoryBrand[] // 品牌 ↔ 品类 (多对多)
+  products    Product[]       // 兼容旧 Product 关系
+
+  @@index([supplierId])
+}
+
+/// 品类-品牌 多对多关联表
+model CategoryBrand {
+  categoryBrandId String   @id @default(cuid())
+  categoryId      String
+  brandId         String
+  createdAt       DateTime @default(now())
+  category        Category @relation(fields: [categoryId], references: [categoryId], onDelete: Cascade)
+  brand           Brand    @relation(fields: [brandId], references: [brandId], onDelete: Cascade)
+
+  @@unique([categoryId, brandId])
+  @@index([brandId])
+}
+
+// =================================================================
+// 3. 品类 (支持多级树形结构)
+// =================================================================
+
+/// 品类 — parentId 实现树形层级
+model Category {
+  categoryId   String          @id @default(cuid())
+  categoryName String
+  parentId     String          @default("0")
+  level        Int
+  slug         String          @unique
+  briefDesc    String?
+  sortOrder    Int             @default(0)
+  isActive     Boolean         @default(true)
+  createdAt    DateTime        @default(now())
+  updatedAt    DateTime        @updatedAt
+  brands       CategoryBrand[] // 品类 ↔ 品牌 (多对多)
+  products     Product[]       // 兼容旧 Product 关系
+  series       Series[]        // 品类 → 系列 (一对多)
+
+  @@index([parentId])
+  @@index([slug])
+}
+
+// =================================================================
+// 4. 系列与型号价格 (核心商品体系)
+// =================================================================
+
+/// 系列 — 归属一个 Brand 和一个 Category; 一对多 ModelPrice
+model Series {
+  seriesId    String       @id @default(cuid())
+  seriesName  String
+  slug        String       @unique
+  description String?
+  brandId     String
+  categoryId  String       // 系列所属品类（一个系列既属于一个品牌，也属于一个品类）
+  sortOrder   Int          @default(0)
+  isActive    Boolean      @default(true)
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+  brand       Brand        @relation(fields: [brandId], references: [brandId], onDelete: Cascade)
+  category    Category     @relation(fields: [categoryId], references: [categoryId], onDelete: Restrict)
+  modelPrices   ModelPrice[]   // 系列 → 型号价格 (一对多)
+  importBatches ImportBatch[]  // 系列 → 导入批次 (一对多)
+
+  @@index([brandId])
+  @@index([categoryId])
+}
+
+/// 型号价格 — 归属一个 Series; 价格 Decimal 禁止 float
+/// 供应商通过 supplierId 直查自有产品; 通过 series.brand.supplierId 级联校验权限
+model ModelPrice {
+  modelPriceId String           @id @default(cuid())
+  productName  String
+  model        String
+  slug         String           @unique
+  description  String?
+  images       String           @default("[]")
+  thumbnail    String?
+  unit         String
+  costPrice    Decimal          // 采购价 Decimal(18,4) — Postgres 加 @db.Decimal(18, 4)
+  sellPrice    Decimal          // 销售价 Decimal(18,4)
+  markup       Decimal?         // 加价百分比（%），null 表示未加价
+  moq          Int              @default(1)    // 最小起订量
+  condition    String?          // Product Condition（CSV 自由文本）
+  origin       String?          // 产地
+  certification String?        // 认证信息
+  length       Decimal?         // 长
+  width        Decimal?         // 宽
+  height       Decimal?         // 高
+  diameter     Decimal?         // 直径
+  dimensionUnit String?        // 尺寸单位
+  weight       Decimal?         // 重量
+  packingWeight Decimal?        // 包装重量
+  weightUnit   String?         // 重量单位
+  batteryAttributes String?    // 电池属性
+  datasheetLink String?        // 数据手册链接
+  brandName    String?         // 品牌名称（CSV 填写，冗余于 series.brand）
+  stockStatus  StockStatus      @default(in_stock)
+  leadTime     String?
+  validUntil   DateTime?
+  status       ProductStatus    @default(off_sale)
+  seriesId     String
+  supplierId   String?          // 冗余: 供应商直达自有产品查询；无供应商的品牌可为空
+  sortOrder    Int              @default(0)
+  isActive     Boolean          @default(true)
+  importBatchId String?         // 归属的导入批次（文件）
+  createdAt    DateTime         @default(now())
+  updatedAt    DateTime         @updatedAt
+  series       Series           @relation(fields: [seriesId], references: [seriesId], onDelete: Cascade)
+  supplier     Supplier?        @relation(fields: [supplierId], references: [supplierId])
+  importBatch  ImportBatch?     @relation(fields: [importBatchId], references: [importBatchId])
+  cartItems    CartItem[]
+  orderItems   SalesOrderItem[]
+
+  @@index([seriesId])
+  @@index([supplierId])
+  @@index([status])
+  @@index([model])
+  @@index([importBatchId])
+}
+
+// =================================================================
+// 5. 兼容旧 Product + SupplierQuote (保持现有代码不破坏)
+// =================================================================
+
+/// 产品 (兼容旧代码; 新业务请用 ModelPrice)
+model Product {
+  productId      String           @id @default(cuid())
+  categoryId     String
+  brandId        String
+  productName    String
+  model          String
+  series         String?
+  description    String?
+  images         String           @default("[]")
+  thumbnail      String?
+  unit           String
+  status         ProductStatus    @default(off_sale)
+  sortOrder      Int              @default(0)
+  importBatchId  String?          // 归属的导入批次（文件）
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
+  cartItems      CartItem[]
+  category       Category         @relation(fields: [categoryId], references: [categoryId])
+  brand          Brand            @relation(fields: [brandId], references: [brandId])
+  importBatch    ImportBatch?     @relation(fields: [importBatchId], references: [importBatchId])
+  orderItems     SalesOrderItem[]
+  supplierQuotes SupplierQuote[]
+}
+
+/// 供应商报价 (兼容旧代码; 新业务请用 ModelPrice.costPrice / sellPrice)
+model SupplierQuote {
+  quoteId         String           @id @default(cuid())
+  supplierId      String
+  productId       String
+  costPrice       Decimal
+  sellPrice       Decimal
+  moq             Int
+  stockQuantity   Int              @default(999999)  // 可供分配的库存数量
+  stockStatus     StockStatus      @default(in_stock)
+  leadTime        String?
+  validUntil      DateTime?
+  isDefault       Boolean          @default(false)
+  isValid         Boolean          @default(true)
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+  cartItems       CartItem[]
+  salesOrderItems SalesOrderItem[]
+  supplier        Supplier         @relation(fields: [supplierId], references: [supplierId])
+  product         Product          @relation(fields: [productId], references: [productId])
+
+  @@index([productId, isValid])
+}
+
+// =================================================================
+// 6. 购物车与订单
+// =================================================================
+
+model Cart {
+  cartId     String     @id @default(cuid())
+  customerId String
+  createdAt  DateTime   @default(now())
+  updatedAt  DateTime   @updatedAt
+  customer   Customer   @relation(fields: [customerId], references: [customerId], onDelete: Cascade)
+  items      CartItem[]
+
+  @@index([customerId])
+}
+
+/// 购车条目 — 兼容旧 (quoteId+productId) 和新 (modelPriceId) 两套引用
+model CartItem {
+  itemId       String         @id @default(cuid())
+  cartId       String
+  quoteId      String?        // 兼容旧 SupplierQuote
+  productId    String?        // 兼容旧 Product
+  modelPriceId String?        // 新 ModelPrice 引用
+  quantity     Int
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+  cart         Cart           @relation(fields: [cartId], references: [cartId], onDelete: Cascade)
+  supplierQuote SupplierQuote? @relation(fields: [quoteId], references: [quoteId])
+  product      Product?       @relation(fields: [productId], references: [productId])
+  modelPrice   ModelPrice?    @relation(fields: [modelPriceId], references: [modelPriceId])
+
+  @@unique([cartId, quoteId])       // 旧: 同一报价不重复
+  @@unique([cartId, modelPriceId])  // 新: 同一型号不重复
+}
+
+model SalesOrder {
+  orderId         String           @id @default(cuid())
+  orderNumber     String           @unique
+  customerId      String
+  totalAmount     Decimal
+  orderStatus     OrderStatus      @default(pending_review)
+  shippingName    String?
+  shippingPhone   String?
+  shippingAddress String?
+  shippingCity    String?
+  shippingCountry String?
+  shippingZip     String?
+  subtotal        Decimal          @default(0)
+  shippingCost    Decimal          @default(0)
+  taxAmount       Decimal          @default(0)
+  discountAmount  Decimal          @default(0)
+  currency        String           @default("USD")
+  paymentMethod   String?
+  paymentStatus   String           @default("pending")
+  deliveryMethod  String?
+  shippedAt       DateTime?
+  deliveredAt     DateTime?
+  trackingNumber  String?
+  customerNote    String?
+  adminNote       String?
+  orderTime       DateTime         @default(now())
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+  customer        Customer         @relation(fields: [customerId], references: [customerId])
+  items           SalesOrderItem[]
+  soStatus       String?          @default("ordered")  // ordered | paid | shipped | received
+  hiddenFromCart Boolean          @default(false)      // true: 用户从 Cart 手动移除，Orders 页仍可见可支付
+  auditStatus    String           @default("approved")  // approved | rejected
+  purchaseOrders PurchaseOrder[]
+
+  @@index([customerId])
+  @@index([orderNumber])
+}
+
+/// 订单项 — 记录型号、数量、金额; 兼容旧 (quoteId+productId) 和新 (modelPriceId)
+model SalesOrderItem {
+  itemId         String         @id @default(cuid())
+  orderId        String
+  quoteId        String?        // 兼容旧 SupplierQuote
+  productId      String?        // 兼容旧 Product
+  modelPriceId   String?        // 新 ModelPrice 引用
+  productName    String         // 冗余快照: 下单时产品名
+  model          String?        // 冗余快照: 下单时型号
+  unitPrice      Decimal        // 下单时单价
+  finalSellPrice Decimal        // 最终成交价
+  quantity       Int
+  subtotal       Decimal        // 小计 = finalSellPrice × quantity
+  weight         Decimal?
+  weightUnit     String?        @default("kg")
+  stockStatus   String?           // snapshot: in_stock | pre_order | out_of_stock
+  leadTime      String?           // snapshot: lead time text
+  itemStatus    String?           @default("ordered")  // ordered | paid | shipped | received
+  createdAt      DateTime       @default(now())
+  salesOrder     SalesOrder     @relation(fields: [orderId], references: [orderId], onDelete: Cascade)
+  supplierQuote  SupplierQuote? @relation(fields: [quoteId], references: [quoteId])
+  product        Product?       @relation(fields: [productId], references: [productId])
+  modelPrice     ModelPrice?    @relation(fields: [modelPriceId], references: [modelPriceId])
+
+  @@index([orderId])
+}
+
+// =================================================================
+// 采购订单 — 管理员向供应商下的采购单
+// =================================================================
+model PurchaseOrder {
+  poId          String           @id @default(cuid())
+  poNumber      String           @unique
+  supplierId    String?
+  salesOrderId   String?          // 关联的销售订单（可选）
+  totalAmount   Decimal          @default(0)
+  poStatus      String           @default("ordered")  // ordered | paid | shipped | received
+  paymentMethod  String?                              // 付款方式：T/T、L/C 等，手动填写
+  auditStatus   String           @default("approved")  // approved | rejected
+  orderTime     DateTime         @default(now())
+  createdAt     DateTime         @default(now())
+  updatedAt     DateTime         @updatedAt
+  supplier      Supplier?        @relation(fields: [supplierId], references: [supplierId])
+  salesOrder    SalesOrder?      @relation(fields: [salesOrderId], references: [orderId])
+  items         PurchaseOrderItem[]
+
+  @@index([supplierId])
+  @@index([poNumber])
+}
+
+/// 采购订单明细行
+model PurchaseOrderItem {
+  itemId        String           @id @default(cuid())
+  poId          String
+  productName   String
+  model         String?
+  unitPrice     Decimal
+  quantity      Int
+  stockStatus   String           @default("in_stock")  // in_stock | pre_order | out_of_stock
+  leadTime      String?
+  itemStatus    String           @default("ordered")  // ordered | paid | shipped | received
+  createdAt     DateTime         @default(now())
+  purchaseOrder PurchaseOrder    @relation(fields: [poId], references: [poId], onDelete: Cascade)
+
+  @@index([poId])
+}
+
+// =================================================================
+// API 账户 — 对外接口授权管理
+// =================================================================
+model ApiAccount {
+  apiAccountId   String           @id @default(cuid())
+  customerId     String?          @unique // 强关联客户；null 为历史遗留无主数据；unique 保证一客户一密钥
+  customerName   String
+  email          String
+  apiKey         String           @unique @default(cuid())
+  brandSeriesFilter String        @default("")   // 授权可见的 Series.seriesId 白名单，逗号分隔；空=全部品牌系列
+  markupRate     Decimal          @default(0)    // 加价率 %，对最优成本价加价后返回 API 价
+  quotaPerMinute Int              @default(60)   // 每分钟请求配额
+  isActive       Boolean          @default(true)
+  lastUsedAt     DateTime?
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
+  customer       Customer?        @relation(fields: [customerId], references: [customerId], onDelete: Cascade)
+
+  @@index([email])
+  @@index([apiKey])
+  @@index([customerId])
 }
