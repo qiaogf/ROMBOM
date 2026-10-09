@@ -1,140 +1,533 @@
 <!DOCTYPE html>
-<html lang="zh-CN">
+<html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <title>API 测试工具 - 查询并导出Excel</title>
-  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
-  <style>
-    body { font-family: "Microsoft YaHei", Arial, sans-serif; max-width: 1100px; margin: 30px auto; padding: 20px; background: #f8f9fa; }
-    h1 { font-size: 22px; }
-    .box { background: #fff; border: 1px solid #e0e0e0; padding: 20px; margin: 12px 0; border-radius: 8px; }
-    label { display: inline-block; width: 120px; font-size: 14px; color: #333; }
-    input[type="text"] { padding: 8px; margin: 4px; font-size: 14px; width: 380px; border: 1px solid #ccc; border-radius: 4px; }
-    button { padding: 9px 20px; margin: 5px; font-size: 14px; border: none; border-radius: 4px; cursor: pointer; }
-    .btn-query { background: #0070f3; color: #fff; }
-    .btn-query:hover { background: #0051cc; }
-    .btn-export { background: #16a34a; color: #fff; }
-    .btn-export:hover { background: #15803d; }
-    table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 14px; }
-    th, td { border: 1px solid #ddd; padding: 8px 12px; text-align: left; }
-    th { background: #f1f3f5; }
-    .tip { color: #888; font-size: 13px; margin-top: 8px; }
-    #status { color: #666; font-size: 13px; margin: 8px 0; }
-  </style>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>API Query & Export Excel</title>
+<!-- xlsx CDN for Excel export -->
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<!--
+  Cross-border API endpoint tester + Excel exporter.
+  Single-file native JS — no build, no framework. Open via file:// double-click.
+  Endpoint: GET {server}/api/model-prices
+    Header: x-api-key: {account API key}
+    Query:  ?model=&limit=&offset=
+    Response (success): { success: true, total, limit, offset, rows: [{ model, price, condition, leadTime }] }
+    Response (error):   { success: false, error: "..." }
+  CORS configured for file:// origin (ACAO: * / ACAH: x-api-key, Content-Type).
+-->
+<style>
+  /* === Layout参考: 上传的 api-tester.html === */
+  body {
+    font-family: -apple-system, "Segoe UI", "Microsoft YaHei", Roboto, Arial, sans-serif;
+    max-width: 1100px;
+    margin: 20px auto;
+    padding: 20px;
+    background: #f8f9fa;
+    color: #333;
+    line-height: 1.4;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  h1 { font-size: 20px; margin: 0 0 4px; }
+  .subtitle { color: #666; font-size: 13px; margin: 0 0 10px; }
+
+  /* Box */
+  .box {
+    background: #fff;
+    border: 1px solid #e0e0e0;
+    padding: 14px;
+    margin: 8px 0;
+    border-radius: 8px;
+  }
+  .box h3 { margin: 0 0 8px; font-size: 15px; font-weight: 600; }
+
+  /* Form */
+  .field-row {
+    display: flex;
+    align-items: center;
+    margin: 4px 0;
+    flex-wrap: wrap;
+  }
+  label {
+    display: inline-block;
+    width: 130px;
+    font-size: 14px;
+    color: #333;
+    flex-shrink: 0;
+  }
+  input[type="text"], input[type="password"], input[type="number"] {
+    padding: 6px;
+    margin: 2px;
+    font-size: 14px;
+    flex: 1;
+    min-width: 200px;
+    max-width: 480px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    font-family: inherit;
+  }
+  input:focus {
+    outline: none;
+    border-color: #0070f3;
+    box-shadow: 0 0 0 2px rgba(0,112,243,0.15);
+  }
+  input::placeholder { color: #aaa; }
+
+  /* Trio row: Model + Limit + Offset on one line */
+  .field-row.trio { gap: 10px; flex-wrap: nowrap; }
+  .field-row.trio .group { display: flex; align-items: center; flex-shrink: 0; }
+  .field-row.trio .group.grow { flex: 1; min-width: 0; }
+  .field-row.trio .group label { width: auto; margin-right: 6px; white-space: nowrap; }
+  .field-row.trio .group input { margin: 0; }
+  .field-row.trio .group input[type="number"] {
+    width: 70px; min-width: 70px; max-width: 70px;
+  }
+  .field-row.trio .group input[type="text"] {
+    min-width: 0; max-width: none;
+  }
+
+  /* Show / hide API key toggle */
+  .toggle-btn {
+    margin-left: 4px;
+    padding: 6px 10px;
+    font-size: 13px;
+    background: #f1f3f5;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    cursor: pointer;
+    color: #666;
+    font-family: inherit;
+  }
+  .toggle-btn:hover { background: #e0e3e5; color: #333; }
+
+  /* Buttons */
+  button {
+    padding: 7px 18px;
+    margin: 4px;
+    font-size: 14px;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-family: inherit;
+    transition: background 120ms ease, opacity 120ms ease;
+  }
+  .btn-query  { background: #0070f3; color: #fff; }
+  .btn-query:hover:not(:disabled)  { background: #0051cc; }
+  .btn-export { background: #16a34a; color: #fff; }
+  .btn-export:hover:not(:disabled) { background: #15803d; }
+  button:disabled { opacity: 0.5; cursor: not-allowed; }
+
+  .actions { margin-top: 8px; }
+
+  /* Status */
+  #status {
+    color: #666;
+    font-size: 13px;
+    margin: 6px 0;
+    padding: 6px 10px;
+    background: #f8f9fa;
+    border-radius: 4px;
+    min-height: 18px;
+  }
+  #status b { color: #333; font-weight: 600; }
+
+  /* Alert */
+  .alert {
+    padding: 8px 12px;
+    border-radius: 4px;
+    font-size: 13px;
+    margin: 6px 0;
+    line-height: 1.4;
+  }
+  .alert b { font-weight: 600; }
+  .alert-success { background: #dcfce7; color: #15803d; border: 1px solid #86efac; }
+  .alert-error   { background: #fee2e2; color: #b91c1c; border: 1px solid #fca5a5; }
+  .alert-warn    { background: #fef3c7; color: #92400e; border: 1px solid #fcd34d; }
+
+  /* Table */
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 6px;
+    font-size: 14px;
+  }
+  th, td {
+    border: 1px solid #ddd;
+    padding: 6px 10px;
+    text-align: left;
+  }
+  th {
+    background: #f1f3f5;
+    font-weight: 600;
+  }
+  tbody tr:hover td { background: #f8f9fa; }
+  td.right { text-align: right; font-variant-numeric: tabular-nums; }
+  td.price { font-weight: 600; }
+  .empty-row { text-align: center; color: #999; }
+  .tip { color: #888; font-size: 13px; margin-top: 6px; }
+
+  /* Footer */
+  .footer {
+    color: #888;
+    font-size: 12px;
+    margin-top: 14px;
+    text-align: center;
+  }
+  .footer code {
+    background: #f1f3f5;
+    padding: 2px 6px;
+    border-radius: 3px;
+    font-size: 11px;
+    color: #555;
+  }
+
+  /* Spinner */
+  .spinner {
+    display: inline-block;
+    width: 12px;
+    height: 12px;
+    border: 2px solid rgba(255,255,255,0.4);
+    border-top-color: #fff;
+    border-radius: 50%;
+    animation: spin 600ms linear infinite;
+    vertical-align: -2px;
+    margin-right: 6px;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* Mobile responsive */
+  @media (max-width: 640px) {
+    body { padding: 12px; margin: 12px auto; }
+    .box { padding: 12px; }
+    label { width: 100%; margin-bottom: 4px; }
+    input[type="text"], input[type="password"], input[type="number"] {
+      max-width: 100%;
+      margin: 0 0 6px 0;
+    }
+    .field-row { flex-direction: column; align-items: stretch; }
+    .field-row.trio { gap: 6px; }
+    .field-row.trio .group { width: 100%; }
+    .field-row.trio .group input[type="number"] {
+      width: 100%; min-width: 0; max-width: 100%;
+    }
+    button { width: 100%; margin: 4px 0; }
+    table { font-size: 12px; }
+    th, td { padding: 5px 8px; }
+  }
+</style>
 </head>
 <body>
-  <h1>API 查询测试 & 导出 Excel</h1>
+  <h1>API Query & Export Excel</h1>
+  <p class="subtitle">Query live model prices and export results to Excel.</p>
 
+  <!-- Form box -->
   <div class="box">
-    <label>API 地址：</label>
-    <input type="text" id="apiUrl" value="http://localhost:3000/api/model-prices"><br>
-    <label>API Key：</label>
-    <input type="text" id="apiKey" value="你的API_KEY"><br>
-    <label>型号（选填）：</label>
-    <input type="text" id="model" placeholder="留空=拉取全部产品（分页），填型号=查单个"><br>
-    <button class="btn-query" onclick="query()">查询</button>
-    <button class="btn-export" onclick="exportExcel()">导出 Excel</button>
+    <div class="field-row">
+      <label for="server">Server URL</label>
+      <input id="server" type="text" value="http://localhost:3000" autocomplete="off" spellcheck="false" />
+    </div>
+    <div class="field-row">
+      <label for="apiKey">API Key</label>
+      <input id="apiKey" type="password" placeholder="Paste your account API key" autocomplete="off" spellcheck="false" />
+      <button type="button" class="toggle-btn" id="toggleKey">Show</button>
+    </div>
+    <div class="field-row trio">
+      <div class="group grow">
+        <label for="model">Model (optional)</label>
+        <input id="model" type="text" placeholder="e.g. A-100 — leave empty for full list" autocomplete="off" spellcheck="false" />
+      </div>
+      <div class="group">
+        <label for="limit">Limit</label>
+        <input id="limit" type="number" min="1" max="500" value="100" />
+      </div>
+      <div class="group">
+        <label for="offset">Offset</label>
+        <input id="offset" type="number" min="0" value="0" />
+      </div>
+    </div>
+    <div class="actions">
+      <button class="btn-query"  id="queryBtn"  type="button">Query</button>
+      <button class="btn-export" id="exportBtn" type="button">Export Excel</button>
+    </div>
   </div>
 
   <div id="status"></div>
+  <div id="alertArea"></div>
 
+  <!-- Results box -->
   <div class="box">
-    <h3 style="margin-top:0">查询结果</h3>
+    <h3>Query Results</h3>
     <table id="resultTable">
       <thead>
         <tr>
-          <th>型号 Model</th>
-          <th>单价 Price (USD)</th>
-          <th>货况 Condition</th>
-          <th>货期 Lead Time</th>
+          <th>Model</th>
+          <th style="text-align:right;">Price (USD)</th>
+          <th>Condition</th>
+          <th>Lead Time</th>
         </tr>
       </thead>
       <tbody id="resultBody">
-        <tr><td colspan="4" style="text-align:center;color:#999">点击「查询」后显示数据</td></tr>
+        <tr><td colspan="4" class="empty-row">Click "Query" to load data</td></tr>
       </tbody>
     </table>
-    <div class="tip">说明：导出Excel时，会把当前表格里的所有行下载为 .xlsx 文件。</div>
+    <div class="tip">Tip: "Export Excel" downloads all rows currently shown in the table as a .xlsx file.</div>
   </div>
 
-  <script>
-    let currentData = []; // 保存当前查询结果，用于导出
+  <div class="footer">
+    Endpoint: <code>GET {server}/api/model-prices</code> · Header: <code>x-api-key: &lt;key&gt;</code>
+  </div>
 
-    async function query() {
-      const url = document.getElementById('apiUrl').value.trim();
-      const key = document.getElementById('apiKey').value.trim();
-      const model = document.getElementById('model').value.trim();
-      const statusEl = document.getElementById('status');
-      const body = document.getElementById('resultBody');
+<script>
+(function () {
+  "use strict";
 
-      statusEl.textContent = '查询中...';
-      body.innerHTML = '<tr><td colspan="4" style="text-align:center;color:#999">加载中...</td></tr>';
+  // 保存当前查询结果，供 Export Excel 使用
+  var currentData = [];
 
-      try {
-        if (model) {
-          // 单型号查询
-          const res = await fetch(`${url}?model=${encodeURIComponent(model)}&limit=100&offset=0`, {
-            headers: { 'x-api-key': key }
-          });
-          const json = await res.json();
-          currentData = json.rows || [];
-        } else {
-          // 分页全量拉取
-          currentData = [];
-          let offset = 0;
-          const limit = 100;
-          while (true) {
-            statusEl.textContent = `分页拉取中... offset=${offset}`;
-            const res = await fetch(`${url}?limit=${limit}&offset=${offset}`, {
-              headers: { 'x-api-key': key }
-            });
-            const json = await res.json();
-            const rows = json.rows || [];
-            if (rows.length === 0) break;
-            currentData = currentData.concat(rows);
-            offset += limit;
-          }
-        }
+  // ----- Elements -----
+  var $ = function (id) { return document.getElementById(id); };
+  var serverEl  = $("server"),  apiKeyEl = $("apiKey"), modelEl = $("model");
+  var limitEl   = $("limit"),   offsetEl = $("offset");
+  var queryBtn  = $("queryBtn"), exportBtn = $("exportBtn"), toggleKey = $("toggleKey");
+  var statusEl  = $("status"),  alertArea = $("alertArea");
+  var resultBody = $("resultBody");
 
-        // 渲染表格
-        if (currentData.length === 0) {
-          body.innerHTML = '<tr><td colspan="4" style="text-align:center;color:#999">未查询到数据</td></tr>';
-          statusEl.textContent = '查询完成，共 0 条。';
-        } else {
-          body.innerHTML = currentData.map(r => `
-            <tr>
-              <td>${r.model ?? ''}</td>
-              <td>${r.price ?? ''}</td>
-              <td>${r.condition ?? ''}</td>
-              <td>${r.leadTime ?? ''}</td>
-            </tr>
-          `).join('');
-          statusEl.textContent = `查询完成，共 ${currentData.length} 条。`;
-        }
-      } catch (err) {
-        statusEl.textContent = '请求出错: ' + err.message;
-        body.innerHTML = '<tr><td colspan="4" style="text-align:center;color:red">请求失败</td></tr>';
-      }
+  // ----- Helpers -----
+  function trim(s) { return (s || "").trim(); }
+  function escapeHtml(s) {
+    if (s === null || s === undefined) return "";
+    return String(s)
+      .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;").replace(/'/g, "&#39;");
+  }
+  function formatPrice(n) {
+    if (n === null || n === undefined || isNaN(n)) return "";
+    return Number(n).toFixed(2);
+  }
+  function clearAlerts() { alertArea.innerHTML = ""; }
+  function showAlert(kind, label, message) {
+    var div = document.createElement("div");
+    div.className = "alert alert-" + kind;
+    var html = "<b>" + escapeHtml(label) + "</b>";
+    if (message) html += " " + escapeHtml(message);
+    div.innerHTML = html;
+    alertArea.appendChild(div);
+  }
+
+  function setLoading(isLoading) {
+    queryBtn.disabled = isLoading;
+    exportBtn.disabled = isLoading;
+    if (isLoading) {
+      queryBtn.innerHTML = '<span class="spinner"></span>Querying…';
+    } else {
+      queryBtn.textContent = "Query";
+      // 导出按钮的可用状态取决于 currentData
+      exportBtn.disabled = (!currentData || currentData.length === 0);
+    }
+  }
+
+  function renderRows(rows) {
+    if (!rows || rows.length === 0) {
+      resultBody.innerHTML = '<tr><td colspan="4" class="empty-row">No data</td></tr>';
+      return;
+    }
+    var html = "";
+    for (var i = 0; i < rows.length; i++) {
+      var r = rows[i];
+      var model = escapeHtml(r.model || "");
+      var price = formatPrice(r.price);
+      var cond  = r.condition ? escapeHtml(r.condition) : '<span style="color:#999">—</span>';
+      var lead  = r.leadTime ? escapeHtml(r.leadTime) : '<span style="color:#999">—</span>';
+      html += '<tr>'
+            + '<td>' + model + '</td>'
+            + '<td class="right price">' + price + '</td>'
+            + '<td>' + cond + '</td>'
+            + '<td>' + lead + '</td>'
+            + '</tr>';
+    }
+    resultBody.innerHTML = html;
+  }
+
+  // ----- Show / hide API key -----
+  toggleKey.addEventListener("click", function () {
+    if (apiKeyEl.type === "password") {
+      apiKeyEl.type = "text";
+      toggleKey.textContent = "Hide";
+    } else {
+      apiKeyEl.type = "password";
+      toggleKey.textContent = "Show";
+    }
+  });
+
+  // ----- Enter to submit -----
+  [serverEl, apiKeyEl, modelEl, limitEl, offsetEl].forEach(function (el) {
+    el.addEventListener("keydown", function (e) {
+      if (e.key === "Enter") { e.preventDefault(); runQuery(); }
+    });
+  });
+
+  // ----- Query button -----
+  queryBtn.addEventListener("click", runQuery);
+
+  // ----- Export Excel button -----
+  exportBtn.addEventListener("click", exportExcel);
+  // 初始状态：无数据，禁用导出
+  exportBtn.disabled = true;
+
+  async function runQuery() {
+    clearAlerts();
+
+    var server = trim(serverEl.value).replace(/\/+$/, "");
+    var apiKey = trim(apiKeyEl.value);
+    var model  = trim(modelEl.value);
+    var limitRaw  = parseInt(limitEl.value, 10);
+    var offsetRaw = parseInt(offsetEl.value, 10);
+
+    // Validation
+    if (!server) {
+      showAlert("error", "Missing server URL.", "Enter the API server base URL (e.g. http://localhost:3000).");
+      serverEl.focus(); return;
+    }
+    if (!/^https?:\/\//i.test(server)) {
+      showAlert("error", "Invalid server URL.", "It must start with http:// or https://");
+      serverEl.focus(); return;
+    }
+    if (!apiKey) {
+      showAlert("error", "Missing API key.", "Paste your account API key to authenticate.");
+      apiKeyEl.focus(); return;
+    }
+    if (isNaN(limitRaw) || limitRaw < 1 || limitRaw > 500) {
+      showAlert("error", "Limit out of range.", "Limit must be an integer between 1 and 500.");
+      limitEl.focus(); return;
+    }
+    if (isNaN(offsetRaw) || offsetRaw < 0) {
+      showAlert("error", "Offset invalid.", "Offset must be a non-negative integer.");
+      offsetEl.focus(); return;
     }
 
-    function exportExcel() {
-      if (!currentData || currentData.length === 0) {
-        alert('没有数据可导出，请先查询！');
+    // Build URL
+    var url = server + "/api/model-prices?limit=" + encodeURIComponent(limitRaw)
+            + "&offset=" + encodeURIComponent(offsetRaw);
+    if (model) url += "&model=" + encodeURIComponent(model);
+
+    setLoading(true);
+    statusEl.textContent = "Querying…";
+    resultBody.innerHTML = '<tr><td colspan="4" class="empty-row">Loading…</td></tr>';
+
+    var started = performance.now();
+
+    try {
+      var res = await fetch(url, {
+        method: "GET",
+        headers: { "x-api-key": apiKey },
+        mode: "cors"
+      });
+
+      var elapsed = Math.max(1, Math.round(performance.now() - started));
+      var body;
+      try {
+        body = await res.json();
+      } catch (jsonErr) {
+        showAlert("error", "Bad response.", "Server returned non-JSON body (HTTP " + res.status + ").");
+        statusEl.textContent = "";
+        currentData = [];
+        renderRows([]);
         return;
       }
-      // 整理成Excel列名
-      const exportRows = currentData.map(r => ({
-        '型号': r.model ?? '',
-        '单价(USD)': r.price ?? '',
-        '货况': r.condition ?? '',
-        '货期': r.leadTime ?? ''
-      }));
-      const ws = XLSX.utils.json_to_sheet(exportRows);
-      const wb = XLSX.utils.book_new();
-      XLSX.utils.book_append_sheet(wb, ws, '产品报价库存');
-      const now = new Date();
-      const fileName = `产品报价库存_${now.getFullYear()}${String(now.getMonth()+1).padStart(2,'0')}${String(now.getDate()).padStart(2,'0')}.xlsx`;
-      XLSX.writeFile(wb, fileName);
+
+      if (!res.ok || body.success === false) {
+        var code = res.status;
+        var msg = (body && body.error) ? body.error : "Request failed.";
+        var label = code === 401 ? "401 Unauthorized"
+                  : code === 403 ? "403 Forbidden"
+                  : code === 404 ? "404 Not Found"
+                  : code >= 500 ? "Server error"
+                  : "Request error";
+        showAlert(
+          code === 401 || code === 403 ? "error" : (code >= 500 ? "warn" : "error"),
+          label + " (HTTP " + code + ")", msg
+        );
+        statusEl.textContent = "";
+        currentData = [];
+        renderRows([]);
+        return;
+      }
+
+      // Success
+      var total  = Number(body.total)  || 0;
+      var limit  = Number(body.limit)  || limitRaw;
+      var offset = Number(body.offset) || 0;
+      var rows = Array.isArray(body.rows) ? body.rows : [];
+      currentData = rows;
+
+      var shownFrom = total === 0 ? 0 : (offset + 1);
+      var shownTo = offset + rows.length;
+      statusEl.innerHTML = "Total models: <b>" + total + "</b> · Showing: <b>"
+                         + (total === 0 ? "0" : shownFrom + "–" + shownTo) + "</b> · Limit: <b>"
+                         + limit + "</b> · Offset: <b>" + offset + "</b> · " + elapsed + " ms";
+
+      renderRows(rows);
+
+      if (rows.length === 0) {
+        showAlert("warn", "No rows returned.", "The endpoint responded successfully but no prices match the current filter.");
+      } else {
+        showAlert("success", "Success.", rows.length + " row(s) returned. Click \"Export Excel\" to download.");
+      }
+    } catch (err) {
+      var errMsg = (err && err.message) ? err.message : "Network request failed.";
+      var hint = "";
+      if (/failed to fetch|networkerror/i.test(errMsg)) {
+        hint = " Check that the server is reachable and CORS allows this origin. If opening via file://, ensure the server is online and Access-Control-Allow-Origin is *.";
+      }
+      showAlert("error", "Network error.", errMsg + hint);
+      statusEl.textContent = "";
+      currentData = [];
+      renderRows([]);
+    } finally {
+      setLoading(false);
     }
-  </script>
+  }
+
+  function exportExcel() {
+    if (!currentData || currentData.length === 0) {
+      showAlert("warn", "Nothing to export.", "Run a query first to load data.");
+      return;
+    }
+    if (typeof XLSX === "undefined") {
+      showAlert("error", "XLSX library not loaded.", "Check your internet connection — the xlsx CDN script failed to load.");
+      return;
+    }
+
+    // 英文列名导出
+    var exportRows = currentData.map(function (r) {
+      return {
+        "Model":        r.model || "",
+        "Price (USD)":  (r.price !== null && r.price !== undefined) ? Number(r.price) : "",
+        "Condition":    r.condition || "",
+        "Lead Time":    r.leadTime || ""
+      };
+    });
+
+    var ws = XLSX.utils.json_to_sheet(exportRows);
+    // 列宽优化
+    ws["!cols"] = [{ wch: 22 }, { wch: 14 }, { wch: 16 }, { wch: 18 }];
+    var wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "API Prices");
+
+    var now = new Date();
+    var pad = function (n) { return String(n).padStart(2, "0"); };
+    var ts = now.getFullYear() + pad(now.getMonth() + 1) + pad(now.getDate())
+            + "_" + pad(now.getHours()) + pad(now.getMinutes()) + pad(now.getSeconds());
+    var fileName = "api-prices_" + ts + ".xlsx";
+    XLSX.writeFile(wb, fileName);
+
+    showAlert("success", "Exported.", fileName + " (" + currentData.length + " rows) downloaded.");
+  }
+
+  // 初始焦点
+  apiKeyEl.focus();
+})();
+</script>
 </body>
 </html>
