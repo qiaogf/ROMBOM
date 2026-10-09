@@ -40,7 +40,7 @@
     margin: 8px 0;
     border-radius: 8px;
   }
-  .box h3 { margin: 10px 0 8px; padding-top: 10px; border-top: 1px solid #eee; font-size: 15px; font-weight: 600; }
+  .box h3 { margin: 6px 0 8px; padding-top: 6px; border-top: 1px solid #eee; font-size: 15px; font-weight: 600; }
 
   /* Form */
   .field-row {
@@ -121,6 +121,7 @@
     min-height: 18px;
   }
   #status b { color: #333; font-weight: 600; }
+  #status:empty, #alertArea:empty { display: none; }
 
   /* Alert */
   .alert {
@@ -210,7 +211,9 @@
   <div class="box">
     <div class="field-row">
       <label for="server">Server URL</label>
-      <input id="server" type="text" value="http://localhost:3000" autocomplete="off" spellcheck="false" />
+      <div class="input-wrap">
+        <input id="server" type="text" value="http://localhost:3000" autocomplete="off" spellcheck="false" />
+      </div>
     </div>
     <div class="field-row">
       <label for="apiKey">API Key</label>
@@ -221,7 +224,9 @@
     </div>
     <div class="field-row">
       <label for="model">Model</label>
-      <input id="model" type="text" placeholder="e.g. A-100 — leave empty for full list" autocomplete="off" spellcheck="false" />
+      <div class="input-wrap">
+        <input id="model" type="text" placeholder="e.g. A-100 — leave empty for full list" autocomplete="off" spellcheck="false" />
+      </div>
     </div>
     <div class="actions">
       <button class="btn-query"  id="queryBtn"  type="button">Query</button>
