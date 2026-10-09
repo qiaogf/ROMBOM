@@ -40,7 +40,7 @@
     margin: 8px 0;
     border-radius: 8px;
   }
-  .box h3 { margin: 0 0 8px; font-size: 15px; font-weight: 600; }
+  .box h3 { margin: 10px 0 8px; padding-top: 10px; border-top: 1px solid #eee; font-size: 15px; font-weight: 600; }
 
   /* Form */
   .field-row {
@@ -74,32 +74,22 @@
   }
   input::placeholder { color: #aaa; }
 
-  /* Trio row: Model + Limit + Offset on one line */
-  .field-row.trio { gap: 10px; flex-wrap: nowrap; }
-  .field-row.trio .group { display: flex; align-items: center; flex-shrink: 0; }
-  .field-row.trio .group.grow { flex: 1; min-width: 0; }
-  .field-row.trio .group label { width: auto; margin-right: 6px; white-space: nowrap; }
-  .field-row.trio .group input { margin: 0; }
-  .field-row.trio .group input[type="number"] {
-    width: 70px; min-width: 70px; max-width: 70px;
-  }
-  .field-row.trio .group input[type="text"] {
-    min-width: 0; max-width: none;
-  }
-
-  /* Show / hide API key toggle */
-  .toggle-btn {
-    margin-left: 4px;
-    padding: 6px 10px;
-    font-size: 13px;
-    background: #f1f3f5;
-    border: 1px solid #ccc;
-    border-radius: 4px;
+  /* API key show/hide toggle inside input */
+  .input-wrap { position: relative; flex: 1; max-width: 480px; min-width: 200px; margin: 2px; }
+  .input-wrap input { width: 100%; margin: 0; padding-right: 48px; }
+  .eye-toggle {
+    position: absolute;
+    right: 10px;
+    top: 50%;
+    transform: translateY(-50%);
     cursor: pointer;
-    color: #666;
-    font-family: inherit;
+    font-size: 12px;
+    color: #999;
+    user-select: none;
+    padding: 2px 4px;
+    line-height: 1;
   }
-  .toggle-btn:hover { background: #e0e3e5; color: #333; }
+  .eye-toggle:hover { color: #333; }
 
   /* Buttons */
   button {
@@ -160,6 +150,7 @@
   th {
     background: #f1f3f5;
     font-weight: 600;
+    text-align: center;
   }
   tbody tr:hover td { background: #f8f9fa; }
   td.right { text-align: right; font-variant-numeric: tabular-nums; }
@@ -206,11 +197,7 @@
       margin: 0 0 6px 0;
     }
     .field-row { flex-direction: column; align-items: stretch; }
-    .field-row.trio { gap: 6px; }
-    .field-row.trio .group { width: 100%; }
-    .field-row.trio .group input[type="number"] {
-      width: 100%; min-width: 0; max-width: 100%;
-    }
+    .input-wrap { max-width: 100%; min-width: 0; margin: 0 0 6px 0; }
     button { width: 100%; margin: 4px 0; }
     table { font-size: 12px; }
     th, td { padding: 5px 8px; }
@@ -219,9 +206,7 @@
 </head>
 <body>
   <h1>API Query & Export Excel</h1>
-  <p class="subtitle">Query live model prices and export results to Excel.</p>
 
-  <!-- Form box -->
   <div class="box">
     <div class="field-row">
       <label for="server">Server URL</label>
@@ -229,40 +214,27 @@
     </div>
     <div class="field-row">
       <label for="apiKey">API Key</label>
-      <input id="apiKey" type="password" placeholder="Paste your account API key" autocomplete="off" spellcheck="false" />
-      <button type="button" class="toggle-btn" id="toggleKey">Show</button>
+      <div class="input-wrap">
+        <input id="apiKey" type="password" placeholder="Paste your account API key" autocomplete="off" spellcheck="false" />
+        <span class="eye-toggle" id="toggleKey">Show</span>
+      </div>
     </div>
-    <div class="field-row trio">
-      <div class="group grow">
-        <label for="model">Model (optional)</label>
-        <input id="model" type="text" placeholder="e.g. A-100 — leave empty for full list" autocomplete="off" spellcheck="false" />
-      </div>
-      <div class="group">
-        <label for="limit">Limit</label>
-        <input id="limit" type="number" min="1" max="500" value="100" />
-      </div>
-      <div class="group">
-        <label for="offset">Offset</label>
-        <input id="offset" type="number" min="0" value="0" />
-      </div>
+    <div class="field-row">
+      <label for="model">Model</label>
+      <input id="model" type="text" placeholder="e.g. A-100 — leave empty for full list" autocomplete="off" spellcheck="false" />
     </div>
     <div class="actions">
       <button class="btn-query"  id="queryBtn"  type="button">Query</button>
       <button class="btn-export" id="exportBtn" type="button">Export Excel</button>
     </div>
-  </div>
-
-  <div id="status"></div>
-  <div id="alertArea"></div>
-
-  <!-- Results box -->
-  <div class="box">
+    <div id="status"></div>
+    <div id="alertArea"></div>
     <h3>Query Results</h3>
     <table id="resultTable">
       <thead>
         <tr>
           <th>Model</th>
-          <th style="text-align:right;">Price (USD)</th>
+          <th>Price (USD)</th>
           <th>Condition</th>
           <th>Lead Time</th>
         </tr>
@@ -271,7 +243,6 @@
         <tr><td colspan="4" class="empty-row">Click "Query" to load data</td></tr>
       </tbody>
     </table>
-    <div class="tip">Tip: "Export Excel" downloads all rows currently shown in the table as a .xlsx file.</div>
   </div>
 
   <div class="footer">
@@ -288,7 +259,6 @@
   // ----- Elements -----
   var $ = function (id) { return document.getElementById(id); };
   var serverEl  = $("server"),  apiKeyEl = $("apiKey"), modelEl = $("model");
-  var limitEl   = $("limit"),   offsetEl = $("offset");
   var queryBtn  = $("queryBtn"), exportBtn = $("exportBtn"), toggleKey = $("toggleKey");
   var statusEl  = $("status"),  alertArea = $("alertArea");
   var resultBody = $("resultBody");
@@ -361,7 +331,7 @@
   });
 
   // ----- Enter to submit -----
-  [serverEl, apiKeyEl, modelEl, limitEl, offsetEl].forEach(function (el) {
+  [serverEl, apiKeyEl, modelEl].forEach(function (el) {
     el.addEventListener("keydown", function (e) {
       if (e.key === "Enter") { e.preventDefault(); runQuery(); }
     });
@@ -381,8 +351,6 @@
     var server = trim(serverEl.value).replace(/\/+$/, "");
     var apiKey = trim(apiKeyEl.value);
     var model  = trim(modelEl.value);
-    var limitRaw  = parseInt(limitEl.value, 10);
-    var offsetRaw = parseInt(offsetEl.value, 10);
 
     // Validation
     if (!server) {
@@ -397,18 +365,9 @@
       showAlert("error", "Missing API key.", "Paste your account API key to authenticate.");
       apiKeyEl.focus(); return;
     }
-    if (isNaN(limitRaw) || limitRaw < 1 || limitRaw > 500) {
-      showAlert("error", "Limit out of range.", "Limit must be an integer between 1 and 500.");
-      limitEl.focus(); return;
-    }
-    if (isNaN(offsetRaw) || offsetRaw < 0) {
-      showAlert("error", "Offset invalid.", "Offset must be a non-negative integer.");
-      offsetEl.focus(); return;
-    }
 
     // Build URL
-    var url = server + "/api/model-prices?limit=" + encodeURIComponent(limitRaw)
-            + "&offset=" + encodeURIComponent(offsetRaw);
+    var url = server + "/api/model-prices?limit=100&offset=0";
     if (model) url += "&model=" + encodeURIComponent(model);
 
     setLoading(true);
@@ -456,16 +415,15 @@
 
       // Success
       var total  = Number(body.total)  || 0;
-      var limit  = Number(body.limit)  || limitRaw;
       var offset = Number(body.offset) || 0;
       var rows = Array.isArray(body.rows) ? body.rows : [];
       currentData = rows;
 
       var shownFrom = total === 0 ? 0 : (offset + 1);
       var shownTo = offset + rows.length;
-      statusEl.innerHTML = "Total models: <b>" + total + "</b> · Showing: <b>"
-                         + (total === 0 ? "0" : shownFrom + "–" + shownTo) + "</b> · Limit: <b>"
-                         + limit + "</b> · Offset: <b>" + offset + "</b> · " + elapsed + " ms";
+      statusEl.innerHTML = "Total: <b>" + total + "</b> · Showing: <b>"
+                         + (total === 0 ? "0" : shownFrom + "–" + shownTo) + "</b> · "
+                         + rows.length + " rows · " + elapsed + " ms";
 
       renderRows(rows);
 
