@@ -12,11 +12,14 @@
   Endpoint: GET {server}/api/model-prices
     Header: x-api-key: {account API key}
     Query:  ?model=&limit=&offset=
-    Response (success): { success: true, total, limit, offset, rows: [{ model, price, condition, leadTime }] }
+    Response (success): { success: true, total, limit, offset, rows: [{ brand, model, price, condition, leadTime }] }
     Response (error):   { success: false, error: "..." }
   CORS configured for file:// origin (ACAO: * / ACAH: x-api-key, Content-Type).
 -->
 <style>
+  /* 统一 border-box：width:100% 包含 padding+border，输入框不再右溢 */
+  *, *::before, *::after { box-sizing: border-box; }
+
   /* === Layout参考: 上传的 api-tester.html === */
   body {
     font-family: -apple-system, "Segoe UI", "Microsoft YaHei", Roboto, Arial, sans-serif;
@@ -156,10 +159,9 @@
   th {
     background: #f1f3f5;
     font-weight: 600;
-    text-align: center;
+    text-align: left;
   }
   tbody tr:hover td { background: #f8f9fa; }
-  td.right { text-align: right; font-variant-numeric: tabular-nums; }
   td.price { font-weight: 600; }
   .empty-row { text-align: center; color: #999; }
   .tip { color: #888; font-size: 12px; margin-top: 4px; }
@@ -245,14 +247,15 @@
     <table id="resultTable">
       <thead>
         <tr>
+          <th>Brand</th>
           <th>Model</th>
-          <th>Price (USD)</th>
+          <th>Price</th>
           <th>Condition</th>
           <th>Lead Time</th>
         </tr>
       </thead>
       <tbody id="resultBody">
-        <tr><td colspan="4" class="empty-row">Click "Query" to load data</td></tr>
+        <tr><td colspan="5" class="empty-row">Click "Query" to load data</td></tr>
       </tbody>
     </table>
   </div>
@@ -311,19 +314,21 @@
 
   function renderRows(rows) {
     if (!rows || rows.length === 0) {
-      resultBody.innerHTML = '<tr><td colspan="4" class="empty-row">No data</td></tr>';
+      resultBody.innerHTML = '<tr><td colspan="5" class="empty-row">No data</td></tr>';
       return;
     }
     var html = "";
     for (var i = 0; i < rows.length; i++) {
       var r = rows[i];
+      var brand = r.brand ? escapeHtml(r.brand) : '<span style="color:#999">—</span>';
       var model = escapeHtml(r.model || "");
       var price = formatPrice(r.price);
       var cond  = r.condition ? escapeHtml(r.condition) : '<span style="color:#999">—</span>';
       var lead  = r.leadTime ? escapeHtml(r.leadTime) : '<span style="color:#999">—</span>';
       html += '<tr>'
+            + '<td>' + brand + '</td>'
             + '<td>' + model + '</td>'
-            + '<td class="right price">' + price + '</td>'
+            + '<td class="price">' + price + '</td>'
             + '<td>' + cond + '</td>'
             + '<td>' + lead + '</td>'
             + '</tr>';
@@ -384,7 +389,7 @@
 
     setLoading(true);
     statusEl.textContent = "Querying…";
-    resultBody.innerHTML = '<tr><td colspan="4" class="empty-row">Loading…</td></tr>';
+    resultBody.innerHTML = '<tr><td colspan="5" class="empty-row">Loading…</td></tr>';
 
     var started = performance.now();
 
@@ -472,6 +477,7 @@
     // 英文列名导出
     var exportRows = currentData.map(function (r) {
       return {
+        "Brand":        r.brand || "",
         "Model":        r.model || "",
         "Price (USD)":  (r.price !== null && r.price !== undefined) ? Number(r.price) : "",
         "Condition":    r.condition || "",
@@ -481,7 +487,7 @@
 
     var ws = XLSX.utils.json_to_sheet(exportRows);
     // 列宽优化
-    ws["!cols"] = [{ wch: 22 }, { wch: 14 }, { wch: 16 }, { wch: 18 }];
+    ws["!cols"] = [{ wch: 20 }, { wch: 22 }, { wch: 14 }, { wch: 16 }, { wch: 18 }];
     var wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, "API Prices");
 

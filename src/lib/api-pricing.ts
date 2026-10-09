@@ -12,6 +12,8 @@ import { Prisma } from "@/../prisma/generated/client";
 import { prisma } from "@/lib/prisma";
 
 export interface ApiPriceRow {
+  /** 品牌名（取自 series.brand.brandName） */
+  brand: string | null;
   model: string;
   /** 加成后的 API 价（USD），两位小数 */
   price: number;
@@ -99,7 +101,7 @@ export async function queryApiPrices(
     return { total, limit, offset, rows: [] };
   }
 
-  // ③ 取本页型号的全部通过价明细
+  // ③ 取本页型号的全部通过价明细（含品牌名：series.brand.brandName）
   const items = await prisma.modelPrice.findMany({
     where: { ...where, model: { in: pageModels } },
     select: {
@@ -107,11 +109,13 @@ export async function queryApiPrices(
       costPrice: true,
       condition: true,
       leadTime: true,
+      series: { select: { brand: { select: { brandName: true } } } },
     },
   });
 
   // ④ 按 型号 + 货况 + 货期 分组，组内取最低成本价
   interface BestGroup {
+    brand: string | null;
     model: string;
     condition: string | null;
     leadTime: string | null;
@@ -124,8 +128,10 @@ export async function queryApiPrices(
     const key = `${item.model}\u0000${conditionKey}\u0000${leadTimeKey}`;
     const cost = Number(item.costPrice);
     const existing = groups.get(key);
+    const brandName = item.series?.brand?.brandName?.trim() || null;
     if (!existing || cost < existing.minCost) {
       groups.set(key, {
+        brand: brandName,
         model: item.model,
         condition: conditionKey || null,
         leadTime: leadTimeKey || null,
@@ -138,6 +144,7 @@ export async function queryApiPrices(
   const modelOrder = new Map(pageModels.map((m, i) => [m, i]));
   const rows = Array.from(groups.values())
     .map((g) => ({
+      brand: g.brand,
       model: g.model,
       price: markup > 0 ? round2(g.minCost * (1 + markup / 100)) : round2(g.minCost),
       condition: g.condition,

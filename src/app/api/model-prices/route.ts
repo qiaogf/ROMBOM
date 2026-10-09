@@ -15,8 +15,8 @@ import { queryApiPrices, parseSeriesWhitelist } from "@/lib/api-pricing";
  *   ?limit=100   每页型号数，1–500，默认 100
  *   ?offset=0    型号偏移量，默认 0
  *
- * 响应（data 内每行严格四项）：
- *   { success, total, limit, offset, data: [{ model, price, condition, leadTime }] }
+ * 响应（rows 内每行严格五项）：
+ *   { success, total, limit, offset, rows: [{ brand, model, price, condition, leadTime }] }
  *   — 同型号不同货况/货期各一行；不带 model 可凭 total + limit/offset 翻页拉全入库
  *
  * CORS：允许任意来源携带 x-api-key 调用，支持 file:// 双击打开的 api-tester.html
