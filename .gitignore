@@ -162,3 +162,5 @@ plaintext
 .env.*
 # 允许保留模板示例文件
 !/.env.example
+.vercel
+.env*
