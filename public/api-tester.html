@@ -288,7 +288,7 @@
     if (location.protocol === "file:") return;
     var touched = false;
     serverEl.addEventListener("input", function () { touched = true; });
-    fetch(location.origin + "/api/model-prices").then(function (r) {
+    fetch(location.origin + "/api/model-prices", { headers: { "ngrok-skip-browser-warning": "true" } }).then(function (r) {
       if (touched) return;
       if (r.status === 401) {
         serverEl.value = location.origin;
@@ -414,7 +414,7 @@
     try {
       var res = await fetch(url, {
         method: "GET",
-        headers: { "x-api-key": apiKey },
+        headers: { "x-api-key": apiKey, "ngrok-skip-browser-warning": "true" },
         mode: "cors"
       });
 
