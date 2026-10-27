@@ -233,7 +233,7 @@ export async function createOrder(data: CreateOrderData): Promise<OrderActionRes
         message: "Order placed successfully",
         order: orderWithItems as OrderWithItems,
       };
-    }, { timeout: 30000, maxWait: 10000 }) as Promise<OrderActionResult>;
+    }) as Promise<OrderActionResult>;
   } catch (error) {
     console.error("Create order error:", error);
     return { success: false, message: "An error occurred while creating order. Please try again." };

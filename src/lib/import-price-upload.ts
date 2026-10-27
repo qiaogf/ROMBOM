@@ -6,24 +6,8 @@ import { prisma } from "@/lib/prisma";
 import { parseCsv, parseExcel, resolveHeader } from "@/lib/import-price";
 
 /**
- * 导航名称匹配键：小写 + 去除所有空白（大小写/空格不敏感）。
- * 用于 CSV Category/Brand/Series 列与系统导航条目的匹配。
- */
-export function normNavKey(raw: string): string {
-  return raw.replace(/\s+/g, "").toLowerCase();
-}
-
-/**
- * 品类匹配键：在 normNavKey 基础上忽略 <>()（） 包装。
- * 导航里的特殊品类名带括号（<Discontinued>、(Cement)），而 CSV 里通常只写 Discontinued / Cement。
- */
-export function normCategoryKey(raw: string): string {
-  return normNavKey(raw).replace(/[<>()（）]/g, "");
-}
-
-/**
  * 加载启用系列的键 → seriesId 映射（逐行 Series 列解析用）。
- * 支持三种写法（优先级：组合全名 > 系列名 > slug），匹配键大小写/空格不敏感：
+ * 支持三种写法（优先级：组合全名 > 系列名 > slug）：
  *   - "Siemens S7-1200"（品牌 + 空格 + 系列名，新模板格式）
  *   - "S7-1200"（系列名）
  *   - "s7-1200"（slug）
@@ -41,8 +25,8 @@ export async function loadActiveSeriesMap(): Promise<Map<string, string>> {
   const seriesMap = new Map<string, string>();
   // 先注册系列名 / slug 低优先级键，再用组合全名覆盖（组合键优先级最高）
   for (const s of activeSeries) {
-    if (!seriesMap.has(normNavKey(s.seriesName))) {
-      seriesMap.set(normNavKey(s.seriesName), s.seriesId);
+    if (!seriesMap.has(s.seriesName.toLowerCase())) {
+      seriesMap.set(s.seriesName.toLowerCase(), s.seriesId);
     }
     if (!seriesMap.has(s.slug)) {
       seriesMap.set(s.slug, s.seriesId);
@@ -50,7 +34,7 @@ export async function loadActiveSeriesMap(): Promise<Map<string, string>> {
   }
   for (const s of activeSeries) {
     // 组合全名最具体，覆盖任何同名的低优先级键
-    const combo = normNavKey(`${s.brand.brandName} ${s.seriesName}`);
+    const combo = `${s.brand.brandName} ${s.seriesName}`.trim().toLowerCase();
     if (combo) seriesMap.set(combo, s.seriesId);
   }
   return seriesMap;

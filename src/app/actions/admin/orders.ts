@@ -41,17 +41,29 @@ export async function approvePurchaseOrder(formData: FormData): Promise<{ succes
   const session = await getAdminSession();
   if (!session) return { success: false, message: "Unauthorized. Admin login required." };
   try {
-    // 审批通过即提交：草稿采购单一并 draft → ordered（合并原 Submit 按钮职责）
-    const po = await prisma.purchaseOrder.findUnique({ where: { poId }, select: { poStatus: true } });
-    if (!po) return { success: false, message: "Purchase order not found." };
-    await prisma.purchaseOrder.update({
-      where: { poId },
-      data: { auditStatus: "approved", ...(po.poStatus === "draft" ? { poStatus: "ordered" } : {}) },
-    });
+    await prisma.purchaseOrder.update({ where: { poId }, data: { auditStatus: "approved" } });
     return { success: true, message: "Purchase order approved." };
   } catch (err) {
     const msg = err instanceof Error ? err.message : "Unknown error";
     return { success: false, message: `Failed to approve: ${msg}` };
+  }
+}
+
+// 草稿采购单提交审批：draft → ordered（管理者确认单价/数量后手动触发）
+export async function submitPurchaseOrder(formData: FormData): Promise<{ success: boolean; message: string }> {
+  const poId = (formData.get("poId") as string)?.trim();
+  if (!poId) return { success: false, message: "PO ID is required." };
+  const session = await getAdminSession();
+  if (!session) return { success: false, message: "Unauthorized. Admin login required." };
+  try {
+    const po = await prisma.purchaseOrder.findUnique({ where: { poId }, select: { poStatus: true } });
+    if (!po) return { success: false, message: "Purchase order not found." };
+    if (po.poStatus !== "draft") return { success: false, message: "Only draft purchase orders can be submitted." };
+    await prisma.purchaseOrder.update({ where: { poId }, data: { poStatus: "ordered" } });
+    return { success: true, message: "Purchase order submitted." };
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : "Unknown error";
+    return { success: false, message: `Failed to submit: ${msg}` };
   }
 }
 

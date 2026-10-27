@@ -8,7 +8,6 @@ import {
   getBrandsByCategorySlug,
   getProductGroupBySeries,
 } from "@/lib/db-service";
-import { displayCategoryName } from "@/lib/db/products/queries";
 import { prisma } from "@/lib/prisma";
 
 const siteUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
@@ -41,8 +40,8 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   ]);
   if (!category || !brand) return {};
   return {
-    title: `${brand.name} - ${displayCategoryName(category.name)} Series`,
-    description: `Browse ${brand.name} product series in ${displayCategoryName(category.name)} category. Click a series to view model pricing.`,
+    title: `${brand.name} - ${category.name} Series`,
+    description: `Browse ${brand.name} product series in ${category.name} category. Click a series to view model pricing.`,
     alternates: { canonical: `/catalog/${categorySlug}/${brandSlug}` },
   };
 }
@@ -74,7 +73,7 @@ export default async function CatalogPage({ params }: PageProps) {
         {
           "@type": "ListItem",
           position: 2,
-          name: displayCategoryName(category.name),
+          name: category.name,
           item: `${siteUrl}/category/${categorySlug}`,
         },
         {
@@ -88,8 +87,8 @@ export default async function CatalogPage({ params }: PageProps) {
     {
       "@context": "https://schema.org",
       "@type": "CollectionPage",
-      name: `${brand.name} - ${displayCategoryName(category.name)} Series`,
-      description: `Browse ${brand.name} product series in ${displayCategoryName(category.name)} category.`,
+      name: `${brand.name} - ${category.name} Series`,
+      description: `Browse ${brand.name} product series in ${category.name} category.`,
       url: `${siteUrl}/catalog/${categorySlug}/${brandSlug}`,
     },
   ];
@@ -105,21 +104,14 @@ export default async function CatalogPage({ params }: PageProps) {
       ))}
       <div className="h-0.5 bg-amber-400 shrink-0"></div>
       <div className="px-3 sm:px-4 pt-3 pb-8">
-        {/* Breadcrumb + 总 SKU */}
-        <div className="flex items-center justify-between mb-3">
-          <nav className="flex items-center gap-1 text-xs text-slate-500">
-            <Link href="/" className="hover:text-green-700">Home</Link>
-            <ChevronRight className="w-3 h-3" />
-            <Link href={`/category/${categorySlug}`} className="hover:text-green-700">{displayCategoryName(category.name)}</Link>
-            <ChevronRight className="w-3 h-3" />
-            <span className="text-slate-700 font-medium">{brand.name}</span>
-          </nav>
-          {seriesGroups.length > 0 && (
-            <span className="text-[11px] text-slate-500">
-              {seriesGroups.reduce((sum, sg) => sum + sg.products.length, 0)} SKU
-            </span>
-          )}
-        </div>
+        {/* Breadcrumb */}
+        <nav className="flex items-center gap-1 text-xs text-slate-500 mb-3">
+          <Link href="/" className="hover:text-green-700">Home</Link>
+          <ChevronRight className="w-3 h-3" />
+          <Link href={`/category/${categorySlug}`} className="hover:text-green-700">{category.name}</Link>
+          <ChevronRight className="w-3 h-3" />
+          <span className="text-slate-700 font-medium">{brand.name}</span>
+        </nav>
 
         {seriesGroups.length === 0 ? (
           <div className="text-center py-10">

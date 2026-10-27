@@ -9,7 +9,6 @@ import {
   getBatchDetailViewData,
   getListViewData,
 } from "./_data/model-price-data";
-import { toStr } from "@/lib/search-params";
 
 export const dynamic = "force-dynamic";
 
@@ -18,6 +17,11 @@ export const dynamic = "force-dynamic";
 const PRICE_TEMPLATE_CSV = `Brand,Series,Model,UnitPrice,Condition,Leadtime
 Siemens,S7-1200,6ES7214-1AG40-0XB0,128.00,New Original,In stock
 Siemens,S7-1500,6ES7511-1AK02-0AB0,455.00,New Original,2-3 weeks`;
+
+function toStr(value: string | string[] | undefined): string | undefined {
+  if (value === undefined) return undefined;
+  return Array.isArray(value) ? value[0] : value;
+}
 
 export default async function ModelPriceListPage({
   searchParams,

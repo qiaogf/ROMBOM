@@ -3,17 +3,17 @@
 /**
  * 订单审核开关 — Approved / Rejected 两个选项始终显示，可自由切换
  * 默认 Approved；Rejected 状态的订单不允许支付
- * 采购单：Approved 即"通过并提交"（草稿一并 draft → ordered，后端合并处理）
  * 右侧附 Delete 按钮，二次确认后删除订单
  */
 import { useTransition } from "react";
-import { Check, X, Trash2, Loader2 } from "lucide-react";
+import { Check, X, Trash2, Loader2, Send } from "lucide-react";
 import { useRouter } from "next/navigation";
 import {
   approveSalesOrder,
   rejectSalesOrder,
   approvePurchaseOrder,
   rejectPurchaseOrder,
+  submitPurchaseOrder,
   deleteSalesOrder,
   deletePurchaseOrder,
 } from "@/app/actions/adminActions";
@@ -25,9 +25,10 @@ interface AuditActionButtonsProps {
   auditStatus: string;
   kind: "sales" | "purchase";
   label: string;
+  poStatus?: string; // purchase 专用：draft 时显示 Submit（提交审批）按钮
 }
 
-export function AuditActionButtons({ auditId, auditStatus, kind, label }: AuditActionButtonsProps) {
+export function AuditActionButtons({ auditId, auditStatus, kind, label, poStatus }: AuditActionButtonsProps) {
   const [pending, startTransition] = useTransition();
   const router = useRouter();
 
@@ -35,6 +36,16 @@ export function AuditActionButtons({ auditId, auditStatus, kind, label }: AuditA
 
   const idField = kind === "sales" ? "orderId" : "poId";
   const entityName = kind === "sales" ? "sales order" : "purchase order";
+
+  const submitDraft = () => {
+    if (pending) return;
+    const fd = new FormData();
+    fd.set("poId", auditId);
+    startTransition(async () => {
+      const res = await submitPurchaseOrder(fd);
+      if (res.success) router.refresh();
+    });
+  };
 
   const switchTo = (next: AuditValue) => {
     if (next === current || pending) return;
@@ -77,6 +88,19 @@ export function AuditActionButtons({ auditId, auditStatus, kind, label }: AuditA
 
   return (
     <div className="flex items-center gap-1">
+      {/* 草稿采购单：Submit（提交审批）draft → ordered */}
+      {kind === "purchase" && poStatus === "draft" && (
+        <button
+          type="button"
+          onClick={submitDraft}
+          disabled={pending}
+          title={`Submit ${label} for approval`}
+          className={`${base} text-white bg-blue-600 hover:bg-blue-700`}
+        >
+          {pending ? <Loader2 className="w-3 h-3 animate-spin" /> : <Send className="w-3 h-3" />}
+          Submit
+        </button>
+      )}
       <button
         type="button"
         onClick={() => switchTo("approved")}

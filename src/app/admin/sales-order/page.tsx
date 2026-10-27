@@ -4,10 +4,40 @@ import { OrderItemPriceInput } from "../_components/OrderItemPriceInput";
 import { OrderItemQtyInput } from "../_components/OrderItemQtyInput";
 import { formatUSDSafe } from "@/lib/format";
 import { getSalesOrderList, getSalesOrderDetail } from "./_data/sales-order-data";
-import { toStr } from "@/lib/search-params";
-import { StatusBadge } from "../_components/StatusBadge";
 
 export const dynamic = "force-dynamic";
+
+function toStr(value: string | string[] | undefined): string | undefined {
+  if (value === undefined) return undefined;
+  return Array.isArray(value) ? value[0] : value;
+}
+
+function statusBadgeClass(status: string): string {
+  switch (status) {
+    case "ordered":
+      return "bg-amber-50 text-amber-700";
+    case "paid":
+      return "bg-blue-50 text-blue-700";
+    case "shipped":
+      return "bg-purple-50 text-purple-700";
+    case "received":
+      return "bg-emerald-50 text-emerald-700";
+    default:
+      return "bg-slate-100 text-slate-600";
+  }
+}
+
+function StatusBadge({ status }: { status: string | null | undefined }) {
+  const label = status ? status.replace(/_/g, " ") : "—";
+  const cls = status ? statusBadgeClass(status) : "bg-slate-100 text-slate-500";
+  return (
+    <span
+      className={`inline-flex items-center px-1.5 py-0.5 text-[10px] rounded capitalize ${cls}`}
+    >
+      {label}
+    </span>
+  );
+}
 
 function customerLabel(c: {
   firstName: string | null;

@@ -164,9 +164,7 @@ model ImportBatchItem {
   itemId        String      @id @default(cuid())
   importBatchId String
   rowNumber     Int
-  seriesId      String?     // 该行 CSV Series 列解析出的系列，未匹配则为 null（暂存新建系列）
-  seriesName    String?     // CSV Series 列未匹配已有系列时暂存的系列名（确认后创建）
-  categoryName  String?     // CSV Category 列暂存内容（确认后匹配或创建品类）
+  seriesId      String?     // 该行 CSV Series 列解析出的系列，未匹配则为 null
   productName   String
   model         String
   slug          String
@@ -230,7 +228,6 @@ model Brand {
   series      Series[]        // 品牌 → 系列 (一对多)
   categories  CategoryBrand[] // 品牌 ↔ 品类 (多对多)
   products    Product[]       // 兼容旧 Product 关系
-  modelPrices ModelPrice[]    // 无系列的型号价格直接归品牌
 
   @@index([supplierId])
 }
@@ -267,7 +264,6 @@ model Category {
   brands       CategoryBrand[] // 品类 ↔ 品牌 (多对多)
   products     Product[]       // 兼容旧 Product 关系
   series       Series[]        // 品类 → 系列 (一对多)
-  modelPrices  ModelPrice[]    // 无系列的型号价格直接归品类
 
   @@index([parentId])
   @@index([slug])
@@ -330,26 +326,20 @@ model ModelPrice {
   leadTime     String?         // Leadtime（统一字段：In Stock / Out of Stock / 交期文本）
   validUntil   DateTime?
   status       ProductStatus    @default(off_sale)
-  seriesId     String?          // 可空: 特殊类目（<Discontinued> 等）不建系列，直接按品牌展示
-  brandId      String?          // 冗余: 归属品牌（无系列时用于分组/比价）
-  categoryId   String?          // 冗余: 归属类目（无系列时用于类目页查询）
+  seriesId     String
   supplierId   String?          // 冗余: 供应商直达自有产品查询；无供应商的品牌可为空
   sortOrder    Int              @default(0)
   isActive     Boolean          @default(true)
   importBatchId String?         // 归属的导入批次（文件）
   createdAt    DateTime         @default(now())
   updatedAt    DateTime         @updatedAt
-  series       Series?          @relation(fields: [seriesId], references: [seriesId], onDelete: SetNull)
-  brand        Brand?           @relation(fields: [brandId], references: [brandId], onDelete: SetNull)
-  category     Category?        @relation(fields: [categoryId], references: [categoryId], onDelete: SetNull)
+  series       Series           @relation(fields: [seriesId], references: [seriesId], onDelete: Cascade)
   supplier     Supplier?        @relation(fields: [supplierId], references: [supplierId])
   importBatch  ImportBatch?     @relation(fields: [importBatchId], references: [importBatchId])
   cartItems    CartItem[]
   orderItems   SalesOrderItem[]
 
   @@index([seriesId])
-  @@index([brandId])
-  @@index([categoryId])
   @@index([supplierId])
   @@index([status])
   @@index([model])

@@ -46,17 +46,15 @@ export function CategoryContent({ categories, parentOptions }: CategoryContentPr
   } = useInlineEditTable();
   const router = useRouter();
 
-  // 行内编辑的实体特有字段（parent / sortOrder）
+  // 行内编辑的实体特有字段（parent）
   const [parentId, setParentId] = useState("0");
   const [editParentId, setEditParentId] = useState("0");
-  const [editSortOrder, setEditSortOrder] = useState("0");
 
   const parentById = new Map(parentOptions.map((c) => [c.categoryId, c.categoryName]));
 
   const startEdit = (cat: CategoryItem) => {
     beginEdit({ id: cat.categoryId, name: cat.categoryName, isActive: cat.isActive });
     setEditParentId(cat.parentId && cat.parentId !== "0" ? cat.parentId : "0");
-    setEditSortOrder(String(cat.sortOrder));
   };
 
   const handleSave = (categoryId: string) => {
@@ -70,7 +68,6 @@ export function CategoryContent({ categories, parentOptions }: CategoryContentPr
     fd.set("categoryName", editName.trim());
     fd.set("parentId", editParentId);
     fd.set("isActive", editActive ? "true" : "false");
-    fd.set("sortOrder", editSortOrder.trim());
 
     startTransition(async () => {
       const res = await updateCategory(fd);
@@ -147,18 +144,7 @@ export function CategoryContent({ categories, parentOptions }: CategoryContentPr
                           />
                         </td>
                         <td className="px-2 py-1 text-slate-400 text-[11px] italic">auto</td>
-                        <td className="px-2 py-1">
-                          <input
-                            type="number"
-                            value={editSortOrder}
-                            onChange={(e) => setEditSortOrder(e.target.value)}
-                            className={inputClass}
-                            onKeyDown={(e) => {
-                              if (e.key === "Enter") handleSave(cat.categoryId);
-                              if (e.key === "Escape") cancelEdit();
-                            }}
-                          />
-                        </td>
+                        <td className="px-2 py-1 text-right text-slate-600">{cat.sortOrder}</td>
                         <td className="px-2 py-1">
                           <EditActiveSelect
                             value={editActive}

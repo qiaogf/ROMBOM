@@ -6,9 +6,13 @@ import { SupplierImportPanel } from "./SupplierImportPanel";
 import { PurchaseOrderPanel } from "./PurchaseOrderPanel";
 import { BatchItemsTable } from "./_components/BatchItemsTable";
 import { getBatchDetailViewData, getListData } from "./_data/supplier-import-data";
-import { toStr } from "@/lib/search-params";
 
 export const dynamic = "force-dynamic";
+
+function toStr(value: string | string[] | undefined): string | undefined {
+  if (value === undefined) return undefined;
+  return Array.isArray(value) ? value[0] : value;
+}
 
 export default async function SupplierImportPricePage({
   searchParams,

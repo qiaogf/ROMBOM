@@ -4,7 +4,7 @@
 
 import { prisma } from "@/lib/prisma";
 import { resolveCategoryIdForBrand } from "@/lib/db-service";
-import { slugify, ensureUniqueSlug, invalidateCatalogCache } from "./shared";
+import { slugify, ensureUniqueSlug } from "./shared";
 
 // ── 创建 Series ──
 export async function createSeries(formData: FormData): Promise<{ success: boolean; message: string; seriesId?: string }> {
@@ -45,7 +45,6 @@ export async function createSeries(formData: FormData): Promise<{ success: boole
       update: {},
       create: { categoryId, brandId },
     });
-    await invalidateCatalogCache();
     return { success: true, message: `Series "${seriesName}" created.`, seriesId: s.seriesId };
   } catch (err) {
     const msg = err instanceof Error ? err.message : "Unknown error";
@@ -160,7 +159,6 @@ export async function updateSeries(formData: FormData): Promise<{ success: boole
         });
       }
     });
-    await invalidateCatalogCache();
     return { success: true, message: "Series updated." };
   } catch (err) {
     const msg = err instanceof Error ? err.message : "Unknown error";
@@ -195,7 +193,6 @@ export async function deleteSeries(formData: FormData): Promise<{ success: boole
         });
       }
     });
-    await invalidateCatalogCache();
     return { success: true, message: "Series deleted." };
   } catch (err) {
     const msg = err instanceof Error ? err.message : "Unknown error";

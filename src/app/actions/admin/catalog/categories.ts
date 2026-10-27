@@ -3,7 +3,7 @@
 // Category CRUD server actions.
 
 import { prisma } from "@/lib/prisma";
-import { slugify, ensureUniqueSlug, invalidateCatalogCache } from "./shared";
+import { slugify, ensureUniqueSlug } from "./shared";
 
 // ── 创建 Category ──
 export async function createCategory(formData: FormData): Promise<{ success: boolean; message: string; categoryId?: string }> {
@@ -31,7 +31,6 @@ export async function createCategory(formData: FormData): Promise<{ success: boo
     const cat = await prisma.category.create({
       data: { categoryName, slug, parentId, level, briefDesc, isActive },
     });
-    await invalidateCatalogCache();
     return { success: true, message: `Category "${categoryName}" created.`, categoryId: cat.categoryId };
   } catch (err) {
     const msg = err instanceof Error ? err.message : "Unknown error";
@@ -51,7 +50,11 @@ export async function deleteCategory(formData: FormData): Promise<{ success: boo
       if (childCount > 0) {
         throw new Error(`Cannot delete: ${childCount} sub-category(ies) still exist. Delete or reassign them first.`);
       }
-      // 品牌关联（CategoryBrand）在 schema 中为 onDelete: Cascade → 随类目自动清除，不做拦截
+      // 检查是否有关联品牌
+      const cbCount = await tx.categoryBrand.count({ where: { categoryId } });
+      if (cbCount > 0) {
+        throw new Error(`Cannot delete: ${cbCount} brand(s) are linked to this category. Unlink them first.`);
+      }
       // 检查是否有产品（Product.categoryId 外键 RESTRICT）
       const productCount = await tx.product.count({ where: { categoryId } });
       if (productCount > 0) {
@@ -64,7 +67,6 @@ export async function deleteCategory(formData: FormData): Promise<{ success: boo
       }
       await tx.category.delete({ where: { categoryId } });
     });
-    await invalidateCatalogCache();
     return { success: true, message: "Category deleted." };
   } catch (err) {
     const msg = err instanceof Error ? err.message : "Unknown error";
@@ -78,7 +80,6 @@ export async function updateCategory(formData: FormData): Promise<{ success: boo
   const categoryName = (formData.get("categoryName") as string)?.trim();
   const parentIdRaw = (formData.get("parentId") as string)?.trim();
   const isActiveRaw = (formData.get("isActive") as string)?.trim();
-  const sortOrderRaw = (formData.get("sortOrder") as string)?.trim();
 
   if (!categoryId) return { success: false, message: "Category ID is required." };
 
@@ -92,7 +93,6 @@ export async function updateCategory(formData: FormData): Promise<{ success: boo
       parentId?: string;
       level?: number;
       isActive?: boolean;
-      sortOrder?: number;
     } = {};
 
     // 名称 + slug
@@ -151,19 +151,11 @@ export async function updateCategory(formData: FormData): Promise<{ success: boo
       data.isActive = isActiveRaw === "true";
     }
 
-    // 排序值（整数，可改）
-    if (sortOrderRaw !== undefined && sortOrderRaw !== "") {
-      const n = Number.parseInt(sortOrderRaw, 10);
-      if (!Number.isFinite(n)) return { success: false, message: "Sort order must be a whole number." };
-      if (n !== existing.sortOrder) data.sortOrder = n;
-    }
-
     if (Object.keys(data).length === 0) {
       return { success: true, message: "No changes." };
     }
 
     await prisma.category.update({ where: { categoryId }, data });
-    await invalidateCatalogCache();
     return { success: true, message: "Category updated." };
   } catch (err) {
     const msg = err instanceof Error ? err.message : "Unknown error";

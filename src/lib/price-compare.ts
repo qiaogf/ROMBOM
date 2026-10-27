@@ -39,7 +39,6 @@ export async function runPriceComparison(): Promise<PriceCompareResult> {
     const rows = await prisma.modelPrice.findMany({
       where: {
         sellPrice: { gt: 0 },
-        isActive: true, // 已下架的型号行不参与比价，避免过期价格写进 ListPrice
         importBatch: { approvalStatus: "approved", batchType: "price" },
       },
       select: {
@@ -49,14 +48,7 @@ export async function runPriceComparison(): Promise<PriceCompareResult> {
         condition: true,
         leadTime: true,
         sellPrice: true,
-        brandId: true,
-        series: {
-          select: {
-            seriesName: true,
-            brandId: true,
-            brand: { select: { brandName: true } },
-          },
-        },
+        series: { select: { seriesName: true, brand: { select: { brandName: true } } } },
       },
     });
     if (rows.length === 0) return empty;
@@ -65,11 +57,8 @@ export async function runPriceComparison(): Promise<PriceCompareResult> {
     const norm = (v: string | null | undefined) => (v ?? "").trim().toLowerCase();
     const groupWinners = new Map<string, (typeof rows)[number]>();
     for (const r of rows) {
-      // 品牌以 ModelPrice.brandId 为准（无系列行也有品牌），再退回 series.brandId / 名称
-      const brandKey =
-        r.brandId ?? r.series?.brandId ?? norm(r.series?.brand?.brandName ?? r.brandName);
       const key = [
-        brandKey,
+        norm(r.series?.brand?.brandName ?? r.brandName),
         norm(r.series?.seriesName),
         norm(r.model),
         norm(r.condition),
@@ -80,61 +69,21 @@ export async function runPriceComparison(): Promise<PriceCompareResult> {
       if (!cur || Number(r.sellPrice) < Number(cur.sellPrice)) groupWinners.set(key, r);
     }
 
-    // ── 3. 型号级 ListPrice = 各组优胜价中的最低值（按品牌 + 归一化型号，避免跨品牌串价） ──
-    const modelKey = (brandId: string, model: string | null | undefined) =>
-      `${brandId}|${norm(model)}`;
-    const modelMin = new Map<string, { brandId: string; model: string; price: number }>();
+    // ── 3. 型号级 ListPrice = 各组优胜价中的最低值 ──
+    const modelMin = new Map<string, number>();
     for (const w of groupWinners.values()) {
-      const brandId = w.brandId ?? w.series?.brandId;
-      if (!brandId) continue; // 无品牌归属的行无法定位产品，跳过
-      const key = modelKey(brandId, w.model);
       const p = Number(w.sellPrice);
-      const cur = modelMin.get(key);
-      if (!cur || p < cur.price) {
-        modelMin.set(key, { brandId, model: w.model, price: p });
-      }
+      const cur = modelMin.get(w.model);
+      if (cur === undefined || p < cur) modelMin.set(w.model, p);
     }
 
     // ── 4. 写入 Product.listPrice + 同步有效报价 ──
-    const brandIds = Array.from(new Set(Array.from(modelMin.values()).map((v) => v.brandId)));
-    const productList =
-      brandIds.length > 0
-        ? await prisma.product.findMany({
-            where: { brandId: { in: brandIds } },
-            select: { productId: true, model: true, brandId: true, listPrice: true },
-          })
-        : [];
-
-    // 型号匹配按「品牌 + 归一化型号」索引：大小写/空格差异不再漏匹配，同型号不同品牌不再互相覆盖
-    const productsByKey = new Map<string, typeof productList>();
-    for (const p of productList) {
-      const key = modelKey(p.brandId, p.model);
-      const bucket = productsByKey.get(key);
-      if (bucket) bucket.push(p);
-      else productsByKey.set(key, [p]);
-    }
-
-    const updates: Prisma.PrismaPromise<unknown>[] = [];
-    let listPricesUpdated = 0;
-    const targetByProductId = new Map<string, number>(); // productId → 目标 ListPrice
-
-    for (const [key, winner] of modelMin) {
-      for (const p of productsByKey.get(key) ?? []) {
-        targetByProductId.set(p.productId, winner.price);
-        const current = p.listPrice !== null ? Number(p.listPrice) : null;
-        if (current === null || Math.abs(current - winner.price) > 0.0001) {
-          listPricesUpdated++;
-          updates.push(
-            prisma.product.update({
-              where: { productId: p.productId },
-              data: { listPrice: round4(winner.price) },
-            })
-          );
-        }
-      }
-    }
-
-    const productIds = Array.from(targetByProductId.keys());
+    const models = Array.from(modelMin.keys());
+    const productList = await prisma.product.findMany({
+      where: { model: { in: models } },
+      select: { productId: true, model: true, listPrice: true },
+    });
+    const productIds = productList.map((p) => p.productId);
     const quoteList =
       productIds.length > 0
         ? await prisma.supplierQuote.findMany({
@@ -143,34 +92,42 @@ export async function runPriceComparison(): Promise<PriceCompareResult> {
           })
         : [];
 
+    const minByModel = modelMin; // model → 目标 ListPrice
+    const modelByProductId = new Map(productList.map((p) => [p.productId, p.model]));
+    const updates: Prisma.PrismaPromise<unknown>[] = [];
+    let listPricesUpdated = 0;
     let quotesUpdated = 0;
+
+    for (const p of productList) {
+      const target = minByModel.get(p.model);
+      if (target === undefined) continue;
+      const current = p.listPrice !== null ? Number(p.listPrice) : null;
+      if (current === null || Math.abs(current - target) > 0.0001) {
+        listPricesUpdated++;
+        updates.push(prisma.product.update({ where: { productId: p.productId }, data: { listPrice: round4(target) } }));
+      }
+    }
     for (const q of quoteList) {
       // 报价同步为组内最低（ListPrice 同步到公开表与购物车成交价的唯一通道）
-      const target = targetByProductId.get(q.productId);
+      const target = minByModel.get(modelByProductId.get(q.productId) ?? "");
       if (target === undefined) continue;
       if (Math.abs(Number(q.sellPrice) - target) > 0.0001) {
         quotesUpdated++;
-        updates.push(
-          prisma.supplierQuote.update({
-            where: { quoteId: q.quoteId },
-            data: { sellPrice: round4(target) },
-          })
-        );
+        updates.push(prisma.supplierQuote.update({ where: { quoteId: q.quoteId }, data: { sellPrice: round4(target) } }));
       }
     }
 
     if (updates.length > 0) await prisma.$transaction(updates);
 
-    const distinctModels = new Set(Array.from(modelMin.values()).map((v) => norm(v.model)));
     const result: PriceCompareResult = {
       groups: groupWinners.size,
-      models: distinctModels.size,
+      models: modelMin.size,
       listPricesUpdated,
       quotesUpdated,
       summary:
         listPricesUpdated === 0 && quotesUpdated === 0
-          ? `Compared ${groupWinners.size} groups (${distinctModels.size} models) — all ListPrices up to date.`
-          : `Compared ${groupWinners.size} groups (${distinctModels.size} models) — ${listPricesUpdated} ListPrices updated, ${quotesUpdated} quotes synced.`,
+          ? `Compared ${groupWinners.size} groups (${modelMin.size} models) — all ListPrices up to date.`
+          : `Compared ${groupWinners.size} groups (${modelMin.size} models) — ${listPricesUpdated} ListPrices updated, ${quotesUpdated} quotes synced.`,
     };
 
     // ── 5. 有变更时刷新公开报价页缓存（catalog tag + ISR 路径） ──

@@ -1,4 +1,4 @@
-// PO 明细表（单 PO / 多 PO 共用）：PurOrder / Model / PurPrice / Qty / Condition / Leadtime / Amount
+﻿// PO 明细表（单 PO / 多 PO 共用）：PurOrder / Model / PurPrice / Qty / Condition / Leadtime / Amount
 
 import { OrderItemPriceInput } from "@/app/admin/_components/OrderItemPriceInput";
 import { OrderItemQtyInput } from "@/app/admin/_components/OrderItemQtyInput";

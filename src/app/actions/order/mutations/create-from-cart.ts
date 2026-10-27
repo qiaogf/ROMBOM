@@ -8,7 +8,6 @@ import type { OrderActionResult, OrderWithItems } from "../shared";
 import { toNumber } from "../shared";
 import { generateSalesOrderNumber } from "./create-shared";
 import { isPurchasableLeadtime } from "@/lib/cart-display";
-import { generatePurchaseOrders } from "./create-full-helpers";
 
 /**
  * 从购物车直接创建订单（状态 ordered / 已提交）
@@ -120,24 +119,6 @@ export async function createOrderFromCart(): Promise<OrderActionResult> {
         }),
       });
 
-      // 自动生成采购订单：双报价源比价（管理员价格表优先 + 5工作日供应商报价），草稿状态
-      await generatePurchaseOrders(
-        tx,
-        { orderId: order.orderId, orderNumber: order.orderNumber },
-        cart.items.map((item) => {
-          const mp = item.modelPrice ?? null;
-          const sq = item.supplierQuote ?? null;
-          const product = item.product ?? null;
-          return {
-            productName: mp?.productName ?? product?.productName ?? "",
-            model: mp?.model ?? product?.model ?? null,
-            quantity: item.quantity,
-            productId: item.productId,
-            leadTime: sq?.leadTime ?? mp?.leadTime ?? null,
-          };
-        }),
-      );
-
       // 清空购物车
       await tx.cartItem.deleteMany({ where: { cartId: cart.cartId } });
 
@@ -146,7 +127,7 @@ export async function createOrderFromCart(): Promise<OrderActionResult> {
         message: "Order created",
         order: { ...order, items: [] } as OrderWithItems,
       };
-    }, { timeout: 30000, maxWait: 10000 }) as Promise<OrderActionResult>;
+    }) as Promise<OrderActionResult>;
   } catch (error) {
     console.error("Create order from cart error:", error);
     return { success: false, message: "An error occurred while creating order" };

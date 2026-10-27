@@ -195,3 +195,8 @@ export async function setCustomerRoleCookie() {
     path: "/",
   });
 }
+
+export async function clearRoleCookie() {
+  const cookieStore = await cookies();
+  cookieStore.delete({ name: ROLE_COOKIE, path: "/" });
+}

@@ -1,4 +1,4 @@
-// 订单状态徽标（采购单 / 销售单共用的状态配色与标签）
+﻿// 订单状态徽标（采购单 / 销售单共用的状态配色与标签）
 
 function statusBadgeClass(status: string): string {
   switch (status) {

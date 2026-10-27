@@ -4,9 +4,13 @@ import type { ReactNode } from "react";
 import { ArrowLeft, User, Mail, Phone, MapPin } from "lucide-react";
 import { prisma } from "@/lib/prisma";
 import { AccountActionButtons } from "@/app/admin/_components/AccountActionButtons";
-import { toStr } from "@/lib/search-params";
 
 export const dynamic = "force-dynamic";
+
+function toStr(value: string | string[] | undefined): string | undefined {
+  if (value === undefined) return undefined;
+  return Array.isArray(value) ? value[0] : value;
+}
 
 function empty(): ReactNode {
   return <span className="text-slate-400 italic">—</span>;

@@ -59,8 +59,7 @@ export async function getAllBrandsWithSlug() {
     async () =>
       prisma.brand.findMany({
         where: { isActive: true },
-        // sortOrder 升序优先，同值按名称字母序（与后台列表/分类页一致）
-        orderBy: [{ sortOrder: "asc" }, { brandName: "asc" }],
+        orderBy: { brandName: "asc" },
       }),
     ["sidebar-brands"],
     { tags: ["catalog"], revalidate: 3600 }

@@ -1,6 +1,11 @@
-import type { Product, Category, SupplierQuote } from "@/../prisma/generated/client";
+import type { Product, Category, SupplierQuote, Brand } from "@/../prisma/generated/client";
 
-type SerializableCategory = Omit<Category, "createdAt" | "updatedAt"> & {
+export type SerializableCategory = Omit<Category, "createdAt" | "updatedAt"> & {
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type SerializableBrand = Omit<Brand, "createdAt" | "updatedAt"> & {
   createdAt: string;
   updatedAt: string;
 };
@@ -107,4 +112,30 @@ export function serializeProductWithCategory(
     ...serializeProduct(rest as Product & { supplierQuotes?: SupplierQuote[] }),
     category: category ? serializeCategory(category) : null,
   };
+}
+
+export function serializeProducts(products: (Product & { supplierQuotes?: SupplierQuote[] })[]): SerializableProduct[] {
+  return products.map(serializeProduct);
+}
+
+export function serializeProductsWithCategory(
+  products: (Product & { category?: Category | null; supplierQuotes?: SupplierQuote[] })[]
+): SerializableProductWithCategory[] {
+  return products.map(serializeProductWithCategory);
+}
+
+export function serializeCategories(categories: Category[]): SerializableCategory[] {
+  return categories.map(serializeCategory);
+}
+
+export function serializeBrand(brand: Brand): SerializableBrand {
+  return {
+    ...brand,
+    createdAt: toDateString(brand.createdAt),
+    updatedAt: toDateString(brand.updatedAt),
+  };
+}
+
+export function serializeBrands(brands: Brand[]): SerializableBrand[] {
+  return brands.map(serializeBrand);
 }

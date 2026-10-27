@@ -42,6 +42,18 @@ function cleanupExpiredRecords(): void {
 // 每10分钟清理一次
 setInterval(cleanupExpiredRecords, 10 * 60 * 1000);
 
+// 生成安全的随机字符串
+export function generateSecureRandom(length: number = 32): string {
+  return crypto.randomBytes(length).toString("hex");
+}
+
+// 生成安全的订单号
+export function generateOrderNumber(): string {
+  const timestamp = Date.now().toString(36).toUpperCase();
+  const randomBytes = crypto.randomBytes(6).toString("hex").toUpperCase();
+  return `ORD-${timestamp}-${randomBytes}`;
+}
+
 // 生成唯一幂等键
 export function generateIdempotencyKey(...parts: string[]): string {
   const data = parts.join(":");
@@ -193,4 +205,21 @@ export function sanitizeEmail(email: string): string {
 // 验证ID格式
 export function isValidIdFormat(id: string): boolean {
   return /^[a-zA-Z0-9_-]+$/.test(id) && id.length <= 255;
+}
+
+// 获取客户端IP
+export function getClientIP(headers?: Headers): string {
+  if (!headers) return "unknown";
+  
+  const forwarded = headers.get("x-forwarded-for");
+  if (forwarded) {
+    return forwarded.split(",")[0].trim();
+  }
+  
+  const realIP = headers.get("x-real-ip");
+  if (realIP) {
+    return realIP.trim();
+  }
+  
+  return "unknown";
 }

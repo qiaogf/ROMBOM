@@ -5,13 +5,17 @@ import { ImportFormBase } from "@/components/import/ImportFormBase";
 import { ImportBatchList } from "@/app/admin/_components/ImportBatchList";
 import { ImportBatchDetail } from "@/app/admin/_components/ImportBatchDetail";
 import { getListData, getDetailData } from "./_data/import-price-data";
-import { toStr } from "@/lib/search-params";
 
 export const dynamic = "force-dynamic";
 
-const TEMPLATE_CSV = `Category,Brand,Series,Product,Model,Description,Origin,Certifications,Length,Width,Height,Diameter,Dimension Unit,Weight,Packing Weight,Weight Unit,Battery Attributes,Datasheet Link
-PLC,Siemens,S7-1200,CPU 1214C,6ES7214-1AG40-0XB0,CPU 1214C DC/DC/DC,Germany,CE/UL,110,100,75,,mm,0.5,0.6,kg,,https://example.com/datasheet.pdf
-PLC,Siemens,S7-1500,CPU 1511C,6ES7511-1AK02-0AB0,CPU 1511C PN,Germany,CE/UL,120,95,80,,mm,0.6,0.7,kg,,https://example.com/datasheet2.pdf`;
+const TEMPLATE_CSV = `Brand,Series,Product,Model,Description,Origin,Certifications,Length,Width,Height,Diameter,Dimension Unit,Weight,Packing Weight,Weight Unit,Battery Attributes,Datasheet Link
+Siemens,S7-1200,CPU 1214C,6ES7214-1AG40-0XB0,CPU 1214C DC/DC/DC,Germany,CE/UL,110,100,75,,mm,0.5,0.6,kg,,https://example.com/datasheet.pdf
+Siemens,S7-1500,CPU 1511C,6ES7511-1AK02-0AB0,CPU 1511C PN,Germany,CE/UL,120,95,80,,mm,0.6,0.7,kg,,https://example.com/datasheet2.pdf`;
+
+function toStr(value: string | string[] | undefined): string | undefined {
+  if (value === undefined) return undefined;
+  return Array.isArray(value) ? value[0] : value;
+}
 
 export default async function AdminImportPricePage({
   searchParams,
@@ -52,7 +56,7 @@ export default async function AdminImportPricePage({
             </div>
             <ImportFormBase
               batchType="product_info"
-              subtitle=".xlsx / .xls / .csv · Required: Category, Product, Model · Category must be an existing navigation category (brackets optional); new Brand/Series are auto-created on confirm"
+              subtitle=".xlsx / .xls / .csv · Required: Product, Model · Series column assigns each row"
               seriesOptions={seriesOptions}
             />
           </div>

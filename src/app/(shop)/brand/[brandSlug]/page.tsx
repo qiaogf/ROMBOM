@@ -84,19 +84,12 @@ export default async function BrandPage({ params }: PageProps) {
       ))}
       <div className="h-0.5 bg-amber-400 shrink-0"></div>
       <div className="px-3 sm:px-4 pt-3 pb-8">
-        {/* Breadcrumb + 总 SKU */}
-        <div className="flex items-center justify-between mb-3">
-          <nav className="flex items-center gap-1 text-xs text-slate-500">
-            <Link href="/" className="hover:text-green-700">Home</Link>
-            <ChevronRight className="w-3 h-3" />
-            <span className="text-slate-700 font-medium">{brand.name}</span>
-          </nav>
-          {groups.length > 0 && (
-            <span className="text-[11px] text-slate-500">
-              {groups.reduce((sum, g) => sum + g.seriesGroups.reduce((s, sg) => s + sg.products.length, 0), 0)} SKU
-            </span>
-          )}
-        </div>
+        {/* Breadcrumb */}
+        <nav className="flex items-center gap-1 text-xs text-slate-500 mb-3">
+          <Link href="/" className="hover:text-green-700">Home</Link>
+          <ChevronRight className="w-3 h-3" />
+          <span className="text-slate-700 font-medium">{brand.name}</span>
+        </nav>
 
         {brand.description && (
           <p className="text-xs text-slate-500 mb-3 leading-snug line-clamp-2">{brand.description}</p>

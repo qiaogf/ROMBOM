@@ -1,19 +1,10 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getAdminSession } from "@/lib/auth-admin";
-import {
-  toDecimal,
-  normalizeLeadtime,
-  validateFieldLengths,
-  GENERIC_BRAND_NAME,
-  OTHERS_SERIES_NAME,
-  isSpecialCategoryName,
-} from "@/lib/import-price";
+import { toDecimal, normalizeLeadtime } from "@/lib/import-price";
 import {
   buildHeaderIndex,
   loadActiveSeriesMap,
-  normNavKey,
-  normCategoryKey,
   parseUploadFile,
 } from "@/lib/import-price-upload";
 import { slugify } from "@/lib/db/types";
@@ -69,23 +60,7 @@ export async function POST(request: Request) {
   const batchType: "product_info" | "price" = batchTypeRaw === "price" ? "price" : "product_info";
 
   // 系列解析映射：CSV 若带 Series 列则逐行解析（名称/slug，大小写不敏感），否则回退到表单所选系列
-  // Category 解析映射：Category 列必填且仅允许系统已有启用品类（名称/slug，大小写+空格不敏感）
-  const [seriesMap, navCategories] = await Promise.all([
-    loadActiveSeriesMap(),
-    prisma.category.findMany({
-      where: { isActive: true },
-      select: { categoryId: true, categoryName: true, slug: true },
-    }),
-  ]);
-  const categoryMap = new Map<string, string>();
-  // 归一化品类名 → 原名（规范化回填用）
-  const categoryNamesByKey = new Map<string, string>();
-  for (const c of navCategories) {
-    // 品类键忽略 <>()（）：CSV 写 "Discontinued" 也能匹配导航里的 "<Discontinued>"
-    if (!categoryMap.has(normCategoryKey(c.categoryName))) categoryMap.set(normCategoryKey(c.categoryName), c.categoryId);
-    if (c.slug && !categoryMap.has(c.slug)) categoryMap.set(c.slug, c.categoryId);
-    categoryNamesByKey.set(normCategoryKey(c.categoryName), c.categoryName);
-  }
+  const seriesMap = await loadActiveSeriesMap();
 
   const parsed = await parseUploadFile(file);
   if ("error" in parsed) {
@@ -99,19 +74,19 @@ export async function POST(request: Request) {
     return NextResponse.json({ success: false, message: dupError }, { status: 400 });
   }
 
-  // 管理者导入：必需列为 名称 + 型号 + 品类（产品描述等可选）
-  // price 批次必填：Category + Model + Unit Price（成本价，Cost Price 或 Unit Price 列均可）；product_info 批次必填：Category + Name + Model
+  // 管理者导入：必需列为 名称 + 型号（产品描述等可选）
+  // price 批次必填：Model + Unit Price（成本价，Cost Price 或 Unit Price 列均可）；product_info 批次必填：Name + Model
   const REQUIRED = batchType === "price"
-    ? ["category", "model"]
-    : ["category", "productname", "model"];
+    ? ["model"]
+    : ["productname", "model"];
   const missing = REQUIRED.filter((c) => !(c in idx));
   if (batchType === "price" && !("costprice" in idx) && !("unitprice" in idx)) {
     missing.push("unitprice");
   }
   if (missing.length > 0) {
     const hint = batchType === "price"
-      ? "Required: Category, Model, Price. Optional: Series (existing series name, or a new one to be created on confirm), Brand (optional — rows with a Series but no Brand are auto-assigned to the existing Generic brand), Condition, Lead Time (In stock / Out of stock / lead-time text such as 3-5 days), Markup, Sell Price, MOQ, Stock Status. Category must already exist in the Category navigation; new Brand/Series names are auto-created on confirm. Name lengths: Brand/Series/Product ≤ 15 chars, Description ≤ 150 chars. Legacy headers (Unit Price, Product Condition) are also accepted."
-      : "Required: Category, Name, Model. Optional: Series (existing or new), Brand (optional — a Series without Brand is auto-assigned to the existing Generic brand; Brand without Series lists all models under the brand), Description, Origin, Certifications, Length, Width, Height, Diameter, Dimension Unit, Weight, Packing Weight, Weight Unit, Battery Attributes, Datasheet Link, Unit Price, MOQ, Unit, Stock Status, Lead Time, Cost Price, Product Condition. Category must already exist in the Category navigation; new Brand/Series names are auto-created on confirm. Name lengths: Brand/Series/Product ≤ 15 chars, Description ≤ 150 chars.";
+      ? "Required: Model, Price. Optional: Series (Brand + Series, e.g. Siemens S7-1200), Condition, Lead Time (In stock / Out of stock / lead-time text such as 3-5 days), Markup, Sell Price, MOQ, Stock Status. Legacy headers (Unit Price, Product Condition) are also accepted."
+      : "Required: Name, Model. Optional: Description, Origin, Certifications, Length, Width, Height, Diameter, Dimension Unit, Weight, Packing Weight, Weight Unit, Battery Attributes, Datasheet Link, Brand, Series, Unit Price, MOQ, Unit, Stock Status, Lead Time, Cost Price, Product Condition.";
     return NextResponse.json({
       success: false,
       message: `Missing required column(s): ${missing.join(", ")}. ${hint} Recognized headers from your file: ${rows[0].map((h) => `"${h}"`).join(", ")}.`,
@@ -171,8 +146,7 @@ export async function POST(request: Request) {
     const weightUnit = (row[idx["weightunit"]] ?? "").trim() || null;
     const batteryAttributes = (row[idx["batteryattributes"]] ?? "").trim() || null;
     const datasheetLink = (row[idx["datasheetlink"]] ?? "").trim() || null;
-    let rowBrandName = (row[idx["brandname"]] ?? "").trim() || null;
-    const categoryStr = (row[idx["category"]] ?? "").trim() || null;
+    const brandName = (row[idx["brandname"]] ?? "").trim() || null;
     const length = lengthRaw ? toDecimal(lengthRaw) : null;
     const width = widthRaw ? toDecimal(widthRaw) : null;
     const height = heightRaw ? toDecimal(heightRaw) : null;
@@ -190,57 +164,22 @@ export async function POST(request: Request) {
       continue;
     }
 
-    // Category 列必填：必须是导航内已存在类目（大小写/空格不敏感），空值/不存在都无法上线
-    if (!categoryStr) {
-      failureCount++;
-      errors.push({ row: rowNumber, message: "Category is required. Use an existing category name from the Category navigation." });
-      continue;
-    }
-    if (!categoryMap.has(normCategoryKey(categoryStr))) {
-      failureCount++;
-      errors.push({ row: rowNumber, message: `Category "${categoryStr}" not found in the system. Please use an existing category name from the Category navigation.` });
-      continue;
-    }
-    // 统一规范化为导航原名（如 " p l c " → "PLC"），保证暂存数据与导航一致
-    const effectiveCategory = categoryNamesByKey.get(normCategoryKey(categoryStr)) ?? categoryStr;
-    const specialCategory = isSpecialCategoryName(effectiveCategory);
-
-    // 两种类目的分支规则：
-    // 特殊类目（导航名含 <>/( )）：
-    //   - Series 列一律忽略（有值/空值都不导入、不建系列），行统一归到「该品牌在本类目的固定系列」（系列名 = 品牌名）
-    //   - 无 Brand → Generic + (Others)，页面末尾统一展示
-    // 普通类目：
-    //   - Series 必填；已存在系列直接归属，不存在则暂存新建
-    //   - Series 有值 + Brand 空 → 自动填充已有 Generic 品牌
+    // CSV Series 列解析：填了但不存在 → 报错；未填 → 回退表单所选系列
     let rowSeriesId: string | null = null;
-    let stagedSeriesName: string | null = null;
-    if (specialCategory) {
-      // 特殊类目：Series 列一律忽略，不暂存系列；只按品牌归属（Brand 空 → Generic）
-      if (!rowBrandName) rowBrandName = GENERIC_BRAND_NAME;
-    } else if (!seriesStr) {
-      failureCount++;
-      errors.push({ row: rowNumber, message: `Series is required for normal category "${effectiveCategory}". Only special categories (name contains <>/()) may leave Series empty.` });
-      continue;
-    } else {
-      rowSeriesId = seriesMap.get(normNavKey(seriesStr)) ?? null;
+    if (seriesStr) {
+      // 折叠多余空白，兼容 "Siemens  S7-1200" 这类手误
+      const seriesKey = seriesStr.toLowerCase().replace(/\s+/g, " ").trim();
+      rowSeriesId = seriesMap.get(seriesKey) ?? null;
       if (!rowSeriesId) {
-        stagedSeriesName = seriesStr;
-        if (!rowBrandName) rowBrandName = GENERIC_BRAND_NAME;
+        failureCount++;
+        errors.push({ row: rowNumber, message: `Series "${seriesStr}" not found in the system. Please use "Brand Series" (e.g. Siemens S7-1200), an existing series name or slug, or leave the column empty to use the selected series.` });
+        continue;
       }
     }
-    const itemSeriesId = rowSeriesId;
-
-    // 字段长度上限：Brand/Series/Product ≤ 15 字符、Description ≤ 150 字符
-    // （仅校验将写入/新建的名称；匹配到系统已有系列的行不校验 Series 长度）
-    const lengthError = validateFieldLengths({
-      brandname: rowBrandName,
-      series: stagedSeriesName,
-      productname: finalProductName,
-      description,
-    });
-    if (lengthError) {
+    const itemSeriesId = rowSeriesId ?? targetSeries?.seriesId ?? null;
+    if (!itemSeriesId) {
       failureCount++;
-      errors.push({ row: rowNumber, message: lengthError });
+      errors.push({ row: rowNumber, message: "No series specified. Please fill the Series column in the CSV or select a series before uploading." });
       continue;
     }
 
@@ -308,8 +247,6 @@ export async function POST(request: Request) {
           importBatchId: batch.importBatchId,
           rowNumber,
           seriesId: itemSeriesId,
-          seriesName: stagedSeriesName,
-          categoryName: effectiveCategory,
           productName: finalProductName,
           model,
           slug,
@@ -326,7 +263,7 @@ export async function POST(request: Request) {
           weightUnit,
           batteryAttributes,
           datasheetLink,
-          brandName: rowBrandName,
+          brandName,
           unit,
           costPrice: costPrice ?? 0,
           sellPrice: sellPrice ?? 0,

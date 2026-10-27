@@ -1,11 +1,10 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getSupplierSession } from "@/lib/auth-admin";
-import { toDecimal, normalizeLeadtime, validateFieldLengths } from "@/lib/import-price";
+import { toDecimal, normalizeLeadtime } from "@/lib/import-price";
 import {
   buildHeaderIndex,
   loadActiveSeriesMap,
-  normNavKey,
   parseUploadFile,
 } from "@/lib/import-price-upload";
 import { slugify } from "@/lib/db/types";
@@ -145,7 +144,8 @@ export async function POST(request: Request) {
       if (!seriesStr) {
         throw new Error('Column "Series" is empty. Each row must specify an existing series name.');
       }
-      const rowSeriesId = seriesMap.get(normNavKey(seriesStr));
+      const seriesKey = seriesStr.toLowerCase().replace(/\s+/g, " ").trim();
+      const rowSeriesId = seriesMap.get(seriesKey);
       if (!rowSeriesId) {
         throw new Error(`Series "${seriesStr}" not found in the system. Please use "Brand Series" (e.g. Siemens S7-1200), a series name, or a slug.`);
       }
@@ -153,12 +153,6 @@ export async function POST(request: Request) {
         throw new Error("Model is required.");
       }
       const effectiveProductName = productName || model; // 新模板无 Name 列，Name 回退为 Model
-      // 字段长度上限：Product ≤ 15 字符、Description ≤ 150 字符（Brand/Series 均匹配系统已有条目，无需校验）
-      const lengthError = validateFieldLengths({
-        productname: effectiveProductName,
-        description,
-      });
-      if (lengthError) throw new Error(lengthError);
       const sellPrice = toDecimal(sellPriceStr);
       const costPrice = toDecimal(costPriceStr);
       const markup = markupStr ? toDecimal(markupStr) : null;

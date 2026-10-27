@@ -1,6 +1,5 @@
 // Product search — keyword search by model/series, returns grouped SeriesGroup[].
 
-import { unstable_cache } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import type { Product, SeriesGroup } from "../types";
 import { slugify, toNumber } from "../types";
@@ -8,23 +7,12 @@ import { slugify, toNumber } from "../types";
 /**
  * 按型号(model)或系列(series)关键词搜索产品，返回按系列分组的 SeriesGroup[]
  * 用于全局搜索条 → /search?q=xxx 页面渲染价格表
- * Data Cache：tags catalog + 1h 兜底（与目录/品牌/类目页同一失效链路）
  */
 export async function searchProductsByModelOrSeries(
   query: string
 ): Promise<SeriesGroup[]> {
   const trimmed = query.trim();
   if (!trimmed) return [];
-
-  const cached = unstable_cache(
-    async (q: string): Promise<SeriesGroup[]> => searchUncached(q),
-    ["product-search", trimmed],
-    { tags: ["catalog"], revalidate: 3600 }
-  );
-  return cached(trimmed);
-}
-
-async function searchUncached(trimmed: string): Promise<SeriesGroup[]> {
 
   const products = await prisma.product.findMany({
     where: {

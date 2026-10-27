@@ -157,10 +157,6 @@ export function Sidebar({ categories, brands }: SidebarProps) {
   };
 
   // ============ 渲染品牌 ============
-  // Generic 品牌（导入时 Brand 缺失的自动归属）在导航中显示为 <Generic>，数据库列名仍是 Generic
-  const displayBrandName = (name: string) =>
-    name.trim().toLowerCase() === "generic" ? "<Generic>" : name;
-
   const renderBrands = () => {
     if (brands.length === 0) {
       return (
@@ -181,9 +177,9 @@ export function Sidebar({ categories, brands }: SidebarProps) {
               ? "bg-amber-400/25 border-l-4 border-amber-500 text-amber-800 font-bold"
               : "border-l-4 border-transparent text-slate-700 hover:bg-slate-100 hover:text-slate-900"
           } text-[14px] sm:text-[13px]`}
-          title={displayBrandName(brand.brandName)}
+          title={brand.brandName}
         >
-          {displayBrandName(brand.brandName)}
+          {brand.brandName}
         </button>
       );
     });

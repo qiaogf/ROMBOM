@@ -7,11 +7,6 @@ import type { Prisma } from "@/../prisma/generated/client";
 import type { StandardPriceSeriesGroup } from "@/app/admin/_components/StandardPriceTable";
 import { assembleBatchListRows, loadSeriesMapByIds } from "@/lib/import-batch-rows";
 
-// 最低成本归组键：有系列按 seriesId，无系列（特殊类目）按品牌归属
-const costNorm = (v: string | null | undefined) => (v ?? "").trim().toLowerCase();
-const costKey = (seriesId: string | null, brandKey: string, model: string) =>
-  seriesId ? `s:${seriesId}:${model}` : `b:${brandKey}:${model}`;
-
 // ============ 批次详情视图 ============
 
 /**
@@ -120,28 +115,16 @@ export async function getStandardPriceGroups(): Promise<StandardPriceSeriesGroup
       moq: true,
       condition: true,
       leadTime: true,
-      brandId: true,
-      brandName: true,
-      brand: { select: { brandName: true } },
       series: { select: { seriesId: true, seriesName: true, brand: { select: { brandName: true } } } },
     },
   });
-  // 已确认文件(approved 价格批次)的同组最低成本：有系列按 seriesId 归组，
-  // 无系列行（特殊类目）按品牌归属归组，避免这些行的「最低确认成本」恒为空
-  const [confirmedItems, brands] = await Promise.all([
-    prisma.importBatchItem.findMany({
-      where: { importBatch: { approvalStatus: "approved", batchType: "price" } },
-      select: { seriesId: true, model: true, costPrice: true, brandName: true },
-    }),
-    prisma.brand.findMany({ select: { brandId: true, brandName: true } }),
-  ]);
-  const brandIdByName = new Map(brands.map((b) => [costNorm(b.brandName), b.brandId]));
+  const confirmedItems = await prisma.importBatchItem.findMany({
+    where: { importBatch: { approvalStatus: "approved", batchType: "price" }, seriesId: { not: null } },
+    select: { seriesId: true, model: true, costPrice: true },
+  });
   const minCostMap = new Map<string, number>();
   for (const it of confirmedItems) {
-    const brandKey = it.seriesId
-      ? ""
-      : (brandIdByName.get(costNorm(it.brandName)) ?? `name:${costNorm(it.brandName)}`);
-    const key = costKey(it.seriesId, brandKey, it.model);
+    const key = `${it.seriesId}:${it.model}`;
     const cost = Number(it.costPrice);
     const prev = minCostMap.get(key);
     if (prev === undefined || cost < prev) minCostMap.set(key, cost);
@@ -149,20 +132,11 @@ export async function getStandardPriceGroups(): Promise<StandardPriceSeriesGroup
 
   const sgMap = new Map<string, StandardPriceSeriesGroup>();
   for (const mp of allModelPrices) {
-    // 无系列行（特殊类目）按品牌归为一组
-    const sid = mp.series?.seriesId ?? `brand:${mp.brandId ?? "unknown"}`;
+    const sid = mp.series.seriesId;
     if (!sgMap.has(sid)) {
-      sgMap.set(sid, {
-        seriesId: sid,
-        seriesName: mp.series?.seriesName ?? "",
-        brandName: mp.brand?.brandName ?? mp.series?.brand?.brandName ?? "",
-        items: [],
-      });
+      sgMap.set(sid, { seriesId: sid, seriesName: mp.series.seriesName, brandName: mp.series.brand.brandName, items: [] });
     }
-    const brandKey = mp.series?.seriesId
-      ? ""
-      : (mp.brandId ?? `name:${costNorm(mp.brandName)}`);
-    const minCost = minCostMap.get(costKey(mp.series?.seriesId ?? null, brandKey, mp.model));
+    const minCost = minCostMap.get(`${sid}:${mp.model}`);
     sgMap.get(sid)!.items.push({
       modelPriceId: mp.modelPriceId,
       model: mp.model,

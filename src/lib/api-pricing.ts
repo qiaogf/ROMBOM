@@ -118,7 +118,6 @@ export async function queryApiPrices(
       costPrice: true,
       condition: true,
       leadTime: true,
-      brand: { select: { brandName: true } },
       series: { select: { brand: { select: { brandName: true } } } },
     },
   });
@@ -138,8 +137,7 @@ export async function queryApiPrices(
     const key = `${item.model}\u0000${conditionKey}\u0000${leadTimeKey}`;
     const cost = Number(item.costPrice);
     const existing = groups.get(key);
-    const brandName =
-      (item.brand?.brandName ?? item.series?.brand?.brandName)?.trim() || null;
+    const brandName = item.series?.brand?.brandName?.trim() || null;
     if (!existing || cost < existing.minCost) {
       groups.set(key, {
         brand: brandName,

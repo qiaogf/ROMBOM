@@ -31,14 +31,12 @@ export function BrandContent({ brands }: BrandContentProps) {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editName, setEditName] = useState("");
   const [editActive, setEditActive] = useState(true);
-  const [editSortOrder, setEditSortOrder] = useState("0");
 
   const startEdit = (brand: BrandItem) => {
     setError("");
     setEditingId(brand.brandId);
     setEditName(brand.brandName);
     setEditActive(brand.isActive);
-    setEditSortOrder(String(brand.sortOrder));
   };
 
   const cancelEdit = () => {
@@ -56,7 +54,6 @@ export function BrandContent({ brands }: BrandContentProps) {
     fd.set("brandId", brandId);
     fd.set("brandName", editName.trim());
     fd.set("isActive", editActive ? "true" : "false");
-    fd.set("sortOrder", editSortOrder.trim());
 
     startTransition(async () => {
       const res = await updateBrand(fd);
@@ -137,18 +134,7 @@ export function BrandContent({ brands }: BrandContentProps) {
                           />
                         </td>
                         <td className="px-1.5 py-0.5 text-slate-400 text-[11px] italic">auto</td>
-                        <td className="px-1.5 py-0.5">
-                          <input
-                            type="number"
-                            value={editSortOrder}
-                            onChange={(e) => setEditSortOrder(e.target.value)}
-                            className={inputClass}
-                            onKeyDown={(e) => {
-                              if (e.key === "Enter") handleSave(brand.brandId);
-                              if (e.key === "Escape") cancelEdit();
-                            }}
-                          />
-                        </td>
+                        <td className="px-1.5 py-0.5 text-left text-slate-600">{brand.sortOrder}</td>
                         <td className="px-1.5 py-0.5">
                           <select
                             value={editActive ? "true" : "false"}
