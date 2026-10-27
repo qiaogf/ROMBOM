@@ -8,7 +8,7 @@ import { login } from "@/app/actions/authActions";
 function CustomerLoginInner() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const redirect = searchParams.get("redirect") || "/customer/dashboard";
+  const redirect = searchParams.get("redirect") || "/cart";
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");

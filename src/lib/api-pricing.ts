@@ -2,7 +2,7 @@
  * 客户 API 价格查询内核
  *
  * 业务口径：
- *  - 「通过的价格」= ModelPrice.status = on_sale 且 isActive = true，且排除缺货（stockStatus = out_of_stock）
+ *  - 「通过的价格」= ModelPrice.status = on_sale 且 isActive = true，且排除缺货（leadTime = "Out of Stock"；空值视同现货）
  *  - 同货况（condition）同货期（leadTime）下，同一型号取最低 costPrice（多供应商比价选最优）
  *  - API 价 = round2(最优成本价 × (1 + markupRatePercent / 100))；加成率 ≤ 0 时不加价
  *  - 授权范围 = Series.seriesId 白名单；空数组 = 全部品牌系列
@@ -26,7 +26,7 @@ export interface ApiPriceRow {
 export interface QueryApiPricesParams {
   /** 授权可见的 seriesId 白名单；空数组 = 全部 */
   seriesWhitelist: string[];
-  /** 型号查询词（模糊 contains）；null/空 = 不按型号过滤 */
+  /** 型号查询词，支持逗号分隔多个型号（每个模糊 contains，任一匹配）；null/空 = 不按型号过滤 */
   modelQuery: string | null;
   /** 客户加成率（百分数，如 15 表示 +15%） */
   markupRatePercent: number;
@@ -61,18 +61,27 @@ export async function queryApiPrices(
   const limit = Math.min(Math.max(Math.trunc(params.limit) || 1, 1), MAX_PAGE_SIZE);
   const offset = Math.max(Math.trunc(params.offset) || 0, 0);
   const markup = Number.isFinite(params.markupRatePercent) ? params.markupRatePercent : 0;
-  const modelQuery = params.modelQuery?.trim() || null;
+  // 型号查询词：逗号分隔多型号，空词剔除
+  const modelTerms = params.modelQuery
+    ? params.modelQuery.split(",").map((t) => t.trim()).filter(Boolean)
+    : [];
 
-  const where: Prisma.ModelPriceWhereInput = {
+  // 基础过滤（不含型号条件），明细查询复用
+  // 缺货排除：导入归一化后缺货行恒为 "Out of Stock"；null 视同现货，需 OR null 避免被 NOT 排除
+  const baseWhere: Prisma.ModelPriceWhereInput = {
     status: "on_sale",
     isActive: true,
-    stockStatus: { not: "out_of_stock" },
+    OR: [{ leadTime: null }, { leadTime: { not: "Out of Stock" } }],
   };
   if (params.seriesWhitelist.length > 0) {
-    where.seriesId = { in: params.seriesWhitelist };
+    baseWhere.seriesId = { in: params.seriesWhitelist };
   }
-  if (modelQuery) {
-    where.model = { contains: modelQuery };
+
+  const where: Prisma.ModelPriceWhereInput = { ...baseWhere };
+  if (modelTerms.length === 1) {
+    where.model = { contains: modelTerms[0] };
+  } else if (modelTerms.length > 1) {
+    where.OR = modelTerms.map((term) => ({ model: { contains: term } }));
   }
 
   // ① 取匹配的去重型号列表（型号为分页单位）
@@ -83,13 +92,13 @@ export async function queryApiPrices(
     orderBy: { model: "asc" },
   });
 
-  // ② 精确匹配排最前，其余保持字母序
+  // ② 精确匹配（任一查询词）排最前，其余保持字母序
   const allModels = distinctModels.map((m) => m.model);
-  if (modelQuery) {
-    const q = modelQuery.toLowerCase();
+  if (modelTerms.length > 0) {
+    const terms = modelTerms.map((t) => t.toLowerCase());
     allModels.sort((a, b) => {
-      const aExact = a.trim().toLowerCase() === q ? 0 : 1;
-      const bExact = b.trim().toLowerCase() === q ? 0 : 1;
+      const aExact = terms.includes(a.trim().toLowerCase()) ? 0 : 1;
+      const bExact = terms.includes(b.trim().toLowerCase()) ? 0 : 1;
       return aExact - bExact;
     });
   }
@@ -101,14 +110,15 @@ export async function queryApiPrices(
     return { total, limit, offset, rows: [] };
   }
 
-  // ③ 取本页型号的全部通过价明细（含品牌名：series.brand.brandName）
+  // ③ 取本页型号的全部通过价明细（含品牌名：series.brand.brandName）；基础过滤 + 型号白名单，无需 OR
   const items = await prisma.modelPrice.findMany({
-    where: { ...where, model: { in: pageModels } },
+    where: { ...baseWhere, model: { in: pageModels } },
     select: {
       model: true,
       costPrice: true,
       condition: true,
       leadTime: true,
+      brand: { select: { brandName: true } },
       series: { select: { brand: { select: { brandName: true } } } },
     },
   });
@@ -128,7 +138,8 @@ export async function queryApiPrices(
     const key = `${item.model}\u0000${conditionKey}\u0000${leadTimeKey}`;
     const cost = Number(item.costPrice);
     const existing = groups.get(key);
-    const brandName = item.series?.brand?.brandName?.trim() || null;
+    const brandName =
+      (item.brand?.brandName ?? item.series?.brand?.brandName)?.trim() || null;
     if (!existing || cost < existing.minCost) {
       groups.set(key, {
         brand: brandName,

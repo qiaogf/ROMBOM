@@ -11,7 +11,7 @@ interface LoginModalProps {
   onClose: () => void;
   /** 登录成功回调（父组件负责刷新页面与购物车） */
   onLoggedIn: () => void;
-  /** 初始视图，用于 /account/login、/account/register 直接以弹窗形式呈现 */
+  /** 初始视图（login/register），用于页面内直接以指定视图打开弹窗 */
   initialView?: AuthView;
 }
 

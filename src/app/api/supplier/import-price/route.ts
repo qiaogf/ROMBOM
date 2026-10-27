@@ -1,33 +1,24 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getSupplierSession } from "@/lib/auth-admin";
-import type { StockStatus } from "@/../prisma/generated/client";
-import { toDecimal } from "@/lib/import-price";
+import { toDecimal, normalizeLeadtime, validateFieldLengths } from "@/lib/import-price";
 import {
   buildHeaderIndex,
   loadActiveSeriesMap,
+  normNavKey,
   parseUploadFile,
 } from "@/lib/import-price-upload";
 import { slugify } from "@/lib/db/types";
 
 export const dynamic = "force-dynamic";
 
-const VALID_STOCK_STATUSES = ["in_stock", "lead_time", "out_of_stock"];
-
-// 用户要求的列：Series、Model、Unit Price、MOQ、Product Condition、Stock Status、Lead Time
+// 用户要求的列：Series、Model、Unit Price、MOQ、Product Condition、Lead Time
 // Unit Price = Cost Price（供应商报价）；Sell Price 初始等于 Cost Price，由管理员 Markup 加价后生成
-// 兼容旧模板：productname / costprice / sellprice / unit / description 列可存在（缺 Name 时 Product Name 取 Model）
+// 兼容旧模板：productname / costprice / sellprice / unit / description 列可存在（缺 Name 列时 Name 回退取 Model）
 // 列名大小写不敏感
-
-function validateStockStatus(raw: string): StockStatus {
-  const v = raw.trim().toLowerCase();
-  if (VALID_STOCK_STATUSES.includes(v)) return v as StockStatus;
-  // 中文映射
-  if (v.includes("现货") || v.includes("stock")) return "in_stock";
-  if (v.includes("货期") || v.includes("lead")) return "lead_time";
-  if (v.includes("缺货") || v.includes("out")) return "out_of_stock";
-  throw new Error(`Invalid stock status: ${raw}. Must be one of in_stock, lead_time, out_of_stock.`);
-}
+// 新模板（与 Admin Price 模板一致）：Brand, Series, Model, Price, Condition, Leadtime
+//   - Price → unitprice（canonical 别名已含 "price"）
+//   - 无 MOQ 列时默认 1；Leadtime 列经 normalizeLeadtime 归一化为单一 leadTime
 
 export async function POST(request: Request) {
   const session = await getSupplierSession();
@@ -77,13 +68,15 @@ export async function POST(request: Request) {
     );
   }
 
-  const REQUIRED = ["series", "model", "unitprice", "moq", "stockstatus"];
+  // 新模板仅要求 Series/Model/Price；MOQ 缺省 1，Leadtime 列归一化写入
+  const REQUIRED = ["series", "model", "unitprice"];
+
   const missing = REQUIRED.filter((c) => !(c in idx));
   if (missing.length > 0) {
     return NextResponse.json(
       {
         success: false,
-        message: `Missing required column(s): ${missing.join(", ")}. Required: Series, Model, Unit Price, MOQ, Stock Status. Recognized headers from your file: ${rows[0].map((h) => `"${h}"`).join(", ")}.`,
+        message: `Missing required column(s): ${missing.join(", ")}. Required: Series, Model, Price. Recognized headers from your file: ${rows[0].map((h) => `"${h}"`).join(", ")}.`,
       },
       { status: 400 },
     );
@@ -118,13 +111,13 @@ export async function POST(request: Request) {
     const seriesStr = (row[idx["series"]] ?? "").trim();
     const productName = (row[idx["productname"]] ?? "").trim();
     const model = (row[idx["model"]] ?? "").trim();
-    const stockStatusStr = (row[idx["stockstatus"]] ?? "").trim();
     const condition = (row[idx["condition"]] ?? "").trim() || null;
     const costPriceStr = (row[idx["costprice"]] ?? "").trim() || (row[idx["unitprice"]] ?? "").trim();
     const sellPriceStr = (row[idx["sellprice"]] ?? "").trim() || costPriceStr;
     const markupStr = (row[idx["markup"]] ?? "").trim();
     const moqStr = (row[idx["moq"]] ?? "").trim();
-    const leadTime = (row[idx["leadtime"]] ?? "").trim() || null;
+    // Leadtime 归一化为单一字段：空 → "In Stock"；缺货/现货关键词 → 标准文案；否则保留原文
+    const leadTime = normalizeLeadtime(row[idx["leadtime"]]);
     const unit = (row[idx["unit"]] ?? "").trim() || "pcs";
     const description = (row[idx["description"]] ?? "").trim() || null;
     const origin = (row[idx["origin"]] ?? "").trim() || null;
@@ -152,15 +145,20 @@ export async function POST(request: Request) {
       if (!seriesStr) {
         throw new Error('Column "Series" is empty. Each row must specify an existing series name.');
       }
-      const seriesKey = seriesStr.toLowerCase().replace(/\s+/g, " ").trim();
-      const rowSeriesId = seriesMap.get(seriesKey);
+      const rowSeriesId = seriesMap.get(normNavKey(seriesStr));
       if (!rowSeriesId) {
         throw new Error(`Series "${seriesStr}" not found in the system. Please use "Brand Series" (e.g. Siemens S7-1200), a series name, or a slug.`);
       }
       if (!model) {
         throw new Error("Model is required.");
       }
-      const effectiveProductName = productName || model; // 新模板无 Name 列，Product Name 回退为 Model
+      const effectiveProductName = productName || model; // 新模板无 Name 列，Name 回退为 Model
+      // 字段长度上限：Product ≤ 15 字符、Description ≤ 150 字符（Brand/Series 均匹配系统已有条目，无需校验）
+      const lengthError = validateFieldLengths({
+        productname: effectiveProductName,
+        description,
+      });
+      if (lengthError) throw new Error(lengthError);
       const sellPrice = toDecimal(sellPriceStr);
       const costPrice = toDecimal(costPriceStr);
       const markup = markupStr ? toDecimal(markupStr) : null;
@@ -191,7 +189,6 @@ export async function POST(request: Request) {
         const [header, raw] = badNum;
         throw new Error(`Column "${header}" contains "${raw}" which is not a valid number. Please fix the value or check the header row (Row 1).`);
       }
-      const stockStatus = validateStockStatus(stockStatusStr);
       const modelSlug = slugify(model);
       if (!modelSlug) throw new Error(`Could not derive slug from model: ${model}`);
 
@@ -229,7 +226,6 @@ export async function POST(request: Request) {
           markup,
           moq,
           condition,
-          stockStatus,
           leadTime,
         },
       });

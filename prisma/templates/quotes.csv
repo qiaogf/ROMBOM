@@ -1,0 +1,19 @@
+productName,supplierName,costPrice,sellPrice,moq,stockStatus,leadTime,validUntil,isDefault
+iPhone 15 Pro Max,Apple Official,899.00,1199.00,10,in_stock,3-5 days,,true
+iPhone 15 Pro Max,Foxconn Distribution,850.00,1150.00,50,lead_time,7-14 days,2025-12-31,false
+MacBook Pro 14,Apple Official,1499.00,1899.00,5,in_stock,3-5 days,,true
+MacBook Pro 14,Foxconn Distribution,1450.00,1850.00,20,in_stock,5-7 days,2025-12-31,false
+Galaxy S24 Ultra,Samsung Official,799.00,1099.00,10,in_stock,3-5 days,,true
+WH-1000XM5,Sony Official,249.00,349.00,20,in_stock,3-5 days,,true
+WH-1000XM5,Audio Trade Ltd,220.00,319.00,100,lead_time,7-10 days,2025-12-31,false
+ThinkPad X1 Carbon,Lenovo Official,1299.00,1699.00,5,in_stock,5-7 days,,true
+Nike Air Max 270,Nike Wholesale,89.00,149.00,100,in_stock,3-5 days,,true
+Adidas Ultraboost 22,Adidas Wholesale,119.00,189.00,100,in_stock,3-5 days,,true
+Amino Acid Cleanser,L'Oreal Trade,8.50,19.99,500,in_stock,5-7 days,,true
+Hyaluronic Acid Serum,L'Oreal Trade,18.00,35.99,300,in_stock,5-7 days,,true
+Bose QuietComfort 45,Bose Official,199.00,299.00,15,in_stock,3-5 days,,true
+DSLR Camera α7 IV,Sony Official,2299.00,2899.00,3,in_stock,5-7 days,,true
+Xiaomi Mi Band 8 Pro,Xiaomi Official,29.00,59.99,200,in_stock,3-5 days,,true
+Instant Pot Duo 7-in-1,Instant Pot Inc,59.00,99.99,50,in_stock,5-7 days,,true
+Bosch Tassimo My Way,Bosch Home,89.00,149.00,30,lead_time,7-10 days,2025-12-31,false
+Fleece Blanket,Uniqlo Trading,12.00,29.99,200,out_of_stock,,2025-12-31,false

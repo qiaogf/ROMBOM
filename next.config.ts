@@ -47,6 +47,13 @@ const nextConfig: NextConfig = {
       },
     ],
   },
+  async rewrites() {
+    return [
+      // ngrok 免费版警告页 JS 在手机上可能将 /api-tester.html 改写为 /api-tester（丢 .html）
+      // 用 rewrite 在服务端直接映射，避免 307 重定向在手机上二次失败
+      { source: "/api-tester", destination: "/api-tester.html" },
+    ];
+  },
   async headers() {
     return [
       {

@@ -5,11 +5,15 @@
  * 左侧大区：明细表（型号 / 单价 / 数量可编辑 / 小计 / 删除）+ 底部总金额
  * 右侧小区：Specifications 规格表
  * Phase 20: 状态机移至 useCartPageActions，左右面板拆分为子组件。
+ * 2026-10-20: 游客（未登录）购物车 — 渲染 provider 的 localStorage 条目，
+ * 界面与登录用户完全一致；Submit Order 走登录弹窗。
  */
+import { useMemo } from "react";
 import Link from "next/link";
 import { ShoppingCart, ArrowRight } from "lucide-react";
 import { LoginModal } from "@/components/layout/LoginModal";
 import type { CartWithItems } from "@/app/actions/cartActions";
+import { useCart } from "@/components/cart/CartProvider";
 import { useCartPageActions } from "./_components/useCartPageActions";
 import { CartItemsPanel } from "./_components/CartItemsPanel";
 import { CartSpecsPanel } from "./_components/CartSpecsPanel";
@@ -20,7 +24,23 @@ interface CartContentProps {
 }
 
 export function CartContent({ cart, isLoggedIn }: CartContentProps) {
-  const actions = useCartPageActions(cart);
+  const { guestItems } = useCart();
+
+  // 游客：把 provider 的本地伪条目组装成 CartWithItems 鸭子类型，
+  // 渲染与操作链路（CartItemsPanel/CartSpecsPanel/toCartItemDisplay）零改动复用
+  const effectiveCart = useMemo<CartWithItems | null>(() => {
+    if (isLoggedIn) return cart;
+    if (guestItems.length === 0) return null;
+    return {
+      cartId: "guest-cart",
+      customerId: "guest",
+      items: guestItems,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    } as unknown as CartWithItems;
+  }, [cart, guestItems, isLoggedIn]);
+
+  const actions = useCartPageActions(effectiveCart);
   const { cartState, error, showLogin, setShowLogin, handleLoggedIn } = actions;
 
   const items = cartState?.items ?? [];

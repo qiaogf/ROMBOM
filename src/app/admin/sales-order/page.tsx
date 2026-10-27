@@ -1,41 +1,13 @@
 import Link from "next/link";
 import { AuditActionButtons } from "../_components/AuditActionButtons";
+import { OrderItemPriceInput } from "../_components/OrderItemPriceInput";
+import { OrderItemQtyInput } from "../_components/OrderItemQtyInput";
 import { formatUSDSafe } from "@/lib/format";
 import { getSalesOrderList, getSalesOrderDetail } from "./_data/sales-order-data";
+import { toStr } from "@/lib/search-params";
+import { StatusBadge } from "../_components/StatusBadge";
 
 export const dynamic = "force-dynamic";
-
-function toStr(value: string | string[] | undefined): string | undefined {
-  if (value === undefined) return undefined;
-  return Array.isArray(value) ? value[0] : value;
-}
-
-function statusBadgeClass(status: string): string {
-  switch (status) {
-    case "ordered":
-      return "bg-amber-50 text-amber-700";
-    case "paid":
-      return "bg-blue-50 text-blue-700";
-    case "shipped":
-      return "bg-purple-50 text-purple-700";
-    case "received":
-      return "bg-emerald-50 text-emerald-700";
-    default:
-      return "bg-slate-100 text-slate-600";
-  }
-}
-
-function StatusBadge({ status }: { status: string | null | undefined }) {
-  const label = status ? status.replace(/_/g, " ") : "—";
-  const cls = status ? statusBadgeClass(status) : "bg-slate-100 text-slate-500";
-  return (
-    <span
-      className={`inline-flex items-center px-1.5 py-0.5 text-[10px] rounded capitalize ${cls}`}
-    >
-      {label}
-    </span>
-  );
-}
 
 function customerLabel(c: {
   firstName: string | null;
@@ -83,7 +55,7 @@ export default async function SalesOrderListPage({
                 <thead className="bg-slate-50 text-slate-500 text-[10px] uppercase tracking-wide">
                   <tr>
                     <th className="px-1.5 py-0.5 text-left">Customer</th>
-                    <th className="px-1.5 py-0.5 text-left">Sales Order</th>
+                    <th className="px-1.5 py-0.5 text-left">SalesOrder</th>
                     <th className="px-1.5 py-0.5 text-left">Total</th>
                     <th className="px-1.5 py-0.5 text-left">Status</th>
                     <th className="px-1.5 py-0.5 text-left">Audit</th>
@@ -158,70 +130,92 @@ export default async function SalesOrderListPage({
         <div className="min-h-0 flex-1 overflow-y-auto">
           {selected ? (
             <div className="bg-white border border-slate-200 rounded-lg overflow-hidden">
-              <div className="overflow-x-auto">
-                <table className="w-auto table-fixed text-xs min-w-[660px]">
+              <div>
+                <table className="w-full table-fixed text-[11px]">
                   <colgroup>
-                    <col style={{ width: "110px" }} />
-                    <col style={{ width: "160px" }} />
-                    <col style={{ width: "90px" }} />
-                    <col style={{ width: "50px" }} />
-                    <col style={{ width: "150px" }} />
-                    <col style={{ width: "100px" }} />
+                    <col style={{ width: "15%" }} />
+                    <col style={{ width: "24%" }} />
+                    <col style={{ width: "13%" }} />
+                    <col style={{ width: "9%" }} />
+                    <col style={{ width: "17%" }} />
+                    <col style={{ width: "12%" }} />
+                    <col style={{ width: "10%" }} />
                   </colgroup>
                   <thead className="bg-slate-50 text-slate-500 text-[10px] uppercase tracking-wide">
                     <tr>
-                      <th className="px-1.5 py-0.5 text-left">Sales Order</th>
-                      <th className="px-1.5 py-0.5 text-left">Model</th>
-                      <th className="px-1.5 py-0.5 text-left">Unit Price</th>
-                      <th className="px-1.5 py-0.5 text-left">Qty</th>
-                      <th className="px-1.5 py-0.5 text-left">Stock Status</th>
-                      <th className="px-1.5 py-0.5 text-left">Order Status</th>
+                      <th className="px-1 py-0.5 text-left">SalesOrder</th>
+                      <th className="px-1 py-0.5 text-left">Model</th>
+                      <th className="px-1 py-0.5 text-left">Price</th>
+                      <th className="px-1 py-0.5 text-left">Qty</th>
+                      <th className="px-1 py-0.5 text-left">Condition</th>
+                      <th className="px-1 py-0.5 text-left">Leadtime</th>
+                      <th className="px-1 py-0.5 text-left">Amount</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
                     {selected.items.length === 0 ? (
                       <tr>
                         <td
-                          colSpan={6}
+                          colSpan={7}
                           className="px-3 py-6 text-left text-slate-400"
                         >
                           No items found for this sales order.
                         </td>
                       </tr>
                     ) : (
-                      selected.items.map((item) => (
-                        <tr key={item.itemId} className="hover:bg-slate-50">
-                          <td className="px-1.5 py-0.5 text-slate-700 truncate">
-                            {selected.orderNumber}
-                          </td>
-                          <td className="px-1.5 py-0.5 text-slate-600 truncate">
-                            {item.model ?? "—"}
-                          </td>
-                          <td className="px-1.5 py-0.5 text-slate-700 tabular-nums">
-                            {formatUSDSafe(item.finalSellPrice)}
-                          </td>
-                          <td className="px-1.5 py-0.5 text-slate-700 tabular-nums">
-                            {item.quantity}
-                          </td>
-                          <td className="px-1.5 py-0.5 text-slate-600">
-                            {item.stockStatus === "in_stock" ? (
-                              <span className="text-emerald-600">in stock</span>
-                            ) : item.stockStatus === "out_of_stock" ? (
-                              <span className="text-red-600">out of stock</span>
-                            ) : item.leadTime ? (
-                              <span className="text-amber-600">{item.leadTime}</span>
-                            ) : (
-                              <span className="capitalize">{(item.stockStatus ?? "—").replace(/_/g, " ")}</span>
-                            )}
-                          </td>
-                          <td className="px-1.5 py-0.5">
-                            <StatusBadge status={item.itemStatus} />
-                          </td>
-                        </tr>
-                      ))
+                      selected.items.map((item) => {
+                        const unitPrice = Number(item.finalSellPrice ?? item.unitPrice);
+                        return (
+                          <tr key={item.itemId} className="hover:bg-slate-50">
+                            <td className="px-1 py-0.5 text-slate-700 truncate">
+                              {selected.orderNumber}
+                            </td>
+                            <td className="px-1 py-0.5 text-slate-600 truncate">
+                              {item.model ?? "—"}
+                            </td>
+                            <td className="px-1.5 py-0.5">
+                              {/* Price 数值输入框：初始=下单时 ListPrice 快照（=finalSellPrice），可改实际销售价 */}
+                              <OrderItemPriceInput
+                                kind="sales"
+                                itemId={item.itemId}
+                                value={unitPrice}
+                              />
+                            </td>
+                            <td className="px-1.5 py-0.5">
+                              {/* Qty 数值输入框：初始=下单数量，失焦提交并重算该行/订单金额 */}
+                              <OrderItemQtyInput
+                                itemId={item.itemId}
+                                value={item.quantity}
+                              />
+                            </td>
+                            <td className="px-1 py-0.5 text-slate-600">
+                              {/* Condition：下单时 ModelPrice 快照，旧数据回退 — */}
+                              {item.modelPrice?.condition ?? "—"}
+                            </td>
+                            <td className="px-1 py-0.5 text-slate-600 truncate">
+                              {item.leadTime || "—"}
+                            </td>
+                            {/* Amount = Price × Qty（行内小计，随 Price/Qty 输入实时刷新） */}
+                            <td className="px-1 py-0.5 text-slate-700 tabular-nums text-right">
+                              ${(unitPrice * item.quantity).toFixed(2)}
+                            </td>
+                          </tr>
+                        );
+                      })
                     )}
                   </tbody>
                 </table>
+              </div>
+              {/* 底部汇总行（与客户订单明细一致） */}
+              <div className="flex items-center justify-between gap-2 px-2 py-1.5 border-t border-slate-200 bg-slate-50">
+                <div className="text-[11px] text-slate-600">
+                  Items ({selected.items.length}):{" "}
+                  <span className="text-[12px] font-bold text-slate-900 ml-0.5">
+                    ${selected.items
+                      .reduce((sum, it) => sum + Number(it.finalSellPrice ?? it.unitPrice) * it.quantity, 0)
+                      .toFixed(2)}
+                  </span>
+                </div>
               </div>
             </div>
           ) : (

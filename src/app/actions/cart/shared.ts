@@ -24,9 +24,10 @@ export function getSellPrice(quote: SupplierQuote): number {
     : parseFloat(String(quote.sellPrice));
 }
 
-/** 通用库存校验：SupplierQuote 和 ModelPrice 都有 stockStatus 字段，结构类型兼容 */
-export function isInStock(item: { stockStatus: "in_stock" | "lead_time" | "out_of_stock" }): boolean {
-  return item.stockStatus === "in_stock" || item.stockStatus === "lead_time";
+/** 通用可购性校验：Leadtime 统一字段语义，仅 "Out of Stock" 不可加购（SupplierQuote/ModelPrice 结构兼容） */
+export function isInStock(item: { leadTime: string | null }): boolean {
+  const t = item.leadTime?.trim().toLowerCase() ?? "";
+  return !t.includes("out of stock");
 }
 
 /** 从 CartItem 关系对象计算单价（双路径：SupplierQuote > ModelPrice > 0） */

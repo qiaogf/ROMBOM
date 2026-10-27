@@ -73,32 +73,6 @@ export async function generateSession(
   });
 }
 
-export async function validateCSRFToken(formToken?: string): Promise<boolean> {
-  const cookieStore = await cookies();
-  const cookieToken = cookieStore.get(CSRF_COOKIE_NAME)?.value;
-  const sessionToken = cookieStore.get(SESSION_COOKIE_NAME)?.value;
-
-  if (!formToken || !cookieToken || !sessionToken) {
-    return false;
-  }
-
-  const prisma = await getPrisma();
-  const session = await prisma.session.findUnique({
-    where: { sessionToken },
-    select: { csrfToken: true, expiresAt: true },
-  });
-
-  if (!session || session.expiresAt < new Date()) {
-    return false;
-  }
-
-  if (formToken !== cookieToken || cookieToken !== session.csrfToken) {
-    return false;
-  }
-
-  return true;
-}
-
 export async function getSession(): Promise<Session> {
   const cookieStore = await cookies();
   const sessionToken = cookieStore.get(SESSION_COOKIE_NAME)?.value;

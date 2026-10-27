@@ -6,7 +6,7 @@
 import Link from "next/link";
 import { Trash2, Plus, Minus, ArrowRight } from "lucide-react";
 import { formatUSD } from "@/lib/price";
-import { toCartItemDisplay, formatStockStatus } from "@/lib/cart-display";
+import { toCartItemDisplay, formatLeadtime } from "@/lib/cart-display";
 import type { CartWithItems } from "@/app/actions/cartActions";
 import type { CartPageActions } from "./useCartPageActions";
 
@@ -16,8 +16,9 @@ interface Props {
   actions: CartPageActions;
 }
 
+// 列序（2026-10-20）：Model（首列加宽）/ Price / Qty / Subtotal / Condition / Leadtime / 删除
 const gridCols =
-  "grid-cols-1 sm:grid-cols-[minmax(0,1.3fr)_minmax(0,1fr)_90px_100px_80px_120px_90px_32px]";
+  "grid-cols-1 sm:grid-cols-[minmax(0,1.5fr)_90px_120px_90px_90px_100px_32px]";
 
 export function CartItemsPanel({ items, isLoggedIn, actions }: Props) {
   const {
@@ -38,15 +39,14 @@ export function CartItemsPanel({ items, isLoggedIn, actions }: Props) {
   return (
     <div className="lg:col-span-1">
       <div className="border border-slate-200 rounded bg-white overflow-hidden">
-        {/* 表头（桌面端显示） */}
+        {/* 表头（桌面端显示）— 列序与行单元格严格一一对应 */}
         <div className={`hidden sm:grid ${gridCols} gap-1 items-center px-2 py-1 bg-slate-50 border-b border-slate-200 text-[10px] font-bold uppercase tracking-wider text-slate-500`}>
-          <span>Product Name</span>
           <span>Model</span>
-          <span>Condition</span>
-          <span>Stock Status</span>
           <span className="text-right">Price</span>
           <span className="text-center">Qty</span>
           <span className="text-right">Subtotal</span>
+          <span>Condition</span>
+          <span>Leadtime</span>
           <span aria-hidden></span>
         </div>
 
@@ -62,44 +62,16 @@ export function CartItemsPanel({ items, isLoggedIn, actions }: Props) {
               key={item.itemId}
               className={`grid ${gridCols} gap-1 items-center px-2 py-1 border-b border-slate-100 last:border-b-0`}
             >
-              {/* Product Name */}
-              <div className="min-w-0 flex items-center justify-between sm:block">
-                <span className="sm:hidden text-[10px] font-bold uppercase text-slate-400">Product Name</span>
-                <Link
-                  href={`/products/${item.productId || item.modelPriceId}`}
-                  className="block text-[12px] text-slate-700 hover:text-green-700 truncate"
-                  title={display.productName || display.model}
-                >
-                  {display.productName || display.model}
-                </Link>
-              </div>
-
-              {/* Model */}
+              {/* Model（首列，链接到产品详情） */}
               <div className="min-w-0 flex items-center justify-between sm:block">
                 <span className="sm:hidden text-[10px] font-bold uppercase text-slate-400">Model</span>
-                <span className="block text-[12px] text-slate-700 truncate" title={display.model}>
+                <Link
+                  href={`/products/${item.productId || item.modelPriceId}`}
+                  className="block text-[12px] text-slate-700 hover:text-green-700 truncate font-medium"
+                  title={display.productName || display.model}
+                >
                   {display.model || "-"}
-                </span>
-              </div>
-
-              {/* Condition */}
-              <div className="min-w-0 flex items-center justify-between sm:block">
-                <span className="sm:hidden text-[10px] font-bold uppercase text-slate-400">Condition</span>
-                <span className="block text-[12px] text-slate-700 truncate">
-                  {display.condition ?? <span className="text-slate-400">-</span>}
-                </span>
-              </div>
-
-              {/* Stock Status */}
-              <div className="min-w-0 flex items-center justify-between sm:block">
-                <span className="sm:hidden text-[10px] font-bold uppercase text-slate-400">Stock Status</span>
-                <span className={`block text-[12px] truncate ${
-                  display.stockStatus === "in_stock" ? "text-green-700"
-                  : display.stockStatus === "out_of_stock" ? "text-rose-600"
-                  : "text-amber-700"
-                }`}>
-                  {formatStockStatus(display.stockStatus, display.leadTime)}
-                </span>
+                </Link>
               </div>
 
               {/* Price */}
@@ -148,6 +120,26 @@ export function CartItemsPanel({ items, isLoggedIn, actions }: Props) {
                 <span className="text-[12px] text-slate-700 sm:text-right tabular-nums">{formatUSD(itemTotal)}</span>
               </div>
 
+              {/* Condition */}
+              <div className="min-w-0 flex items-center justify-between sm:block">
+                <span className="sm:hidden text-[10px] font-bold uppercase text-slate-400">Condition</span>
+                <span className="block text-[12px] text-slate-700 truncate">
+                  {display.condition ?? <span className="text-slate-400">-</span>}
+                </span>
+              </div>
+
+              {/* Leadtime */}
+              <div className="min-w-0 flex items-center justify-between sm:block">
+                <span className="sm:hidden text-[10px] font-bold uppercase text-slate-400">Leadtime</span>
+                <span className={`block text-[12px] truncate ${
+                  (display.leadTime ?? "").toLowerCase().includes("out of stock") ? "text-rose-600"
+                  : (display.leadTime ?? "").toLowerCase().includes("in stock") ? "text-green-700"
+                  : "text-amber-700"
+                }`}>
+                  {formatLeadtime(display.leadTime)}
+                </span>
+              </div>
+
               {/* 删除 */}
               <div className="flex sm:justify-end">
                 <button
@@ -165,28 +157,11 @@ export function CartItemsPanel({ items, isLoggedIn, actions }: Props) {
         })}
       </div>
 
-      {/* 底部：总金额 + 清空 / 继续浏览 + 提交订单 */}
+      {/* 底部：总金额汇总 */}
       <div className="mt-1.5 flex flex-col sm:flex-row sm:items-center justify-between gap-1.5">
         <div className="text-[12px] text-slate-600">
           Items ({totalItems}):{" "}
           <span className="text-[13px] font-bold text-slate-900 ml-0.5">{formatUSD(totalAmount)}</span>
-        </div>
-        <div className="flex items-center gap-2.5">
-          <button
-            type="button"
-            onClick={() => void handleClearCart()}
-            className="inline-flex items-center gap-0.5 text-[10px] text-slate-500 hover:text-rose-600 transition-colors"
-          >
-            <Trash2 className="w-2.5 h-2.5" />
-            Clear
-          </button>
-          <Link
-            href="/"
-            className="inline-flex items-center gap-0.5 text-[10px] font-semibold text-[#336633] hover:underline"
-          >
-            Continue
-            <ArrowRight className="w-2.5 h-2.5" />
-          </Link>
         </div>
       </div>
 
@@ -205,10 +180,10 @@ export function CartItemsPanel({ items, isLoggedIn, actions }: Props) {
         ) : (
           <button
             type="button"
-            onClick={() => setShowLogin(true)}
+            onClick={() => actions.startSubmitFlow()}
             className="flex-1 py-2 rounded bg-[#336633] text-white text-[12px] font-bold tracking-wide hover:bg-[#2d5a2d] transition-colors inline-flex items-center justify-center gap-1"
           >
-            Log in to Submit
+            Submit Order
             <ArrowRight className="w-3.5 h-3.5" />
           </button>
         )}

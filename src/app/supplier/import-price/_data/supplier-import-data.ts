@@ -29,14 +29,12 @@ export async function getPurchaseItems(supplierId: string): Promise<PurchaseItem
           productName: true,
           sellPrice: true,
           condition: true,
-          stockStatus: true,
           leadTime: true,
         },
       },
       supplierQuote: {
         select: {
           sellPrice: true,
-          stockStatus: true,
           leadTime: true,
           product: { select: { model: true, productName: true } },
         },
@@ -53,7 +51,6 @@ export async function getPurchaseItems(supplierId: string): Promise<PurchaseItem
         quantity: c.quantity,
         unitPrice: c.modelPrice.sellPrice.toString(),
         condition: c.modelPrice.condition ?? null,
-        stockStatus: c.modelPrice.stockStatus ?? "in_stock",
         leadTime: c.modelPrice.leadTime ?? null,
       };
     }
@@ -64,7 +61,6 @@ export async function getPurchaseItems(supplierId: string): Promise<PurchaseItem
       quantity: c.quantity,
       unitPrice: c.supplierQuote?.sellPrice.toString() ?? "0",
       condition: null,
-      stockStatus: c.supplierQuote?.stockStatus ?? "in_stock",
       leadTime: c.supplierQuote?.leadTime ?? null,
     };
   });
@@ -95,7 +91,6 @@ export async function getBatchDetailViewData(batchId: string, supplierId: string
       sellPrice: true,
       moq: true,
       condition: true,
-      stockStatus: true,
       leadTime: true,
       seriesId: true,
     },

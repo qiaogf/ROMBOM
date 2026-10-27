@@ -39,7 +39,7 @@ export function OrderListTable({
           <thead className="bg-slate-50 text-slate-500 text-[10px] uppercase tracking-wide">
             <tr>
               <th className="px-1.5 py-1.5 text-left">Order No.</th>
-              <th className="px-1.5 py-1.5 text-left">Amount</th>
+              <th className="px-1.5 py-1.5 text-left">TOTAL</th>
               <th className="px-1.5 py-1.5 text-left">Date</th>
               <th className="px-1.5 py-1.5 text-center">Pay</th>
               <th className="px-1.5 py-1.5 text-left">Status</th>

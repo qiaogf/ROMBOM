@@ -1,4 +1,4 @@
-﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿import Link from "next/link";
+import Link from "next/link";
 import type { ReactNode } from "react";
 import { ArrowLeft, Trash2 } from "lucide-react";
 import type { Prisma } from "@/../prisma/generated/client";
@@ -64,7 +64,7 @@ export interface BatchModelPrice {
   batteryAttributes: string | null;
   datasheetLink: string | null;
   brandName: string | null;
-  series: BatchRowSeries;
+  series: BatchRowSeries | null;
 }
 
 interface ImportBatchDetailProps {
@@ -113,7 +113,7 @@ function formatLink(value: string | null): ReactNode {
 const TABLE_HEADERS = [
   "Brand",
   "Series",
-  "Name",
+  "Product",
   "Model No.",
   "Description",
   "Origin",
@@ -152,13 +152,13 @@ export function ImportBatchDetail({ batch, items, modelPrices, backHref }: Impor
         </td>
         <td className="px-1.5 py-1 text-slate-600 text-[11px]">{formatText(row.origin)}</td>
         <td className="px-1.5 py-1 text-slate-600 text-[11px]">{formatText(row.certification)}</td>
-        <td className="px-1.5 py-1 text-right text-slate-600 tabular-nums text-[11px]">{formatNumber(row.length)}</td>
-        <td className="px-1.5 py-1 text-right text-slate-600 tabular-nums text-[11px]">{formatNumber(row.width)}</td>
-        <td className="px-1.5 py-1 text-right text-slate-600 tabular-nums text-[11px]">{formatNumber(row.height)}</td>
-        <td className="px-1.5 py-1 text-right text-slate-600 tabular-nums text-[11px]">{formatNumber(row.diameter)}</td>
+        <td className="px-1.5 py-1 text-left text-slate-600 tabular-nums text-[11px]">{formatNumber(row.length)}</td>
+        <td className="px-1.5 py-1 text-left text-slate-600 tabular-nums text-[11px]">{formatNumber(row.width)}</td>
+        <td className="px-1.5 py-1 text-left text-slate-600 tabular-nums text-[11px]">{formatNumber(row.height)}</td>
+        <td className="px-1.5 py-1 text-left text-slate-600 tabular-nums text-[11px]">{formatNumber(row.diameter)}</td>
         <td className="px-1.5 py-1 text-slate-600 text-[11px]">{formatText(row.dimensionUnit)}</td>
-        <td className="px-1.5 py-1 text-right text-slate-600 tabular-nums text-[11px]">{formatNumber(row.weight)}</td>
-        <td className="px-1.5 py-1 text-right text-slate-600 tabular-nums text-[11px]">{formatNumber(row.packingWeight)}</td>
+        <td className="px-1.5 py-1 text-left text-slate-600 tabular-nums text-[11px]">{formatNumber(row.weight)}</td>
+        <td className="px-1.5 py-1 text-left text-slate-600 tabular-nums text-[11px]">{formatNumber(row.packingWeight)}</td>
         <td className="px-1.5 py-1 text-slate-600 text-[11px]">{formatText(row.weightUnit)}</td>
         <td className="px-1.5 py-1 text-slate-600 text-[11px]">{formatText(row.batteryAttributes)}</td>
         <td className="px-1.5 py-1 text-slate-600 text-[11px]">{formatLink(row.datasheetLink)}</td>

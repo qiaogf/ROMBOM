@@ -285,10 +285,10 @@ export function CheckoutContent({ order, defaultName }: CheckoutContentProps) {
                   </colgroup>
                   <thead className="bg-slate-50 text-slate-500 text-[10px] uppercase tracking-wide">
                     <tr>
-                      <th className="px-1.5 py-1 text-left">Product Name</th>
+                      <th className="px-1.5 py-1 text-left">Name</th>
                       <th className="px-1.5 py-1 text-left">Model</th>
                       <th className="px-1.5 py-1 text-center">Qty</th>
-                      <th className="px-1.5 py-1 text-right">Unit Price</th>
+                      <th className="px-1.5 py-1 text-right">Price</th>
                       <th className="px-1.5 py-1 text-right">Amount</th>
                     </tr>
                   </thead>

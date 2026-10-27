@@ -3,7 +3,9 @@
 import { useState, useRef } from "react";
 import Link from "next/link";
 import Image from "next/image";
-import { addToCart } from "@/app/actions/cartActions";
+import { addToCart as serverAddToCart } from "@/app/actions/cartActions";
+import { useCart } from "@/components/cart/CartProvider";
+import { isPurchasableLeadtime, formatLeadtime } from "@/lib/cart-display";
 import type { SerializableProductWithCategory } from "@/lib/serialize";
 
 interface ProductDetailContentProps {
@@ -19,6 +21,7 @@ export function ProductDetailContent({ product }: ProductDetailContentProps) {
   const [success, setSuccess] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const lastAddRef = useRef(0);
+  const { isLoggedIn, addToCart: providerAdd } = useCart();
 
   const displayName = product.productName;
   const displayDescription = product.description;
@@ -30,8 +33,10 @@ export function ProductDetailContent({ product }: ProductDetailContentProps) {
     : 0;
 
   const isOnSale = product.status === "on_sale";
-  const stockStatus = product.defaultQuote?.stockStatus;
-  const isInStock = stockStatus === "in_stock" || stockStatus === "lead_time";
+  const leadTime = product.defaultQuote?.leadTime ?? null;
+  const leadTimeText = (leadTime ?? "").trim().toLowerCase();
+  const isInStock = isPurchasableLeadtime(leadTime);
+  const isLeadTimeOnly = leadTimeText !== "" && !leadTimeText.includes("in stock") && !leadTimeText.includes("out of stock");
   const moq = product.defaultQuote?.moq ?? 1;
   const quoteId = product.defaultQuote?.quoteId;
 
@@ -77,7 +82,17 @@ export function ProductDetailContent({ product }: ProductDetailContentProps) {
     setIsLoading(true);
 
     try {
-      const result = await addToCart(product.productId, quoteId, quantity);
+      // 统一走 CartProvider：登录用户走服务端，游客走本地购物车（价格经服务端只读查价）
+      if (!isLoggedIn) {
+        const res = await providerAdd(product.productId, quoteId, quantity);
+        if (res.ok) {
+          setSuccess(`Successfully added ${quantity} item(s) to your cart`);
+        } else {
+          setError(res.error || "Failed to add to cart");
+        }
+        return;
+      }
+      const result = await serverAddToCart(product.productId, quoteId, quantity);
       if (result.success) {
         setSuccess(`Successfully added ${quantity} item(s) to your cart`);
       } else {
@@ -123,7 +138,7 @@ export function ProductDetailContent({ product }: ProductDetailContentProps) {
             </div>
             {error.includes("login") && (
               <Link
-                href="/account/login"
+                href="/auth/customer-login"
                 className="px-3 py-1 bg-red-600 text-white text-xs font-semibold rounded-lg hover:bg-red-700 transition-colors"
               >
                 Sign In
@@ -206,7 +221,7 @@ export function ProductDetailContent({ product }: ProductDetailContentProps) {
                     Off Sale
                   </span>
                 )}
-                {stockStatus === "lead_time" && (
+                {isLeadTimeOnly && (
                   <span className="px-2 sm:px-3 py-1 bg-amber-500 text-white text-xs font-semibold rounded-full">
                     Lead Time
                   </span>
@@ -250,7 +265,7 @@ export function ProductDetailContent({ product }: ProductDetailContentProps) {
                 <span className={`text-sm font-medium ${
                   isInStock ? "text-green-600" : "text-red-600"
                 }`}>
-                  {stockStatus === "in_stock" ? "In Stock" : stockStatus === "lead_time" ? "Lead Time" : "Out of Stock"}
+                  {formatLeadtime(leadTime)}
                 </span>
               </div>
               {moq > 1 && (

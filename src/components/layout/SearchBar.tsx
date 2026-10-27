@@ -34,7 +34,7 @@ export function SearchBar() {
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           placeholder="Search model / series..."
-          className="w-full pl-9 pr-4 py-1.5 rounded-full text-[13px] bg-green-50 text-green-800 placeholder:text-green-600/40 border border-green-200 focus:outline-none focus:border-amber-400/60 focus:bg-white transition-colors"
+          className="w-full pl-9 pr-4 py-2 sm:py-1.5 min-h-[40px] rounded-full text-[14px] sm:text-[13px] bg-green-50 text-green-800 placeholder:text-green-600/40 border border-green-200 focus:outline-none focus:border-amber-400/60 focus:bg-white transition-colors"
         />
       </div>
     </form>

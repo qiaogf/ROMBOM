@@ -1,17 +1,13 @@
-﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿import Link from "next/link";
+import Link from "next/link";
 import { redirect } from "next/navigation";
 import type { ReactNode } from "react";
 import { ArrowLeft, Building2, Globe, Mail } from "lucide-react";
 import { AccountActionButtons } from "@/app/admin/_components/AccountActionButtons";
 import { QualificationLevelInput } from "@/app/admin/_components/QualificationLevelInput";
 import { getSupplierList, getSupplierDetail } from "./_data/supplier-data";
+import { toStr } from "@/lib/search-params";
 
 export const dynamic = "force-dynamic";
-
-function toStr(value: string | string[] | undefined): string | undefined {
-  if (value === undefined) return undefined;
-  return Array.isArray(value) ? value[0] : value;
-}
 
 function empty(): ReactNode {
   return <span className="text-slate-400 italic">—</span>;

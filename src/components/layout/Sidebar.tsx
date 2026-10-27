@@ -105,6 +105,23 @@ export function Sidebar({ categories, brands }: SidebarProps) {
     [categorySlug, brandSlug, buildUrl, router]
   );
 
+  // 手指按下瞬间预取目标页（click 触发导航时 RSC 数据已在路上，省一个隧道往返）
+  const prefetchCategory = useCallback(
+    (clickedSlug: string) => {
+      const newCat = categorySlug === clickedSlug ? null : clickedSlug;
+      router.prefetch(buildUrl(newCat, brandSlug));
+    },
+    [categorySlug, brandSlug, buildUrl, router]
+  );
+
+  const prefetchBrand = useCallback(
+    (clickedSlug: string) => {
+      const newBr = brandSlug === clickedSlug ? null : clickedSlug;
+      router.prefetch(buildUrl(categorySlug, newBr));
+    },
+    [categorySlug, brandSlug, buildUrl, router]
+  );
+
   // ============ 渲染类目 ============
   const renderRootCategories = () => {
     const rootCats = categories.filter(
@@ -125,12 +142,12 @@ export function Sidebar({ categories, brands }: SidebarProps) {
         <button
           key={category.categoryId}
           onClick={() => handleCategoryClick(category.slug)}
-          className={`w-full text-left px-2 py-1 my-0 mx-0.5 rounded leading-tight transition-all truncate ${
+          onPointerDown={() => prefetchCategory(category.slug)}
+          className={`w-full text-left min-h-[36px] sm:min-h-0 sm:py-1 px-2.5 sm:px-2 my-0 mx-0.5 rounded flex items-center leading-tight transition-colors duration-100 truncate active:bg-amber-200 ${
             isSelected
               ? "bg-amber-400/25 border-l-4 border-amber-500 text-amber-800 font-bold"
               : "border-l-4 border-transparent text-slate-700 hover:bg-slate-100 hover:text-slate-900"
-          }`}
-          style={{ fontSize: "13px" }}
+          } text-[14px] sm:text-[13px]`}
           title={category.categoryName}
         >
           {category.categoryName}
@@ -140,6 +157,10 @@ export function Sidebar({ categories, brands }: SidebarProps) {
   };
 
   // ============ 渲染品牌 ============
+  // Generic 品牌（导入时 Brand 缺失的自动归属）在导航中显示为 <Generic>，数据库列名仍是 Generic
+  const displayBrandName = (name: string) =>
+    name.trim().toLowerCase() === "generic" ? "<Generic>" : name;
+
   const renderBrands = () => {
     if (brands.length === 0) {
       return (
@@ -154,15 +175,15 @@ export function Sidebar({ categories, brands }: SidebarProps) {
         <button
           key={brand.brandId}
           onClick={() => handleBrandClick(brand.slug)}
-          className={`w-full text-left px-2 py-1 my-0 mx-0.5 rounded leading-tight transition-all truncate ${
+          onPointerDown={() => prefetchBrand(brand.slug)}
+          className={`w-full text-left min-h-[36px] sm:min-h-0 sm:py-1 px-2.5 sm:px-2 my-0 mx-0.5 rounded flex items-center leading-tight transition-colors duration-100 truncate active:bg-amber-200 ${
             isSelected
               ? "bg-amber-400/25 border-l-4 border-amber-500 text-amber-800 font-bold"
               : "border-l-4 border-transparent text-slate-700 hover:bg-slate-100 hover:text-slate-900"
-          }`}
-          style={{ fontSize: "13px" }}
-          title={brand.brandName}
+          } text-[14px] sm:text-[13px]`}
+          title={displayBrandName(brand.brandName)}
         >
-          {brand.brandName}
+          {displayBrandName(brand.brandName)}
         </button>
       );
     });
@@ -179,32 +200,39 @@ export function Sidebar({ categories, brands }: SidebarProps) {
 
       <button
         onClick={() => setMobileOpen(!mobileOpen)}
-        className="sm:hidden fixed top-28 left-2 z-50 p-2 bg-white rounded shadow border border-slate-200 text-slate-600"
-        aria-label={mobileOpen ? "Close sidebar" : "Open sidebar"}
+        className={`sm:hidden fixed top-28 left-2 z-50 w-11 h-11 flex items-center justify-center bg-white rounded-lg shadow border border-slate-200 text-slate-600 active:bg-amber-100 ${
+          mobileOpen ? "hidden" : ""
+        }`}
+        aria-label="Open sidebar"
       >
-        {mobileOpen ? (
-          <X className="w-4 h-4" />
-        ) : (
-          <Grid3X3 className="w-4 h-4" />
-        )}
+        <Grid3X3 className="w-5 h-5" />
       </button>
 
       <aside
-        className={`w-40 md:w-48 bg-white shrink-0 transition-transform duration-200 ease-in-out h-full flex flex-col ${
+        className={`w-52 sm:w-40 md:w-48 bg-white shrink-0 transition-transform duration-200 ease-in-out h-full flex flex-col ${
           mobileOpen ? "max-sm:translate-x-0" : "max-sm:-translate-x-full"
         } max-sm:fixed max-sm:inset-y-0 max-sm:left-0 max-sm:z-40 sm:static sm:translate-x-0`}
       >
         <div className="h-0.5 bg-amber-400 shrink-0"></div>
 
         <div className="flex flex-col min-h-0 flex-1">
-          <div className="flex items-center gap-1 px-1.5 py-0.5 bg-slate-50 border-b border-slate-200 shrink-0">
-            <Grid3X3 className="w-3 h-3 text-green-800" />
-            <span
-              className="font-medium text-green-800 uppercase tracking-wider"
-              style={{ fontSize: "13px" }}
+          <div className="flex items-center justify-between px-1.5 py-0.5 bg-slate-50 border-b border-slate-200 shrink-0">
+            <div className="flex items-center gap-1">
+              <Grid3X3 className="w-3 h-3 text-green-800" />
+              <span
+                className="font-medium text-green-800 uppercase tracking-wider"
+                style={{ fontSize: "13px" }}
+              >
+                Category
+              </span>
+            </div>
+            <button
+              onClick={() => setMobileOpen(false)}
+              className="sm:hidden w-8 h-8 flex items-center justify-center rounded text-slate-500 active:bg-slate-200"
+              aria-label="Close sidebar"
             >
-              Category
-            </span>
+              <X className="w-4 h-4" />
+            </button>
           </div>
           <div className="flex-1 overflow-y-auto sidebar-scrollbar">
             <div className="py-0.5">{renderRootCategories()}</div>

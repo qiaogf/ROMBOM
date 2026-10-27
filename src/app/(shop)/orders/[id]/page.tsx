@@ -59,7 +59,7 @@ export default async function OrderDetailPage({ params }: { params: { id: string
           <h1 className="text-3xl font-bold text-slate-900 mb-3">Order Details</h1>
           <p className="text-slate-500 text-lg mb-10">Please sign in to view your order details.</p>
           <Link
-            href="/account/login"
+            href="/auth/customer-login"
             className="btn-primary-lg group"
           >
             <span>Sign In</span>

@@ -42,8 +42,8 @@ export function DeleteButton({ id, action, label, entity }: DeleteButtonProps) {
       if (res.success) {
         router.refresh();
       } else {
+        // 失败时保留确认区，让错误原因可见（此前收起后错误提示会消失，表现为“点了没反应”）
         setError(res.message);
-        setConfirming(false);
       }
     });
   };

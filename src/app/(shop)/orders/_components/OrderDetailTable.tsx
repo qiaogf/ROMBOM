@@ -2,11 +2,10 @@
 
 // Right panel: selected order's item detail table + summary footer.
 // Extracted from OrdersContent.tsx (Phase 19) — pure move, zero behavior change.
+// 2026-10-20: Stock Status→Condition（取 ModelPrice.condition 快照）、Price 显示实际
+// 销售价 finalSellPrice（初始=ListPrice）、移除 Clear/Continue。
 
-import Link from "next/link";
-import { ArrowRight } from "lucide-react";
 import type { OrderWithItems } from "@/app/actions/orderActions";
-import { formatStockStatus } from "./order-helpers";
 
 interface OrderDetailTableProps {
   order: OrderWithItems | null;
@@ -34,9 +33,9 @@ export function OrderDetailTable({ order }: OrderDetailTableProps) {
           <thead className="bg-slate-50 text-slate-500 text-[10px] uppercase tracking-wide">
             <tr>
               <th className="px-1.5 py-1 text-left">Model</th>
-              <th className="px-1.5 py-1 text-left">Stock Status</th>
-              <th className="px-1.5 py-1 text-left">Lead Time</th>
-              <th className="px-1.5 py-1 text-right">Unit Price</th>
+              <th className="px-1.5 py-1 text-left">Condition</th>
+              <th className="px-1.5 py-1 text-left">Leadtime</th>
+              <th className="px-1.5 py-1 text-right">Price</th>
               <th className="px-1.5 py-1 text-center">Qty</th>
               <th className="px-1.5 py-1 text-right">Subtotal</th>
             </tr>
@@ -49,13 +48,14 @@ export function OrderDetailTable({ order }: OrderDetailTableProps) {
                     {item.model || "—"}
                   </td>
                   <td className="px-1.5 py-1 text-slate-600">
-                    {formatStockStatus(item.stockStatus)}
+                    {/* Condition：下单时 ModelPrice 快照 */}
+                    {item.modelPrice?.condition ?? "—"}
                   </td>
                   <td className="px-1.5 py-1 text-slate-600">
                     {item.leadTime || "—"}
                   </td>
                   <td className="px-1.5 py-1 text-right text-slate-700 tabular-nums">
-                    ${Number(item.unitPrice).toFixed(2)}
+                    ${Number(item.finalSellPrice ?? item.unitPrice).toFixed(2)}
                   </td>
                   <td className="px-1.5 py-1 text-center text-slate-700">
                     {item.quantity}
@@ -83,21 +83,6 @@ export function OrderDetailTable({ order }: OrderDetailTableProps) {
           <span className="text-[13px] font-bold text-slate-900 ml-0.5">
             ${Number(order?.subtotal ?? 0).toFixed(2)}
           </span>
-        </div>
-        <div className="flex items-center gap-3">
-          <Link
-            href="/"
-            className="inline-flex items-center gap-0.5 text-[10px] text-slate-500 hover:text-rose-600 transition-colors"
-          >
-            Clear
-          </Link>
-          <Link
-            href="/"
-            className="inline-flex items-center gap-0.5 text-[10px] font-semibold text-[#336633] hover:underline"
-          >
-            Continue
-            <ArrowRight className="w-2.5 h-2.5" />
-          </Link>
         </div>
       </div>
     </div>

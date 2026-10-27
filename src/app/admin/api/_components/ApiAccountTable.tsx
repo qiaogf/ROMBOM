@@ -27,13 +27,13 @@ export function ApiAccountTable({
       <div className="overflow-x-auto">
         <table className="w-full table-fixed text-[11px]">
           <colgroup>
-            <col style={{ width: "140px" }} />
-            <col style={{ width: "160px" }} />
-            <col />{/* brandSeriesFilter — takes all remaining width */}
-            <col style={{ width: "150px" }} />{/* API Keys */}
-            <col style={{ width: "70px" }} />
-            <col style={{ width: "75px" }} />
-            <col style={{ width: "130px" }} />
+            <col style={{ width: "14%" }} />
+            <col style={{ width: "13%" }} />
+            <col style={{ width: "28%" }} />
+            <col style={{ width: "14%" }} />
+            <col style={{ width: "6%" }} />
+            <col style={{ width: "7%" }} />
+            <col style={{ width: "18%" }} />
           </colgroup>
           <thead className="bg-slate-50 text-slate-500 text-[10px] uppercase tracking-wide">
             <tr>

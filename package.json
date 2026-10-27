@@ -17,7 +17,6 @@
     "start": "next start",
     "lint": "eslint",
     "seed": "tsx prisma/seed.ts",
-    "import-csv": "tsx prisma/import-csv.ts",
     "studio": "prisma studio --port 5555",
     "postinstall": "prisma generate"
   },

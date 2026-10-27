@@ -1,9 +1,11 @@
 "use client";
 
 // Cart-page state machine: local cart mirror + qty inputs + loading/submitting flags
-// + all server-action handlers. Extracted from CartContent.tsx (Phase 20) — pure move.
+// + all server-action handlers. Extracted from CartContent.tsx (Phase 20).
+// 2026-10-20: guest (not-logged-in) branches — local cart mutations via CartProvider;
+// Submit Order opens login modal, after login merges guest cart then auto-creates order.
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   updateCartItem,
@@ -30,6 +32,8 @@ export interface CartPageActions {
   handleRemoveItem: (itemId: string) => Promise<void>;
   handleClearCart: () => Promise<void>;
   handleSubmitOrder: () => Promise<void>;
+  /** 游客：记录"提交订单"意图并打开登录弹窗 */
+  startSubmitFlow: () => void;
   commitQty: (itemId: string, raw: string, current: number) => void;
   handleLoggedIn: () => void;
 }
@@ -42,10 +46,13 @@ export function useCartPageActions(cart: CartWithItems | null): CartPageActions 
   const [qtyInputs, setQtyInputs] = useState<Record<string, string>>({});
   const [showLogin, setShowLogin] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const { rehydrate } = useCart();
+  /** 游客点击 Submit Order 的意图标记：登录成功后自动创建订单并进 checkout */
+  const pendingSubmitRef = useRef(false);
+  const { rehydrate, isLoggedIn, guestUpdateQty, guestRemove, mergeGuestCartOnLogin } = useCart();
   const router = useRouter();
 
-  // 登录/登出触发 router.refresh() 后，服务端 cart props 更新 → 同步本地状态
+  // 登录/登出触发 router.refresh() 后，服务端 cart props 更新 → 同步本地状态；
+  // 游客路径下 cart 参数随 provider.guestItems 变化（CartContent 组装伪 CartWithItems）
   useEffect(() => {
     setCartState(cart);
   }, [cart]);
@@ -56,6 +63,17 @@ export function useCartPageActions(cart: CartWithItems | null): CartPageActions 
 
   const handleUpdateQuantity = async (itemId: string, quantity: number) => {
     setError("");
+    // 游客：本地修改（localStorage + provider 状态），cart 参数变化后自动同步
+    if (!isLoggedIn) {
+      guestUpdateQty(itemId, quantity);
+      setQtyInputs((m) => {
+        const next = { ...m };
+        delete next[itemId];
+        return next;
+      });
+      return;
+    }
+
     setLoadingItemId(itemId);
 
     try {
@@ -86,6 +104,11 @@ export function useCartPageActions(cart: CartWithItems | null): CartPageActions 
 
   const handleRemoveItem = async (itemId: string) => {
     setError("");
+    if (!isLoggedIn) {
+      guestRemove(itemId);
+      return;
+    }
+
     setLoadingItemId(itemId);
 
     try {
@@ -106,6 +129,11 @@ export function useCartPageActions(cart: CartWithItems | null): CartPageActions 
   const handleClearCart = async () => {
     if (!confirm("Are you sure you want to clear your cart?")) return;
     setError("");
+
+    if (!isLoggedIn) {
+      await clearCart();
+      return;
+    }
 
     try {
       const result = await clearCart();
@@ -140,6 +168,12 @@ export function useCartPageActions(cart: CartWithItems | null): CartPageActions 
     }
   };
 
+  /** 游客点击 Submit Order：记录意图 → 弹登录窗（登录成功后自动继续下单） */
+  const startSubmitFlow = () => {
+    pendingSubmitRef.current = true;
+    setShowLogin(true);
+  };
+
   /** 数量输入框失焦 / 回车提交 */
   const commitQty = (itemId: string, raw: string, current: number) => {
     const q = Number.parseInt(raw, 10);
@@ -159,11 +193,19 @@ export function useCartPageActions(cart: CartWithItems | null): CartPageActions 
     void handleUpdateQuantity(itemId, q);
   };
 
-  // 弹窗登录成功 → 同步购物车 + 刷新服务端渲染区（右栏切换为订单摘要）
+  // 弹窗登录成功 → 合并游客车 → （若来自 Submit Order）自动创建订单进 checkout；
+  // 否则刷新服务端渲染区
   const handleLoggedIn = () => {
     setShowLogin(false);
-    void rehydrate();
-    router.refresh();
+    void (async () => {
+      await mergeGuestCartOnLogin();
+      if (pendingSubmitRef.current) {
+        pendingSubmitRef.current = false;
+        await handleSubmitOrder();
+      } else {
+        router.refresh();
+      }
+    })();
   };
 
   return {
@@ -181,6 +223,7 @@ export function useCartPageActions(cart: CartWithItems | null): CartPageActions 
     handleRemoveItem,
     handleClearCart,
     handleSubmitOrder,
+    startSubmitFlow,
     commitQty,
     handleLoggedIn,
   };

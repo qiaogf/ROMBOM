@@ -16,6 +16,10 @@ export async function getSalesOrderList() {
 export async function getSalesOrderDetail(orderId: string) {
   return prisma.salesOrder.findUnique({
     where: { orderId },
-    include: { items: true },
+    include: {
+      items: {
+        include: { modelPrice: { select: { condition: true } } },
+      },
+    },
   });
 }

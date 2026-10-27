@@ -4,6 +4,7 @@ import { getProductById } from "@/actions/products";
 import { ProductDetailContent } from "./ProductDetailContent";
 import { RetryButton } from "@/components/RetryButton";
 import { serializeProductWithCategory } from "@/lib/serialize";
+import { isPurchasableLeadtime } from "@/lib/cart-display";
 import { prisma } from "@/lib/prisma";
 
 // Product catalog is read-heavy and changes infrequently — ISR every hour.
@@ -81,13 +82,10 @@ type Result =
 /** Build JSON-LD structured data for a product + breadcrumb trail. */
 function buildProductJsonLd(product: ReturnType<typeof serializeProductWithCategory>) {
   const price = product.defaultQuote?.sellPrice ?? 0;
-  const stockStatus = product.defaultQuote?.stockStatus ?? "in_stock";
-  const availability =
-    stockStatus === "out_of_stock"
-      ? "https://schema.org/OutOfStock"
-      : stockStatus === "preorder"
-        ? "https://schema.org/PreOrder"
-        : "https://schema.org/InStock";
+  // Leadtime 统一字段：含 "out of stock"（不区分大小写）= 缺货，其余（含空值）= 有货
+  const availability = isPurchasableLeadtime(product.defaultQuote?.leadTime)
+    ? "https://schema.org/InStock"
+    : "https://schema.org/OutOfStock";
 
   const productSchema = {
     "@context": "https://schema.org",

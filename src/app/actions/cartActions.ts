@@ -7,3 +7,4 @@ export * from "./cart/queries";
 export * from "./cart/add";
 export * from "./cart/update";
 export * from "./cart/remove";
+export * from "./cart/guest";

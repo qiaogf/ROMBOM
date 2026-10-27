@@ -19,9 +19,10 @@ import {
 import { ImportForm } from "./ImportForm";
 import { deleteSupplierImportBatch } from "@/app/actions/supplierActions";
 
-const TEMPLATE_CSV = `Series,Product Name,Model,Unit Price,MOQ,Condition,Stock Status,Qty
-Siemens S7-1200,CPU 1214C DC/DC/DC,6ES7214-1AG40-0XB0,128.00,1,New Original,in_stock,1
-Siemens S7-1500,CPU 1511C PN,6ES7511-1AK02-0AB0,455.00,1,New Original,lead_time,10`;
+// 与 Admin Price 模板一致的 6 列格式；Stock Status 由 Leadtime 文本推导，MOQ 默认 1
+const TEMPLATE_CSV = `Brand,Series,Model,Price,Condition,Leadtime
+Siemens,S7-1200,6ES7214-1AG40-0XB0,128.00,New Original,In stock
+Siemens,S7-1500,6ES7511-1AK02-0AB0,455.00,New Original,2-3 weeks`;
 
 export interface SupplierBatchItem {
   importBatchId: string;

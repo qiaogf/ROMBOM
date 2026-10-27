@@ -116,7 +116,6 @@ export default async function SeriesDetailPage({ params }: PageProps) {
         quoteId: quote?.quoteId || "",
         moq: quote?.moq ?? 1,
         condition: conditionMap.get(p.model) ?? null,
-        stockStatus: quote?.stockStatus ?? "in_stock",
         leadTime: quote?.leadTime ?? null,
         categoryId: p.categoryId,
         brandId: p.brandId,
@@ -140,7 +139,6 @@ export default async function SeriesDetailPage({ params }: PageProps) {
       quoteId: "",
       moq: mp.moq,
       condition: mp.condition,
-      stockStatus: mp.stockStatus,
       leadTime: mp.leadTime,
       categoryId: "",
       brandId: mp.supplierId ?? "",
@@ -164,14 +162,21 @@ export default async function SeriesDetailPage({ params }: PageProps) {
     <div className="flex-1 min-h-0 overflow-y-scroll main-scrollbar">
       <div className="h-0.5 bg-amber-400 shrink-0"></div>
       <div className="px-3 sm:px-4 pt-3 pb-8">
-        {/* Breadcrumb */}
-        <nav className="flex items-center gap-1 text-xs text-slate-500 mb-3">
-          <Link href="/" className="hover:text-green-700">Home</Link>
-          <ChevronRight className="w-3 h-3" />
-          <Link href={`/brand/${brandSlug}`} className="hover:text-green-700">{brand.name}</Link>
-          <ChevronRight className="w-3 h-3" />
-          <span className="text-slate-700 font-medium">{displaySeriesName}</span>
-        </nav>
+        {/* Breadcrumb + 总 SKU */}
+        <div className="flex items-center justify-between mb-3">
+          <nav className="flex items-center gap-1 text-xs text-slate-500">
+            <Link href="/" className="hover:text-green-700">Home</Link>
+            <ChevronRight className="w-3 h-3" />
+            <Link href={`/brand/${brandSlug}`} className="hover:text-green-700">{brand.name}</Link>
+            <ChevronRight className="w-3 h-3" />
+            <span className="text-slate-700 font-medium">{displaySeriesName}</span>
+          </nav>
+          {mappedProducts.length > 0 && (
+            <span className="text-[11px] text-slate-500">
+              {mappedProducts.length} SKU
+            </span>
+          )}
+        </div>
 
         {/* 型号价格表 */}
         <ProductPriceTable seriesGroups={seriesGroups} showSeriesHeader={false} />

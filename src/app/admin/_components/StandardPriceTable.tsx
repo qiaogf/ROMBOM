@@ -18,7 +18,7 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { ChevronRight, ChevronDown } from "lucide-react";
 import { applySeriesMarkup, applyModelMarkup } from "@/app/actions/adminActions";
-import { formatStockStatus, type StockStatus } from "@/lib/cart-display";
+import { formatLeadtime } from "@/lib/cart-display";
 import { formatUSDOrNull } from "@/lib/format";
 
 export interface StandardPriceRow {
@@ -30,7 +30,6 @@ export interface StandardPriceRow {
   markup: string | null;
   moq: number;
   condition: string | null;
-  stockStatus: StockStatus;
   leadTime: string | null;
   minConfirmedCost: string | null; // 同型号已确认文件最低成本价
 }
@@ -193,11 +192,11 @@ export function StandardPriceTable({ groups }: StandardPriceTableProps) {
                         </td>
                         <td className="px-2 py-0.5 whitespace-nowrap">
                           <span className={`text-[10px] ${
-                            r.stockStatus === "in_stock" ? "text-green-700"
-                            : r.stockStatus === "out_of_stock" ? "text-rose-600"
+                            (r.leadTime ?? "").toLowerCase().includes("out of stock") ? "text-rose-600"
+                            : (r.leadTime ?? "").toLowerCase().includes("in stock") ? "text-green-700"
                             : "text-amber-700"
                           }`}>
-                            {formatStockStatus(r.stockStatus, r.leadTime)}
+                            {formatLeadtime(r.leadTime)}
                           </span>
                         </td>
                       </tr>

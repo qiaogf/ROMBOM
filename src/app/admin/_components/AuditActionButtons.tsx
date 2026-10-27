@@ -3,6 +3,7 @@
 /**
  * 订单审核开关 — Approved / Rejected 两个选项始终显示，可自由切换
  * 默认 Approved；Rejected 状态的订单不允许支付
+ * 采购单：Approved 即"通过并提交"（草稿一并 draft → ordered，后端合并处理）
  * 右侧附 Delete 按钮，二次确认后删除订单
  */
 import { useTransition } from "react";

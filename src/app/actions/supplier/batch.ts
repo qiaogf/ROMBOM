@@ -63,7 +63,6 @@ export async function getSupplierBatchDetail(importBatchId: string): Promise<{
     costPrice: string;
     sellPrice: string;
     moq: number;
-    stockStatus: string;
     condition: string | null;
     leadTime: string | null;
   }>;
@@ -82,7 +81,7 @@ export async function getSupplierBatchDetail(importBatchId: string): Promise<{
     const items = await prisma.importBatchItem.findMany({
       where: { importBatchId },
       orderBy: { rowNumber: "asc" },
-      select: { rowNumber: true, model: true, productName: true, costPrice: true, sellPrice: true, moq: true, stockStatus: true, condition: true, leadTime: true },
+      select: { rowNumber: true, model: true, productName: true, costPrice: true, sellPrice: true, moq: true, condition: true, leadTime: true },
     });
     return {
       success: true,
@@ -94,7 +93,7 @@ export async function getSupplierBatchDetail(importBatchId: string): Promise<{
   const items = await prisma.modelPrice.findMany({
     where: { importBatchId },
     orderBy: { model: "asc" },
-    select: { model: true, productName: true, costPrice: true, sellPrice: true, moq: true, stockStatus: true, condition: true, leadTime: true },
+    select: { model: true, productName: true, costPrice: true, sellPrice: true, moq: true, condition: true, leadTime: true },
   });
   return {
     success: true,

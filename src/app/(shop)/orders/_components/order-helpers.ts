@@ -32,16 +32,3 @@ export function formatDate(date: Date | string): string {
   const year = String(d.getFullYear()).slice(-2);
   return `${day}/${month}/${year}`;
 }
-
-export function formatStockStatus(stock: string | null | undefined): string {
-  switch (stock) {
-    case "in_stock":
-      return "In Stock";
-    case "out_of_stock":
-      return "Out of Stock";
-    case "pre_order":
-      return "Pre-order";
-    default:
-      return stock || "—";
-  }
-}

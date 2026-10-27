@@ -11,6 +11,7 @@ import { toNumber, SHIPPING_THRESHOLD, SHIPPING_COST, TAX_RATE } from "../shared
 import { validateOrderData } from "./shared";
 import { generateSalesOrderNumber } from "./create-shared";
 import { generatePurchaseOrders, idempotencyStore } from "./create-full-helpers";
+import { isPurchasableLeadtime } from "@/lib/cart-display";
 
 export async function createOrder(data: CreateOrderData): Promise<OrderActionResult> {
   try {
@@ -108,8 +109,7 @@ export async function createOrder(data: CreateOrderData): Promise<OrderActionRes
           return { success: false, message: "Invalid item quantity in cart" };
         }
 
-        const stockStatus = sq?.stockStatus ?? mp?.stockStatus ?? "in_stock";
-        if (stockStatus === "out_of_stock") {
+        if (!isPurchasableLeadtime(sq?.leadTime ?? mp?.leadTime ?? null)) {
           return {
             success: false,
             message: `${productName} is out of stock`,
@@ -175,7 +175,6 @@ export async function createOrder(data: CreateOrderData): Promise<OrderActionRes
           const productName = mp?.productName ?? product?.productName;
           const model = mp?.model ?? product?.model;
           const price = mp ? toNumber(mp.sellPrice) : sq ? toNumber(sq.sellPrice) : 0;
-          const stockStatus = sq?.stockStatus ?? mp?.stockStatus ?? "in_stock";
           const leadTime = sq?.leadTime ?? mp?.leadTime ?? null;
 
           if (!productName || !model || price <= 0) {
@@ -194,7 +193,6 @@ export async function createOrder(data: CreateOrderData): Promise<OrderActionRes
             finalSellPrice: price,
             quantity: item.quantity,
             subtotal: subtotalAmount,
-            stockStatus,
             leadTime,
             itemStatus: "ordered",
             weight: mp?.weight != null ? toNumber(mp.weight) : null,
@@ -216,7 +214,6 @@ export async function createOrder(data: CreateOrderData): Promise<OrderActionRes
             model: mp?.model ?? product?.model ?? null,
             quantity: item.quantity,
             productId: item.productId,
-            stockStatus: sq?.stockStatus ?? mp?.stockStatus ?? "in_stock",
             leadTime: sq?.leadTime ?? mp?.leadTime ?? null,
           };
         }),
@@ -236,7 +233,7 @@ export async function createOrder(data: CreateOrderData): Promise<OrderActionRes
         message: "Order placed successfully",
         order: orderWithItems as OrderWithItems,
       };
-    }) as Promise<OrderActionResult>;
+    }, { timeout: 30000, maxWait: 10000 }) as Promise<OrderActionResult>;
   } catch (error) {
     console.error("Create order error:", error);
     return { success: false, message: "An error occurred while creating order. Please try again." };

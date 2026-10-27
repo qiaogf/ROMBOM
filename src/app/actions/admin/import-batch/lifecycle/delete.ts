@@ -5,6 +5,7 @@
 // approved batches already wrote ModelPrice/Product/SupplierQuote — those are rolled back too.
 
 import { prisma } from "@/lib/prisma";
+import { revalidatePublicQuotePages } from "./revalidate-helpers";
 
 // ── 删除整个导入批次（文件）及其所有型号价格 / 产品 ──
 // pending 批次仅含 ImportBatchItem 暂存行（onDelete: Cascade 自动清理）；
@@ -41,5 +42,8 @@ export async function deleteImportBatch(formData: FormData): Promise<{ success: 
   } catch (err) {
     const msg = err instanceof Error ? err.message : "Unknown error";
     return { success: false, message: `Failed to delete import file: ${msg}` };
+  } finally {
+    // 删除已上线批次会使公开页数据消失，需刷新缓存
+    await revalidatePublicQuotePages();
   }
 }

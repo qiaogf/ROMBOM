@@ -21,7 +21,7 @@ export default async function CustomerLayout({
   const email = session.user?.email ?? "";
 
   const navItems = [
-    { href: "/customer/dashboard", label: "Dashboard", icon: LayoutDashboard },
+    { href: "/cart", label: "Cart", icon: LayoutDashboard },
     { href: "/customer/orders", label: "My Orders", icon: Package },
   ];
 

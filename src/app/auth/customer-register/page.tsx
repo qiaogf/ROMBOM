@@ -18,7 +18,7 @@ export default function CustomerRegisterPage() {
     const result = await register(form);
     setLoading(false);
     if (result.success) {
-      router.push("/customer/dashboard");
+      router.push("/cart");
     } else {
       setError(result.message);
     }

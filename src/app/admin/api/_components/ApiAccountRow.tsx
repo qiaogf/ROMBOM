@@ -6,7 +6,11 @@
 
 import { useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { updateApiAccount, toggleApiAccount } from "@/app/actions/adminActions";
+import {
+  deleteApiAccount,
+  updateApiAccount,
+  toggleApiAccount,
+} from "@/app/actions/adminActions";
 import {
   inputCls,
   numCls,
@@ -71,6 +75,22 @@ export function ApiAccountRow({ acc, editsApi, brandSeriesOptions }: Props) {
     });
   };
 
+  const handleDelete = () => {
+    const label = acc.customerName || acc.email;
+    if (!window.confirm(`Delete API account for ${label}? This cannot be undone.`)) {
+      return;
+    }
+    const fd = new FormData();
+    fd.set("apiAccountId", acc.apiAccountId);
+    startTransition(async () => {
+      const res = await deleteApiAccount(fd);
+      if (res.success) {
+        clearEdit(acc.apiAccountId);
+        router.refresh();
+      }
+    });
+  };
+
   const edited = hasEdits(acc.apiAccountId);
   const id = acc.apiAccountId;
   const currentSeriesIds = filterToSeriesIds(
@@ -81,7 +101,10 @@ export function ApiAccountRow({ acc, editsApi, brandSeriesOptions }: Props) {
     <tr className="hover:bg-slate-50">
       <td className="px-1 py-0.5">
         {isBound ? (
-          <div className="w-full border border-slate-200 bg-slate-50 rounded px-1 py-0.5 text-[11px] text-slate-700 min-h-[20px] flex items-center gap-1">
+          <div
+            className="w-full border border-slate-200 bg-slate-50 rounded px-1 py-0.5 text-[11px] text-slate-700 min-h-[20px] flex items-center gap-1"
+            title={acc.customerName}
+          >
             <span className="truncate">{acc.customerName}</span>
             <span className="text-[8px] text-[#336633] flex-shrink-0">●bound</span>
           </div>
@@ -97,7 +120,10 @@ export function ApiAccountRow({ acc, editsApi, brandSeriesOptions }: Props) {
       </td>
       <td className="px-1 py-0.5">
         {isBound ? (
-          <div className="w-full border border-slate-200 bg-slate-50 rounded px-1 py-0.5 text-[11px] text-slate-500 min-h-[20px] truncate">
+          <div
+            className="w-full border border-slate-200 bg-slate-50 rounded px-1 py-0.5 text-[11px] text-slate-500 min-h-[20px] truncate"
+            title={acc.email}
+          >
             {acc.email}
           </div>
         ) : (
@@ -163,12 +189,12 @@ export function ApiAccountRow({ acc, editsApi, brandSeriesOptions }: Props) {
         />
       </td>
       <td className="px-1 py-0.5">
-        <div className="flex items-center gap-1">
+        <div className="flex flex-wrap items-center gap-0.5">
           <button
             type="button"
             onClick={() => !acc.isActive && handleToggle()}
             disabled={pending}
-            className={`px-1.5 py-0.5 text-[10px] font-medium rounded transition-colors ${
+            className={`px-1 py-0.5 text-[9px] font-medium rounded transition-colors ${
               acc.isActive
                 ? "text-white bg-emerald-600"
                 : "text-emerald-700 border border-emerald-300 hover:bg-emerald-50"
@@ -180,13 +206,21 @@ export function ApiAccountRow({ acc, editsApi, brandSeriesOptions }: Props) {
             type="button"
             onClick={() => acc.isActive && handleToggle()}
             disabled={pending}
-            className={`px-1.5 py-0.5 text-[10px] font-medium rounded transition-colors ${
+            className={`px-1 py-0.5 text-[9px] font-medium rounded transition-colors ${
               !acc.isActive
                 ? "text-white bg-rose-600"
                 : "text-rose-600 border border-rose-300 hover:bg-rose-50"
             }`}
           >
             Disable
+          </button>
+          <button
+            type="button"
+            onClick={handleDelete}
+            disabled={pending}
+            className="px-1 py-0.5 text-[9px] font-medium text-white bg-slate-500 rounded hover:bg-rose-600 disabled:opacity-50 transition-colors"
+          >
+            Delete
           </button>
         </div>
       </td>

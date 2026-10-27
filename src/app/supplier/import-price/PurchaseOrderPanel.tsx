@@ -3,12 +3,12 @@
 /**
  * 供应商 Purchase Order 面板 — 右侧区域（标题固定，表格独立滚动）
  *
- * 列：Model / Condition / Stock Status / Price / Qty / Amount / Order Status
+ * 列：Model / Condition / Leadtime / Price / Qty / Amount / Order Status
  * Price / Qty 只读；底部 Total（sticky）
  */
 import { useState } from "react";
 import { ShoppingCart } from "lucide-react";
-import { formatStockStatus, type StockStatus } from "@/lib/cart-display";
+import { formatLeadtime } from "@/lib/cart-display";
 import { formatUSD } from "@/lib/price";
 
 export interface PurchaseItem {
@@ -18,7 +18,6 @@ export interface PurchaseItem {
   quantity: number;
   unitPrice: string;
   condition: string | null;
-  stockStatus: StockStatus;
   leadTime: string | null;
 }
 
@@ -99,7 +98,7 @@ export function PurchaseOrderPanel({ items }: PurchaseOrderPanelProps) {
               <tr>
                 <th className="px-1.5 py-1 text-left">Model</th>
                 <th className="px-1.5 py-1 text-left">Cond.</th>
-                <th className="px-1.5 py-1 text-left">Stock</th>
+                <th className="px-1.5 py-1 text-left">Leadtime</th>
                 <th className="px-1.5 py-1 text-right">Price</th>
                 <th className="px-1.5 py-1 text-right">Qty</th>
                 <th className="px-1.5 py-1 text-right">Amount</th>
@@ -120,12 +119,13 @@ export function PurchaseOrderPanel({ items }: PurchaseOrderPanelProps) {
                       {it.condition ? <span className="block truncate" title={it.condition}>{it.condition}</span> : <span className="text-slate-400 italic">-</span>}
                     </td>
                     <td className="px-1.5 py-1 whitespace-nowrap">
-                      <span className={`text-[10px] ${
-                        it.stockStatus === "in_stock" ? "text-green-700"
-                        : it.stockStatus === "out_of_stock" ? "text-rose-600"
+                      {/* Leadtime 统一文本：缺货红 / 现货绿 / 交期琥珀 */}
+                      <span className={`whitespace-nowrap ${
+                        (it.leadTime ?? "").toLowerCase().includes("out of stock") ? "text-rose-600"
+                        : (it.leadTime ?? "").toLowerCase().includes("in stock") ? "text-green-700"
                         : "text-amber-700"
                       }`}>
-                        {formatStockStatus(it.stockStatus, it.leadTime)}
+                        {formatLeadtime(it.leadTime)}
                       </span>
                     </td>
                     <td className="px-1.5 py-1 text-right text-slate-700 tabular-nums whitespace-nowrap">

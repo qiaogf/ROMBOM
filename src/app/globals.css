@@ -57,6 +57,29 @@ html {
   -webkit-text-size-adjust: 100%;
   -moz-text-size-adjust: 100%;
   -ms-text-size-adjust: 100%;
+  /* 触屏：消除双击缩放判定带来的点按延迟；保留轻量点击高亮作为"点中了"的反馈 */
+  -webkit-tap-highlight-color: rgba(15, 23, 42, 0.12);
+}
+
+/* 所有可交互元素：禁止浏览器双击/缩放手势判定，click 立即触发 */
+a,
+button,
+[role="button"],
+input,
+select,
+textarea,
+label,
+summary {
+  touch-action: manipulation;
+}
+
+/* 触屏设备：点按瞬间给一次背景反馈，弥补 hover 在手机上不可见、网络跳转前无响应感的问题 */
+@media (hover: none) {
+  a:active,
+  button:active,
+  [role="button"]:active {
+    background-color: rgba(251, 191, 36, 0.25);
+  }
 }
 
 body {

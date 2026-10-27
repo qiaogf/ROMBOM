@@ -7,6 +7,8 @@ import { getCurrentUserId } from "@/lib/auth";
 import type { OrderActionResult, OrderWithItems } from "../shared";
 import { toNumber } from "../shared";
 import { generateSalesOrderNumber } from "./create-shared";
+import { isPurchasableLeadtime } from "@/lib/cart-display";
+import { generatePurchaseOrders } from "./create-full-helpers";
 
 /**
  * 从购物车直接创建订单（状态 ordered / 已提交）
@@ -60,8 +62,7 @@ export async function createOrderFromCart(): Promise<OrderActionResult> {
         if (item.quantity <= 0) {
           return { success: false, message: "Invalid item quantity in cart" };
         }
-        const stockStatus = sq?.stockStatus ?? mp?.stockStatus ?? "in_stock";
-        if (stockStatus === "out_of_stock") {
+        if (!isPurchasableLeadtime(sq?.leadTime ?? mp?.leadTime ?? null)) {
           return { success: false, message: `${productName} is out of stock` };
         }
         const moq = mp?.moq ?? sq?.moq ?? 1;
@@ -99,7 +100,6 @@ export async function createOrderFromCart(): Promise<OrderActionResult> {
           const productName = mp?.productName ?? product?.productName!;
           const model = mp?.model ?? product?.model!;
           const price = mp ? toNumber(mp.sellPrice) : sq ? toNumber(sq.sellPrice) : 0;
-          const stockStatus = sq?.stockStatus ?? mp?.stockStatus ?? "in_stock";
           const leadTime = sq?.leadTime ?? mp?.leadTime ?? null;
           return {
             orderId: order.orderId,
@@ -112,7 +112,6 @@ export async function createOrderFromCart(): Promise<OrderActionResult> {
             finalSellPrice: price,
             quantity: item.quantity,
             subtotal: price * item.quantity,
-            stockStatus,
             leadTime,
             itemStatus: "ordered",
             weight: mp?.weight != null ? toNumber(mp.weight) : null,
@@ -120,6 +119,24 @@ export async function createOrderFromCart(): Promise<OrderActionResult> {
           };
         }),
       });
+
+      // 自动生成采购订单：双报价源比价（管理员价格表优先 + 5工作日供应商报价），草稿状态
+      await generatePurchaseOrders(
+        tx,
+        { orderId: order.orderId, orderNumber: order.orderNumber },
+        cart.items.map((item) => {
+          const mp = item.modelPrice ?? null;
+          const sq = item.supplierQuote ?? null;
+          const product = item.product ?? null;
+          return {
+            productName: mp?.productName ?? product?.productName ?? "",
+            model: mp?.model ?? product?.model ?? null,
+            quantity: item.quantity,
+            productId: item.productId,
+            leadTime: sq?.leadTime ?? mp?.leadTime ?? null,
+          };
+        }),
+      );
 
       // 清空购物车
       await tx.cartItem.deleteMany({ where: { cartId: cart.cartId } });
@@ -129,7 +146,7 @@ export async function createOrderFromCart(): Promise<OrderActionResult> {
         message: "Order created",
         order: { ...order, items: [] } as OrderWithItems,
       };
-    }) as Promise<OrderActionResult>;
+    }, { timeout: 30000, maxWait: 10000 }) as Promise<OrderActionResult>;
   } catch (error) {
     console.error("Create order from cart error:", error);
     return { success: false, message: "An error occurred while creating order" };

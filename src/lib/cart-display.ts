@@ -1,7 +1,24 @@
 import { decimalToNumber, type DecimalLike } from "@/lib/price";
 
-/** 库存状态枚举（与 Prisma schema 中 StockStatus enum 对齐） */
-export type StockStatus = "in_stock" | "lead_time" | "out_of_stock";
+/**
+ * Leadtime 统一字段语义（2026-10-20 起 stockStatus + leadTime 合并为单一 leadTime）：
+ *   - "In Stock" 现货
+ *   - "Out of Stock" 缺货（不可加购）
+ *   - 其他文本（如 "4-6 weeks"）= 订货交期
+ *   - null/空 视同 "In Stock"
+ */
+
+/** Leadtime 展示文本：空值回退 "In Stock" */
+export function formatLeadtime(leadTime: string | null | undefined): string {
+  const t = leadTime?.trim();
+  return t ? t : "In Stock";
+}
+
+/** 可购性判断：仅 "Out of Stock" 不可加购 */
+export function isPurchasableLeadtime(leadTime: string | null | undefined): boolean {
+  const t = leadTime?.trim().toLowerCase() ?? "";
+  return !t.includes("out of stock");
+}
 
 /**
  * 购物车条目展示数据 — 旧 SupplierQuote 路径与新 ModelPrice 路径统一后的扁平形态
@@ -24,9 +41,7 @@ export interface CartItemDisplay {
   unitPrice: number;
   moq: number;
   condition: string | null;
-  /** 库存状态：in_stock 现货 / lead_time 订货 / out_of_stock 缺货 */
-  stockStatus: StockStatus;
-  /** 订货交期（如 "3-5 days"），仅 lead_time 状态下有意义 */
+  /** Leadtime 统一文本（In Stock / Out of Stock / 交期文本） */
   leadTime: string | null;
   /** 缩略图 URL（旧 Product 或新 ModelPrice 都有该字段，无则 null） */
   thumbnail: string | null;
@@ -64,7 +79,6 @@ export interface CartItemRelationsInput {
   supplierQuote?: {
     sellPrice: DecimalLike | string | number;
     moq: number;
-    stockStatus?: StockStatus;
     leadTime?: string | null;
   } | null;
   modelPrice?: {
@@ -74,7 +88,6 @@ export interface CartItemRelationsInput {
     sellPrice: DecimalLike | string | number;
     moq: number;
     condition: string | null;
-    stockStatus?: StockStatus;
     leadTime?: string | null;
     thumbnail?: string | null;
     origin?: string | null;
@@ -134,7 +147,6 @@ export function toCartItemDisplay(item: CartItemRelationsInput): CartItemDisplay
       moq: item.supplierQuote.moq,
       // 旧 Product 表无 condition 字段，从 ModelPrice 关系补充（若有）
       condition: item.modelPrice?.condition ?? null,
-      stockStatus: item.supplierQuote.stockStatus ?? item.modelPrice?.stockStatus ?? "in_stock",
       leadTime: item.supplierQuote.leadTime ?? item.modelPrice?.leadTime ?? null,
       thumbnail: item.product.thumbnail ?? null,
       ...nullSpecs,
@@ -156,7 +168,6 @@ export function toCartItemDisplay(item: CartItemRelationsInput): CartItemDisplay
       unitPrice: decimalToNumber(mp.sellPrice),
       moq: mp.moq,
       condition: mp.condition ?? null,
-      stockStatus: mp.stockStatus ?? "in_stock",
       leadTime: mp.leadTime ?? null,
       thumbnail: mp.thumbnail ?? null,
       origin: mp.origin ?? null,
@@ -187,7 +198,6 @@ export function toCartItemDisplay(item: CartItemRelationsInput): CartItemDisplay
     unitPrice: 0,
     moq: 1,
     condition: null,
-    stockStatus: "in_stock",
     leadTime: null,
     thumbnail: item.product?.thumbnail ?? null,
     ...nullSpecs,
@@ -221,26 +231,4 @@ export function computeCartTotals(
     totalItems,
     totalAmount: Math.round(totalAmount * 100) / 100,
   };
-}
-
-/**
- * 格式化库存状态为展示文本
- *   - in_stock → "In Stock"
- *   - lead_time → 显示 leadTime 字段（如 "3-5 days"），无 leadTime 时回退 "Lead Time"
- *   - out_of_stock → "Out of Stock"
- */
-export function formatStockStatus(
-  stockStatus: StockStatus,
-  leadTime: string | null
-): string {
-  switch (stockStatus) {
-    case "in_stock":
-      return "In Stock";
-    case "lead_time":
-      return leadTime?.trim() ? leadTime.trim() : "Lead Time";
-    case "out_of_stock":
-      return "Out of Stock";
-    default:
-      return "In Stock";
-  }
 }

@@ -37,6 +37,8 @@ export function ImportFormBase({
     useImportForm<ImportResultStructured>({
       endpoint: "/api/admin/import-price",
       batchType,
+      // 上传成功后刷新 RSC 列表（Imported Files），否则新文件不显示
+      refreshAfterSuccess: true,
     });
 
   return (

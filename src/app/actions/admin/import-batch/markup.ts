@@ -2,6 +2,7 @@
 
 import { prisma } from "@/lib/prisma";
 import { getAdminSession } from "@/lib/auth-admin";
+import { runPriceComparison } from "@/lib/price-compare";
 import { round4, parseMarkupPercent } from "./shared";
 
 // ── 管理员整批 Markup（加价）──
@@ -56,27 +57,34 @@ export async function applyBatchMarkup(formData: FormData): Promise<{ success: b
             quoteCount++;
           }
         }
-        return { fileName: batch.fileName, count: prices.length, quotes: quoteCount };
-      }
+        return { fileName: batch.fileName, count: prices.length, quotes: quoteCount, approved: true };
+    }
 
-      // pending 批次：更新暂存行
-      const items = await tx.importBatchItem.findMany({
-        where: { importBatchId },
-        select: { itemId: true, costPrice: true },
-      });
-      for (const it of items) {
-        await tx.importBatchItem.update({
-          where: { itemId: it.itemId },
-          data: { sellPrice: round4(Number(it.costPrice) * factor), markup: markupPercent },
-        });
-      }
-      return { fileName: batch.fileName, count: items.length, quotes: 0 };
+    // pending 批次：更新暂存行
+    const items = await tx.importBatchItem.findMany({
+      where: { importBatchId },
+      select: { itemId: true, costPrice: true },
     });
-    const quoteNote = result.quotes > 0 ? ` and ${result.quotes} quote(s)` : "";
-    return {
-      success: true,
-      message: `Markup ${markupPercent}% applied to ${result.count} price row(s)${quoteNote} in "${result.fileName}".`,
-    };
+    for (const it of items) {
+      await tx.importBatchItem.update({
+        where: { itemId: it.itemId },
+        data: { sellPrice: round4(Number(it.costPrice) * factor), markup: markupPercent },
+      });
+    }
+    return { fileName: batch.fileName, count: items.length, quotes: 0, approved: false };
+  });
+
+  // ── 比价任务：线上价格被人工加价修改后自动比对，同步产品 ListPrice ──
+  let compareSummary = "";
+  if (result.approved) {
+    const cmp = await runPriceComparison();
+    compareSummary = ` ${cmp.summary}`;
+  }
+  const quoteNote = result.quotes > 0 ? ` and ${result.quotes} quote(s)` : "";
+  return {
+    success: true,
+    message: `Markup ${markupPercent}% applied to ${result.count} price row(s)${quoteNote} in "${result.fileName}".${compareSummary}`,
+  };
   } catch (err) {
     const msg = err instanceof Error ? err.message : "Unknown error";
     return { success: false, message: `Failed to apply markup: ${msg}` };
@@ -127,7 +135,10 @@ export async function applyModelMarkup(formData: FormData): Promise<{ success: b
       }
       return mp.model;
     });
-    return { success: true, message: `Markup ${markupPercent}% applied to model ${result}.` };
+
+    // ── 比价任务：单型号价格变化后自动比对，同步产品 ListPrice ──
+    const cmp = await runPriceComparison();
+    return { success: true, message: `Markup ${markupPercent}% applied to model ${result}.${cmp.summary ? " " + cmp.summary : ""}` };
   } catch (err) {
     const msg = err instanceof Error ? err.message : "Unknown error";
     return { success: false, message: `Failed to apply markup: ${msg}` };
@@ -174,7 +185,10 @@ export async function applySeriesMarkup(formData: FormData): Promise<{ success: 
         }
       }
     });
-    return { success: true, message: `Markup ${markupPercent}% applied to series.` };
+
+    // ── 比价任务：系列批量加价后自动比对，同步产品 ListPrice ──
+    const cmp = await runPriceComparison();
+    return { success: true, message: `Markup ${markupPercent}% applied to series.${cmp.summary ? " " + cmp.summary : ""}` };
   } catch (err) {
     const msg = err instanceof Error ? err.message : "Unknown error";
     return { success: false, message: `Failed to apply series markup: ${msg}` };

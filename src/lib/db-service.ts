@@ -3,5 +3,4 @@
 
 export * from "./db/types";
 export * from "./db/catalog";
-export * from "./db/series";
 export * from "./db/products";

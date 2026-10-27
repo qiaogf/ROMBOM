@@ -29,9 +29,7 @@ export interface Product {
   moq: number;
   /** Product Condition（来自 ModelPrice.condition，CSV 导入的自由文本） */
   condition?: string | null;
-  /** 库存状态：in_stock 现货 / lead_time 订货 / out_of_stock 缺货 */
-  stockStatus: "in_stock" | "lead_time" | "out_of_stock";
-  /** 订货交期（如 "3-5 days"），仅 lead_time 状态下有意义 */
+  /** Leadtime 统一文本：In Stock（现货）/ Out of Stock（缺货）/ 交期文本；null/空 视同 In Stock */
   leadTime: string | null;
   categoryId: string;
   brandId: string;

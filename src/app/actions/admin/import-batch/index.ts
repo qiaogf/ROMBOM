@@ -4,3 +4,4 @@
 
 export * from "./markup";
 export * from "./lifecycle";
+export * from "./compare";

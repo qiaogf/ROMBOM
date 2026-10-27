@@ -34,9 +34,9 @@ const NAV_ITEMS: NavItem[] = [
   { href: "/admin/series", label: "series", icon: Layers },
   { href: "/admin/import-price", label: "product", icon: Upload },
   { href: "/admin/model-price", label: "price", icon: DollarSign },
-  { href: "/admin/purchase-order", label: "Purchase Order", icon: ShoppingCart },
-  { href: "/admin/sales-order", label: "Sales Order", icon: ReceiptText },
-  { href: "/admin/logistics-capital", label: "Logistics-Capital", icon: Truck },
+  { href: "/admin/purchase-order", label: "Purchase", icon: ShoppingCart },
+  { href: "/admin/sales-order", label: "Sales", icon: ReceiptText },
+  { href: "/admin/logistics-capital", label: "LogiFin", icon: Truck },
   { href: "/admin/api", label: "API", icon: Code },
 ];
 
