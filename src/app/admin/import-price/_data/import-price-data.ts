@@ -135,7 +135,7 @@ export async function getDetailData(batchId: string) {
 
   if (!isPending && stagedItems.length > 0) {
     modelPrices = await prisma.modelPrice.findMany({
-      where: { slug: { in: stagedItems.map((it) => it.slug) } },
+      where: { importBatchId: batchId },
       orderBy: { createdAt: "asc" },
       select: {
         modelPriceId: true,

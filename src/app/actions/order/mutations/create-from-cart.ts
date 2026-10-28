@@ -8,6 +8,7 @@ import type { OrderActionResult, OrderWithItems } from "../shared";
 import { toNumber } from "../shared";
 import { generateSalesOrderNumber } from "./create-shared";
 import { isPurchasableLeadtime } from "@/lib/cart-display";
+import { computeLockExpiry, reserveStockForItems } from "@/lib/order-lock";
 
 /**
  * 从购物车直接创建订单（状态 ordered / 已提交）
@@ -68,6 +69,15 @@ export async function createOrderFromCart(): Promise<OrderActionResult> {
         if (moq > 1 && item.quantity < moq) {
           return { success: false, message: `Minimum order quantity for ${productName} is ${moq}` };
         }
+        // 库存校验（软预留口径：实际库存 - 已预留）
+        const stockAvailable = mp
+          ? mp.stockQuantity - mp.reservedQuantity
+          : sq
+            ? sq.stockQuantity - sq.reservedQuantity
+            : null;
+        if (stockAvailable !== null && stockAvailable < item.quantity) {
+          return { success: false, message: `${productName} does not have enough stock` };
+        }
         subtotal += price * item.quantity;
       }
 
@@ -88,6 +98,8 @@ export async function createOrderFromCart(): Promise<OrderActionResult> {
           orderStatus: "pending_review",
           soStatus: "ordered",
           deliveryMethod: "standard",
+          lockExpiresAt: computeLockExpiry(),
+          stockLocked: true,
         },
       });
 
@@ -118,6 +130,16 @@ export async function createOrderFromCart(): Promise<OrderActionResult> {
           };
         }),
       });
+
+      // 软预留库存（48 小时内未支付则由清扫任务释放）
+      await reserveStockForItems(
+        tx,
+        cart.items.map((item) => ({
+          modelPriceId: item.modelPriceId,
+          quoteId: item.quoteId,
+          quantity: item.quantity,
+        }))
+      );
 
       // 清空购物车
       await tx.cartItem.deleteMany({ where: { cartId: cart.cartId } });

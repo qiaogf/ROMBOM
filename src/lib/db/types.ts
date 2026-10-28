@@ -35,6 +35,8 @@ export interface Product {
   brandId: string;
   seriesName: string | null;
   seriesDesc: string | null;
+  /** 比价优胜标记：lowest=最低价 / fastest=最快交期 / both=同一行双优胜 */
+  priceTag?: "lowest" | "fastest" | "both" | null;
 }
 
 export interface SeriesInfo {

@@ -278,7 +278,7 @@ export function CheckoutContent({ order, defaultName }: CheckoutContentProps) {
                 <table className="w-full table-fixed text-[12px]">
                   <colgroup>
                     <col className="w-[26%]" />
-                    <col className="w-[24%]" />
+                    <col className="w-[20ch]" />
                     <col className="w-[10%]" />
                     <col className="w-[18%]" />
                     <col className="w-[22%]" />

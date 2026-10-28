@@ -93,62 +93,82 @@ export default async function SeriesDetailPage({ params }: PageProps) {
   }
 
   let mappedProducts: Product[];
-  let displaySeriesName = seriesRecord?.seriesName || seriesName;
-  let displaySeriesDesc = seriesRecord?.description || null;
+  const displaySeriesName = seriesRecord?.seriesName || seriesName;
+  const displaySeriesDesc = seriesRecord?.description || null;
 
-  if (products.length > 0) {
-    // Product(旧模型) 无 Product Condition 字段，从 ModelPrice（新模型）按 model 批量补充
-    const conditions = await prisma.modelPrice.findMany({
-      where: { model: { in: products.map((p) => p.model) } },
-      select: { model: true, condition: true },
-    });
-    const conditionMap = new Map(conditions.map((c) => [c.model, c.condition]));
-
-    mappedProducts = products.map((p): Product => {
-      const quote = p.supplierQuotes[0];
-      return {
-        id: p.productId,
-        name: p.productName,
-        model: p.model,
-        description: p.description,
-        unit: p.unit,
-        price: quote ? Number(quote.sellPrice) : 0,
-        quoteId: quote?.quoteId || "",
-        moq: quote?.moq ?? 1,
-        condition: conditionMap.get(p.model) ?? null,
-        leadTime: quote?.leadTime ?? null,
-        categoryId: p.categoryId,
-        brandId: p.brandId,
-        seriesName: p.series,
-        seriesDesc: null,
-      };
-    });
-  } else if (seriesRecord) {
-    // 回退：新模型 ModelPrice 表 — 用顶部已查到的 Series 记录
-    const modelPrices = await prisma.modelPrice.findMany({
-      where: { seriesId: seriesRecord.seriesId, isActive: true },
-      orderBy: { sortOrder: "asc" },
-    });
-    mappedProducts = modelPrices.map((mp): Product => ({
-      id: mp.modelPriceId,
-      name: mp.productName,
-      model: mp.model,
-      description: mp.description,
-      unit: mp.unit,
-      price: mp.sellPrice.toNumber(),
-      quoteId: "",
-      moq: mp.moq,
-      condition: mp.condition,
-      leadTime: mp.leadTime,
-      categoryId: "",
-      brandId: mp.supplierId ?? "",
-      seriesName: seriesRecord.seriesName,
-      seriesDesc: null,
-    }));
-  } else {
+  if (!seriesRecord && products.length === 0) {
     // 品牌下既无旧产品也无 Series 记录 → 该系列不存在
     notFound();
   }
+
+  // 线上展示以 ModelPrice 比价优胜行为准（最低价 / 最快交期可各一行）；
+  // 旧 Product 行仅用于新体系未覆盖的型号，避免同型号重复且价格显示 0.00
+  const modelPrices = seriesRecord
+    ? await prisma.modelPrice.findMany({
+        where: {
+          seriesId: seriesRecord.seriesId,
+          isActive: true,
+          status: "on_sale",
+          OR: [{ isWinnerPrice: true }, { isWinnerLeadTime: true }],
+        },
+        orderBy: [{ isWinnerPrice: "desc" }, { sortOrder: "asc" }],
+      })
+    : [];
+  const modelPriceModels = new Set(modelPrices.map((mp) => mp.model));
+  const productInfoMap = new Map(
+    products
+      .filter((p) => p.productName && p.productName !== p.model)
+      .map((p) => [p.model, p])
+  );
+
+  mappedProducts = [
+    ...modelPrices.map((mp): Product => {
+      const info = productInfoMap.get(mp.model);
+      return {
+        id: mp.modelPriceId,
+        name: info?.productName || mp.productName,
+        model: mp.model,
+        description: info?.description || mp.description,
+        unit: mp.unit,
+        price: mp.sellPrice.toNumber(),
+        quoteId: "",
+        moq: mp.moq,
+        condition: mp.condition ?? null,
+        leadTime: mp.leadTime,
+        categoryId: mp.categoryId ?? "",
+        brandId: mp.brandId ?? mp.supplierId ?? "",
+        seriesName: displaySeriesName,
+        seriesDesc: null,
+        priceTag:
+          mp.isWinnerPrice && mp.isWinnerLeadTime
+            ? "both"
+            : mp.isWinnerPrice
+              ? "lowest"
+              : "fastest",
+      };
+    }),
+    ...products
+      .filter((p) => !modelPriceModels.has(p.model))
+      .map((p): Product => {
+        const quote = p.supplierQuotes[0];
+        return {
+          id: p.productId,
+          name: p.productName,
+          model: p.model,
+          description: p.description,
+          unit: p.unit,
+          price: quote ? Number(quote.sellPrice) : 0,
+          quoteId: quote?.quoteId || "",
+          moq: quote?.moq ?? 1,
+          condition: null,
+          leadTime: quote?.leadTime ?? null,
+          categoryId: p.categoryId,
+          brandId: p.brandId,
+          seriesName: p.series,
+          seriesDesc: null,
+        };
+      }),
+  ];
 
   // 转换为 SeriesGroup 格式
   const seriesGroups: SeriesGroup[] = [{
@@ -162,14 +182,21 @@ export default async function SeriesDetailPage({ params }: PageProps) {
     <div className="flex-1 min-h-0 overflow-y-scroll main-scrollbar">
       <div className="h-0.5 bg-amber-400 shrink-0"></div>
       <div className="px-3 sm:px-4 pt-3 pb-8">
-        {/* Breadcrumb */}
-        <nav className="flex items-center gap-1 text-xs text-slate-500 mb-3">
-          <Link href="/" className="hover:text-green-700">Home</Link>
-          <ChevronRight className="w-3 h-3" />
-          <Link href={`/brand/${brandSlug}`} className="hover:text-green-700">{brand.name}</Link>
-          <ChevronRight className="w-3 h-3" />
-          <span className="text-slate-700 font-medium">{displaySeriesName}</span>
-        </nav>
+        {/* Breadcrumb + 总 SKU */}
+        <div className="flex items-center justify-between mb-3">
+          <nav className="flex items-center gap-1 text-xs text-slate-500">
+            <Link href="/" className="hover:text-green-700">Home</Link>
+            <ChevronRight className="w-3 h-3" />
+            <Link href={`/brand/${brandSlug}`} className="hover:text-green-700">{brand.name}</Link>
+            <ChevronRight className="w-3 h-3" />
+            <span className="text-slate-700 font-medium">{displaySeriesName}</span>
+          </nav>
+          {mappedProducts.length > 0 && (
+            <span className="text-[11px] text-slate-500">
+              {mappedProducts.length} SKU
+            </span>
+          )}
+        </div>
 
         {/* 型号价格表 */}
         <ProductPriceTable seriesGroups={seriesGroups} showSeriesHeader={false} />

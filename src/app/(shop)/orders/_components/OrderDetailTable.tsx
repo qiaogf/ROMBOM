@@ -23,7 +23,7 @@ export function OrderDetailTable({ order }: OrderDetailTableProps) {
       <div className="overflow-x-auto">
         <table className="w-full table-fixed text-xs">
           <colgroup>
-            <col className="w-[22%]" />
+            <col className="w-[20ch]" />
             <col className="w-[16%]" />
             <col className="w-[18%]" />
             <col className="w-[12%]" />

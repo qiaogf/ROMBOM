@@ -64,7 +64,7 @@ export interface BatchModelPrice {
   batteryAttributes: string | null;
   datasheetLink: string | null;
   brandName: string | null;
-  series: BatchRowSeries;
+  series: BatchRowSeries | null;
 }
 
 interface ImportBatchDetailProps {

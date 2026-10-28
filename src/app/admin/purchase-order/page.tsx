@@ -44,7 +44,7 @@ function PurchaseItemsTable({
         <table className="w-full table-fixed text-[11px]">
           <colgroup>
             <col style={{ width: "16%" }} />
-            <col style={{ width: "22%" }} />
+            <col style={{ width: "20ch" }} />
             <col style={{ width: "13%" }} />
             <col style={{ width: "9%" }} />
             <col style={{ width: "16%" }} />

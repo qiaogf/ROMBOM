@@ -12,11 +12,11 @@ import {
 
 export const dynamic = "force-dynamic";
 
-// Model Prices 模板（6 列）：Brand 与 Series 分列填写；Leadtime 合并库存状态（In stock / 货期文本 / Out of stock）
-// 导入解析端已原生支持：Brand → brandname canonical；纯系列名 "S7-1200" → 系列映射（组合全名/系列名/slug 均可识别）
-const PRICE_TEMPLATE_CSV = `Brand,Series,Model,UnitPrice,Condition,Leadtime
-Siemens,S7-1200,6ES7214-1AG40-0XB0,128.00,New Original,In stock
-Siemens,S7-1500,6ES7511-1AK02-0AB0,455.00,New Original,2-3 weeks`;
+// Model Prices 模板（7 列）：首列必须为 Category，且与前台导航分类名称完全一致；
+// 复合唯一键 = Category + Model（同型号跨分类为独立报价）。Leadtime 合并库存状态（In stock / 货期文本 / Out of stock）
+const PRICE_TEMPLATE_CSV = `Category,Brand,Series,Model,UnitPrice,Condition,Leadtime
+Control,Siemens,S7-1200,6ES7214-1AG40-0XB0,128.00,New Original,In stock
+Control,Siemens,S7-1500,6ES7511-1AK02-0AB0,455.00,New Original,2-3 weeks`;
 
 function toStr(value: string | string[] | undefined): string | undefined {
   if (value === undefined) return undefined;

@@ -69,6 +69,7 @@ export const HEADER_ALIASES: Record<string, string[]> = {
   origin: ["origin", "产地", "原产地", "生产地", "placeoforigin", "countryoforigin"],
   certification: ["certification", "certifications", "cert", "认证", "认证信息", "证书", "certificate"],
   brandname: ["brand", "brandname", "品牌", "品牌名称"],
+  category: ["category", "categoryname", "productcategory", "品类", "类别", "分类", "产品分类"],
   series: ["series", "系列", "系列slug"],
   condition: ["productcondition", "condition", "产品状况", "产品情况", "状况"],
   length: ["length", "长", "长度"],
@@ -136,4 +137,99 @@ export function normalizeLeadtime(value: string | null | undefined): string {
   if (t.includes("out of stock") || v.includes("缺货")) return "Out of Stock";
   if (t.includes("stock") || v.includes("现货")) return "In Stock";
   return v;
+}
+
+// ── 字段长度上限（字符）—— PC 端列宽按字符上限定宽，超限行在导入时拒绝 ──
+// Category 不在此列：它必须匹配导航已有类目（存在性校验已覆盖，且已存在类目名可超 15 字符）
+export const FIELD_LIMITS = {
+  brandname: 15,
+  series: 15,
+  productname: 15,
+  description: 150,
+} as const;
+
+/**
+ * 校验单行字段长度。返回首个超限字段的错误消息；全部合规返回 null。
+ * 仅校验将写入/新建的名称字段；匹配到系统已有系列的行无需校验 Series 长度。
+ */
+export function validateFieldLengths(fields: {
+  brandname?: string | null;
+  series?: string | null;
+  productname?: string | null;
+  description?: string | null;
+}): string | null {
+  const checks: Array<[keyof typeof FIELD_LIMITS, string, string | null | undefined]> = [
+    ["brandname", "Brand", fields.brandname],
+    ["series", "Series", fields.series],
+    ["productname", "Product", fields.productname],
+    ["description", "Description", fields.description],
+  ];
+  for (const [key, label, value] of checks) {
+    if (value && value.length > FIELD_LIMITS[key]) {
+      return `${label} "${value.slice(0, 30)}${value.length > 30 ? "…" : ""}" exceeds the ${FIELD_LIMITS[key]}-character limit (${value.length} chars).`;
+    }
+  }
+  return null;
+}
+
+/** Brand 缺失时的自动填充品牌名（有 Series 无 Brand 的行归此品牌；复用系统已有的 Generic 品牌） */
+export const GENERIC_BRAND_NAME = "Generic";
+
+/** 特殊类目下 Brand/Series 都为空时的统一分组系列名（展示在页面末尾） */
+export const OTHERS_SERIES_NAME = "(Others)";
+
+/** 特殊类目判定：`<xxx>` / `(xxx)` 格式（点击跳过系列选择，直接展示公开价表） */
+export function isSpecialCategoryName(name: string): boolean {
+  return /[()<>]/.test(name);
+}
+
+// ── 报价行唯一键 / 批次内去重辅助 ──
+
+/** 文本归一化：去首尾空格 + 转小写（唯一键/去重键统一口径） */
+export function normQuoteText(v: string | null | undefined): string {
+  return (v ?? "").trim().toLowerCase();
+}
+
+/** 交期排序权重：越小越快。空值视同现货；Out of Stock 视为最慢 */
+export function leadTimeRank(lt: string | null | undefined): number {
+  const s = (lt ?? "").trim().toLowerCase();
+  if (!s) return 0;
+  if (s.includes("out of stock")) return 99999;
+  if (s.includes("in stock")) return 0;
+  const m = s.match(/\d+(?:\.\d+)?/);
+  return m ? Number(m[0]) : 10000;
+}
+
+export interface QuoteKeyParts {
+  categoryId: string | null;
+  model: string;
+  condition: string | null;
+  supplierId: string | null;
+  brandId: string | null;
+}
+
+/** 报价行唯一键：Category + Model + Condition + 供应商键（供应商 > 品牌 > none） */
+export function buildModelPriceQuoteKey(p: QuoteKeyParts): string {
+  const supplierKey = p.supplierId ? `s:${p.supplierId}` : p.brandId ? `b:${p.brandId}` : "none";
+  return [p.categoryId ?? "na", normQuoteText(p.model), normQuoteText(p.condition), supplierKey].join("|");
+}
+
+/** 产品属性行唯一键（product_info 批次），与价格/报价行分离 */
+export function buildBaseQuoteKey(categoryId: string | null, model: string): string {
+  return ["base", categoryId ?? "na", normQuoteText(model)].join("|");
+}
+
+/** 批次内去重键：Category + Model + Condition + Leadtime */
+export function buildBatchDedupeKey(p: {
+  category: string | null;
+  model: string;
+  condition: string | null;
+  leadTime: string | null;
+}): string {
+  return [
+    normQuoteText(p.category),
+    normQuoteText(p.model),
+    normQuoteText(p.condition),
+    normQuoteText(p.leadTime),
+  ].join("|");
 }

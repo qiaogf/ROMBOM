@@ -22,8 +22,13 @@ const seriesSelect = {
   categoryId: true,
   brandId: true,
   modelPrices: {
-    where: { isActive: true, status: "on_sale" },
-    orderBy: { sortOrder: "asc" as const },
+    where: {
+      isActive: true,
+      status: "on_sale",
+      // 线上只展示比价优胜行（最低价 / 最快交期）；特殊类目导入时已标记为优胜
+      OR: [{ isWinnerPrice: true }, { isWinnerLeadTime: true }],
+    },
+    orderBy: [{ isWinnerPrice: "desc" as const }, { sortOrder: "asc" as const }],
   },
 } satisfies Prisma.SeriesSelect;
 
@@ -73,7 +78,15 @@ function buildSeriesGroups(
     return index;
   };
 
+  // 新型号价格体系（ModelPrice）已覆盖的型号：以新报价行为准（可展示最低价 / 最快交期两行）
+  // 旧 Product 行只用于新体系里没有报价的型号，避免同一型号重复出现
+  const modelsWithNewPrice = new Set<string>();
+  for (const s of seriesRows) {
+    for (const mp of s.modelPrices) modelsWithNewPrice.add(mp.model);
+  }
+
   products.forEach((product) => {
+    if (modelsWithNewPrice.has(product.model)) return;
     const seriesName = product.series || "Other Models";
     const defaultQuote =
       product.supplierQuotes && product.supplierQuotes.length > 0
@@ -131,8 +144,8 @@ function buildSeriesGroups(
         model: mp.model,
         description: info?.description || mp.description,
         unit: mp.unit,
-        // ListPrice 优先（比价任务写入）；无产品级 ListPrice 时回退该行 sellPrice
-        price: info?.listPrice != null ? toNumber(info.listPrice) : toNumber(mp.sellPrice),
+        // 优胜行展示该行自身成交价（最低价行 / 最快交期行各一行）
+        price: toNumber(mp.sellPrice),
         // 新模型暂无 SupplierQuote，quoteId 留空 → 前端加购按钮自动禁用
         quoteId: "",
         moq: mp.moq,
@@ -142,6 +155,12 @@ function buildSeriesGroups(
         brandId: row.brandId,
         seriesName: name,
         seriesDesc: row.description || null,
+        priceTag:
+          mp.isWinnerPrice && mp.isWinnerLeadTime
+            ? "both"
+            : mp.isWinnerPrice
+              ? "lowest"
+              : "fastest",
       });
     }
   }

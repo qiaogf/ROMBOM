@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>跨境商城 固定访问清单</title>
+<style>
+  :root { --ink:#1f2937; --muted:#6b7280; --line:#e5e7eb; --brand:#0f766e; --bg:#f8fafc; }
+  * { box-sizing: border-box; }
+  body { margin:0; padding:40px 20px; background:var(--bg); color:var(--ink);
+         font-family: -apple-system, "Segoe UI", "Microsoft YaHei", sans-serif; line-height:1.6; }
+  .wrap { max-width: 860px; margin: 0 auto; background:#fff; border:1px solid var(--line);
+          border-radius:12px; padding:36px 40px; box-shadow:0 1px 3px rgba(15,23,42,.06); }
+  h1 { font-size:22px; margin:0 0 6px; }
+  .sub { color:var(--muted); font-size:13px; margin-bottom:28px; }
+  h2 { font-size:15px; margin:28px 0 12px; padding-bottom:8px; border-bottom:1px solid var(--line);
+       letter-spacing:.02em; }
+  .item { margin:0 0 16px; }
+  .label { font-size:13px; color:var(--muted); margin-bottom:5px; }
+  code { display:block; background:#f1f5f9; border:1px solid var(--line); border-radius:8px;
+         padding:10px 12px; font-family: ui-monospace, Consolas, monospace; font-size:13px;
+         word-break:break-all; color:#0f172a; }
+  table { width:100%; border-collapse:collapse; font-size:13.5px; }
+  th, td { border:1px solid var(--line); padding:9px 12px; text-align:left; vertical-align:top; }
+  th { background:#f8fafc; font-weight:600; width:34%; }
+  .note { background:#fffbeb; border:1px solid #fde68a; border-radius:8px; padding:12px 14px;
+          font-size:13px; color:#78350f; margin-top:16px; }
+  .tag { display:inline-block; font-size:11px; padding:2px 8px; border-radius:999px;
+         background:#ecfdf5; color:var(--brand); border:1px solid #a7f3d0; margin-left:6px; }
+  footer { margin-top:28px; padding-top:14px; border-top:1px solid var(--line);
+           color:var(--muted); font-size:12px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>跨境商城 · 固定访问清单</h1>
+  <div class="sub">生产环境 next start（3000 端口）+ ngrok 固定域名 &nbsp;|&nbsp; 更新于 2026-10-27</div>
+
+  <h2>一、外网访问（固定域名）</h2>
+
+  <div class="item">
+    <div class="label">① API 查询工具页</div>
+    <code>https://dehydrate-esquire-hybrid.ngrok-free.dev/api-tester</code>
+  </div>
+
+  <div class="item">
+    <div class="label">② 网站首页</div>
+    <code>https://dehydrate-esquire-hybrid.ngrok-free.dev/</code>
+  </div>
+
+  <div class="item">
+    <div class="label">③ API 端点</div>
+    <code>https://dehydrate-esquire-hybrid.ngrok-free.dev/api/model-prices?model=6ES7&amp;limit=100&amp;key=cmv0emfv40001tygg2mnm7mkz</code>
+  </div>
+
+  <h2>二、局域网访问</h2>
+
+  <div class="item">
+    <div class="label">④ API 查询工具页</div>
+    <code>http://192.168.3.155:3000/api-tester</code>
+  </div>
+
+  <div class="item">
+    <div class="label">⑤ 网站首页</div>
+    <code>http://192.168.3.155:3000/</code>
+  </div>
+
+  <div class="item">
+    <div class="label">⑥ API 端点</div>
+    <code>http://192.168.3.155:3000/api/model-prices?model=6ES7&amp;limit=100&amp;key=cmv0emfv40001tygg2mnm7mkz</code>
+  </div>
+
+  <h2>三、API Key</h2>
+  <table>
+    <tr><th>0% 加成（成本价直出）</th><td><code style="margin:0">cmv0emfv40001tygg2mnm7mkz</code></td></tr>
+    <tr><th>100% 加成（成本价 ×2）</th><td><code style="margin:0">cmu9oribg0005tykofojk1fiy</code></td></tr>
+  </table>
+  <div class="note">Key 可放在查询参数 <code style="display:inline;padding:1px 6px;margin:0">?key=xxx</code>，也可放在请求头 <code style="display:inline;padding:1px 6px;margin:0">x-api-key: xxx</code>。</div>
+
+  <h2>四、API 参数</h2>
+  <table>
+    <tr><th>model</th><td>型号查询，逗号分隔多个（模糊匹配，精确匹配优先）；省略则返回全量</td></tr>
+    <tr><th>limit</th><td>每页型号数，1–500，默认 100</td></tr>
+    <tr><th>offset</th><td>型号偏移量，用于翻页，默认 0</td></tr>
+    <tr><th>返回结构</th><td>{ success, total, limit, offset, rows: [{ brand, model, price, condition, leadTime }] }</td></tr>
+  </table>
+
+  <h2>五、注意事项</h2>
+  <div class="note">
+    1. 手机或新浏览器首次打开外网域名时，ngrok 会显示一次 “Visit Site” 提示页，点击后即可正常访问，之后不再出现。<br>
+    2. 外网仅通过 ngrok 免费隧道暴露，本机需保持开机并运行 <b>start-prod.vbs</b>；本机关机或休眠时外网不可访问，局域网不受影响。<br>
+    3. 外网域名为固定域名，不会随重启变化。
+  </div>
+
+  <footer>跨境商城 · 内部使用文档</footer>
+</div>
+</body>
+</html>

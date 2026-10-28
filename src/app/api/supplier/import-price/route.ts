@@ -1,10 +1,18 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getSupplierSession } from "@/lib/auth-admin";
-import { toDecimal, normalizeLeadtime } from "@/lib/import-price";
+import {
+  toDecimal,
+  normalizeLeadtime,
+  validateFieldLengths,
+  buildBatchDedupeKey,
+  leadTimeRank,
+  normQuoteText,
+} from "@/lib/import-price";
 import {
   buildHeaderIndex,
   loadActiveSeriesMap,
+  normNavKey,
   parseUploadFile,
 } from "@/lib/import-price-upload";
 import { slugify } from "@/lib/db/types";
@@ -100,8 +108,10 @@ export async function POST(request: Request) {
   const errors: string[] = [];
   let successCount = 0;
   let failureCount = 0;
-  const seenSlugs = new Set<string>();
   let firstSeriesId: string | null = null;
+  type StagedQuote = { itemId: string; dedupeKey: string; leadRank: number };
+  const priceQuoteIndex = new Map<string, StagedQuote>(); // baseKey(series|model|condition) -> 已暂存报价
+  let mergedCount = 0;
 
   for (let r = 0; r < dataRows.length; r++) {
     const row = dataRows[r];
@@ -144,8 +154,7 @@ export async function POST(request: Request) {
       if (!seriesStr) {
         throw new Error('Column "Series" is empty. Each row must specify an existing series name.');
       }
-      const seriesKey = seriesStr.toLowerCase().replace(/\s+/g, " ").trim();
-      const rowSeriesId = seriesMap.get(seriesKey);
+      const rowSeriesId = seriesMap.get(normNavKey(seriesStr));
       if (!rowSeriesId) {
         throw new Error(`Series "${seriesStr}" not found in the system. Please use "Brand Series" (e.g. Siemens S7-1200), a series name, or a slug.`);
       }
@@ -153,6 +162,12 @@ export async function POST(request: Request) {
         throw new Error("Model is required.");
       }
       const effectiveProductName = productName || model; // 新模板无 Name 列，Name 回退为 Model
+      // 字段长度上限：Product ≤ 15 字符、Description ≤ 150 字符（Brand/Series 均匹配系统已有条目，无需校验）
+      const lengthError = validateFieldLengths({
+        productname: effectiveProductName,
+        description,
+      });
+      if (lengthError) throw new Error(lengthError);
       const sellPrice = toDecimal(sellPriceStr);
       const costPrice = toDecimal(costPriceStr);
       const markup = markupStr ? toDecimal(markupStr) : null;
@@ -186,13 +201,24 @@ export async function POST(request: Request) {
       const modelSlug = slugify(model);
       if (!modelSlug) throw new Error(`Could not derive slug from model: ${model}`);
 
-      // 同一批次内 slug 唯一（@@unique([importBatchId, slug])）
-      if (seenSlugs.has(modelSlug)) {
-        throw new Error(`Duplicate model "${model}" within the same file — slug "${modelSlug}" already staged.`);
+      // price 批次去重：同 Series + Model + Condition 组内只保留交期最短的一行
+      const baseKey = [rowSeriesId, normQuoteText(model), normQuoteText(condition)].join("|");
+      const dedupeKey = buildBatchDedupeKey({ category: rowSeriesId, model, condition, leadTime });
+      const rowLeadRank = leadTimeRank(leadTime);
+      const existing = priceQuoteIndex.get(baseKey);
+      if (existing) {
+        // 完全重复或已有行交期不更慢 → 合并计数，不新建
+        if (existing.dedupeKey === dedupeKey || existing.leadRank <= rowLeadRank) {
+          mergedCount++;
+          continue;
+        }
+        // 新行交期更短 → 删除旧暂存行后插入新行
+        await prisma.importBatchItem.delete({ where: { itemId: existing.itemId } });
+        priceQuoteIndex.delete(baseKey);
       }
 
       // 仅写入 ImportBatchItem 暂存表，不直接写 ModelPrice/Product/SupplierQuote
-      await prisma.importBatchItem.create({
+      const created = await prisma.importBatchItem.create({
         data: {
           importBatchId: batch.importBatchId,
           rowNumber: rowNum,
@@ -200,6 +226,7 @@ export async function POST(request: Request) {
           productName: effectiveProductName,
           model,
           slug: modelSlug,
+          dedupeKey,
           description,
           origin,
           certification,
@@ -223,8 +250,8 @@ export async function POST(request: Request) {
           leadTime,
         },
       });
+      priceQuoteIndex.set(baseKey, { itemId: created.itemId, dedupeKey, leadRank: rowLeadRank });
       if (firstSeriesId === null) firstSeriesId = rowSeriesId;
-      seenSlugs.add(modelSlug);
       successCount++;
     } catch (err) {
       failureCount++;
@@ -255,6 +282,7 @@ export async function POST(request: Request) {
     success: true,
     successCount,
     failureCount,
+    mergedCount,
     errors,
     headerMapping: origHeader,
     message: "File staged successfully. An admin must confirm this batch before prices go live.",

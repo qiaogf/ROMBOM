@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import React, { useState } from "react";
 import { ShoppingCart, Plus, Minus, Package, Loader2 } from "lucide-react";
 import type { SeriesGroup, Product } from "@/lib/db-service";
 import { useCart } from "@/components/cart/CartProvider";
@@ -32,9 +32,11 @@ interface ProductPriceTableProps {
   seriesGroups: SeriesGroup[];
   searchQuery?: string;
   showSeriesHeader?: boolean;
+  /** thead sticky top 偏移（像素）—— 当外层有 sticky 的 Breadcrumb 时用 */
+  stickyOffset?: number;
 }
 
-export function ProductPriceTable({ seriesGroups, searchQuery, showSeriesHeader = true }: ProductPriceTableProps) {
+export function ProductPriceTable({ seriesGroups, searchQuery, showSeriesHeader = true, stickyOffset = 0 }: ProductPriceTableProps) {
   const { state, addToCart, addToCartByModelPrice } = useCart();
   const [quantities, setQuantities] = useState<Record<string, number | "">>({});
 
@@ -79,51 +81,53 @@ export function ProductPriceTable({ seriesGroups, searchQuery, showSeriesHeader 
     );
   }
 
-  const qtyBtn = "w-6 h-6 sm:w-5 sm:h-5 flex items-center justify-center border border-slate-300 rounded disabled:opacity-40 hover:bg-slate-100 active:bg-amber-200 text-slate-600 shrink-0";
+  const qtyBtn = "w-5 h-5 flex items-center justify-center border border-slate-300 rounded disabled:opacity-40 hover:bg-slate-100 active:bg-amber-200 text-slate-600 shrink-0";
 
+  // 扁平报价表：单表头 + 系列分组行（一个 thead 管所有 series）
   return (
-    <div className="space-y-6">
-      {seriesGroups.map((group) => (
-        <div key={group.seriesName} className="mb-6">
-          {showSeriesHeader && (
-            <div className="border-b-2 border-green-700 mb-2 pb-1 flex items-baseline justify-between">
-              <h3 className="text-sm font-semibold text-green-800">{group.seriesName}</h3>
-              <span className="text-[11px] text-slate-500">{group.products.length} SKU</span>
-            </div>
-          )}
-
-          <div className="overflow-x-auto scroll-smooth">
-            {/* min-w 860px：整体加宽，增量全给 Description；其他列像素与旧 680 基准基本一致（mcmaster 式横向滚动） */}
-            <table className="w-full min-w-[860px] text-[11px] border-collapse table-fixed">
-              <colgroup>
-                {/* 桌面（sm+）：Product 8 / Model 10 / Description 51 / Condition 6 / Leadtime 6 / ListPrice 6 / Quantity 8 / Cart 5
-                    手机（<sm）：Model 24 / Description 15 / Condition 12 / Quantity 17 保证单行完整显示 */}
-                <col className="w-[10%] sm:w-[8%]" />
-                <col className="w-[24%] sm:w-[10%]" />
-                <col className="w-[15%] sm:w-[51%]" />
-                <col className="w-[12%] sm:w-[6%]" />
-                <col className="w-[8%] sm:w-[6%]" />
-                <col className="w-[8%] sm:w-[6%]" />
-                <col className="w-[17%] sm:w-[8%]" />
-                <col className="w-[6%] sm:w-[5%]" />
-              </colgroup>
-              <thead className="sticky top-0 z-10">
-                <tr className="bg-slate-100 text-slate-700">
-                  <th className="px-2 py-1 font-medium border-b border-slate-200 text-left">Product</th>
-                  <th className="px-2 py-1 font-medium border-b border-slate-200 text-left">Model</th>
-                  <th className="px-2 py-1 font-medium border-b border-slate-200 text-left">Description</th>
-                  <th className="px-2 py-1 font-medium border-b border-slate-200 text-left">Condition</th>
-                  <th className="px-2 py-1 font-medium border-b border-slate-200 text-left">Leadtime</th>
-                  <th className="px-2 py-1 font-medium border-b border-slate-200 text-left">ListPrice</th>
-                  <th className="px-2 py-1 font-medium border-b border-slate-200 text-left">Quantity</th>
-                  <th className="px-2 py-1 font-medium border-b border-slate-200 text-left">Cart</th>
-                </tr>
-              </thead>
-              <tbody>
+    <div>
+      <div className="overflow-x-auto scroll-smooth">
+        <table className="w-full min-w-[720px] text-[11px] border-collapse table-fixed">
+          {/* PC 端列宽按字段字符上限固定（ch 单位）；移动端用紧凑百分比自适应，全部列保留 */}
+          <colgroup>
+            <col className="w-[12%] sm:w-[10ch]" />
+            <col className="w-[20ch]" />
+            <col className="w-[22%] sm:w-auto" />
+            <col className="w-[10%] sm:w-[10ch]" />
+            <col className="w-[10%] sm:w-[10ch]" />
+            <col className="w-[10%] sm:w-[10ch]" />
+            <col className="w-[10%] sm:w-[96px]" />
+            <col className="w-[6%] sm:w-[56px]" />
+          </colgroup>
+          <thead className="sticky z-10 bg-slate-100 shadow-sm" style={{ top: stickyOffset }}>
+            <tr className="bg-slate-100 text-slate-700">
+              <th className="px-1.5 py-1 font-medium border-b border-slate-300 text-left">Product</th>
+              <th className="px-1.5 py-1 font-medium border-b border-slate-300 text-left">Model</th>
+              <th className="px-1.5 py-1 font-medium border-b border-slate-300 text-left">Description</th>
+              <th className="px-1.5 py-1 font-medium border-b border-slate-300 text-left">Condition</th>
+              <th className="px-1.5 py-1 font-medium border-b border-slate-300 text-left">Leadtime</th>
+              <th className="px-1.5 py-1 font-medium border-b border-slate-300 text-left">ListPrice</th>
+              <th className="px-1.5 py-1 font-medium border-b border-slate-300 text-left">Qty</th>
+              <th className="px-1.5 py-1 font-medium border-b border-slate-300 text-left">Cart</th>
+            </tr>
+          </thead>
+          <tbody>
+            {seriesGroups.map((group) => (
+              <React.Fragment key={group.seriesSlug || group.seriesName}>
+                {showSeriesHeader && (
+                  <tr>
+                    <td colSpan={8} className="px-1.5 py-1 border-b border-slate-200">
+                      <div className="flex items-baseline justify-between">
+                        <span className="text-[11px] font-semibold text-green-600">{group.seriesName}</span>
+                        <span className="text-[10px] text-slate-500">{group.products.length} SKU</span>
+                      </div>
+                    </td>
+                  </tr>
+                )}
                 {group.products.length === 0 && (
                   <tr>
-                    <td colSpan={8} className="px-2 py-3 text-center text-slate-400">
-                      No models available in this series yet.
+                    <td colSpan={8} className="px-1.5 py-2 text-center text-slate-400 text-[10px]">
+                      No models available.
                     </td>
                   </tr>
                 )}
@@ -132,66 +136,77 @@ export function ProductPriceTable({ seriesGroups, searchQuery, showSeriesHeader 
                   const adding = !!state.addingProductIds[product.id];
                   return (
                     <tr key={product.id} data-product-id={product.id}
-                      className={`border-b border-slate-100 transition-colors ${adding ? "bg-amber-50" : "hover:bg-amber-50/30"}`}>
-                      <td className="px-2 py-1 align-middle">
+                      className="border-b border-slate-100">
+                      <td className="px-1.5 py-1 align-middle">
                         <div className="text-slate-900 leading-tight truncate">
                           <Highlight text={product.name} query={searchQuery} />
                         </div>
                       </td>
-                      <td className="px-2 py-1 text-slate-700 font-semibold align-middle">
+                      <td className="px-1.5 py-1 text-slate-700 font-semibold align-middle">
                         <Highlight text={product.model} query={searchQuery} />
                       </td>
-                      <td className="px-2 py-1 text-slate-500 align-middle">
+                      <td className="px-1.5 py-1 text-slate-500 align-middle">
                         <div className="line-clamp-2 leading-tight">
                           <Highlight text={product.description || "-"} query={searchQuery} />
                         </div>
                       </td>
-                      <td className="px-2 py-1 text-slate-600 align-middle">
+                      <td className="px-1.5 py-1 text-slate-600 align-middle">
                         <div className="line-clamp-2 leading-tight">
                           {product.condition ?? <span className="text-slate-400 italic">-</span>}
                         </div>
                       </td>
-                      <td className="px-2 py-1 text-slate-600 align-middle">
+                      <td className="px-1.5 py-1 text-slate-600 align-middle">
                         <span className="leading-tight whitespace-nowrap">
                           {product.leadTime || <span className="text-slate-400 italic">-</span>}
                         </span>
                       </td>
-                      <td className="px-2 py-1 tabular-nums align-middle">
-                        <span className="font-semibold text-slate-900">{product.price.toFixed(2)}</span>
+                      <td className="px-1.5 py-1 tabular-nums align-middle">
+                        <div className="flex items-center gap-1 whitespace-nowrap">
+                          <span className="font-semibold text-slate-900">{product.price.toFixed(2)}</span>
+                          {product.priceTag === "lowest" && (
+                            <span className="text-[9px] px-1 py-0.5 rounded bg-emerald-50 text-emerald-700 border border-emerald-200">Lowest</span>
+                          )}
+                          {product.priceTag === "fastest" && (
+                            <span className="text-[9px] px-1 py-0.5 rounded bg-sky-50 text-sky-700 border border-sky-200">Fastest</span>
+                          )}
+                          {product.priceTag === "both" && (
+                            <span className="text-[9px] px-1 py-0.5 rounded bg-amber-50 text-amber-700 border border-amber-200">Best</span>
+                          )}
+                        </div>
                       </td>
-                      <td className="px-2 py-1 align-middle">
+                      <td className="px-1.5 py-1 align-middle">
                         <div className="flex items-center gap-0.5">
                           <button type="button" aria-label="Decrease quantity" disabled={adding || qty <= product.moq}
                             onClick={() => updateQty(product, -1)} className={qtyBtn}>
-                            <Minus className="w-3.5 h-3.5 sm:w-2.5 sm:h-2.5" />
+                            <Minus className="w-2.5 h-2.5" />
                           </button>
                           <input type="text" inputMode="numeric" value={quantities[product.id] ?? ""} disabled={adding}
                             onChange={(e) => onQtyChange(product, e.target.value)}
-                            className="w-9 sm:w-8 min-w-0 text-center border border-slate-300 rounded py-1 sm:py-0.5 text-[12px] sm:text-[11px] focus:outline-none focus:border-amber-400 disabled:bg-slate-50 disabled:opacity-80 mx-0.5 tabular-nums" />
+                            className="w-7 text-center border border-slate-300 rounded py-0.5 text-[11px] focus:outline-none focus:border-amber-400 disabled:bg-slate-50 disabled:opacity-80 tabular-nums" />
                           <button type="button" aria-label="Increase quantity" disabled={adding}
                             onClick={() => updateQty(product, +1)} className={qtyBtn}>
-                            <Plus className="w-3.5 h-3.5 sm:w-2.5 sm:h-2.5" />
+                            <Plus className="w-2.5 h-2.5" />
                           </button>
                         </div>
                       </td>
-                      <td className="px-2 py-1 align-middle">
+                      <td className="px-1.5 py-1 align-middle">
                         <button type="button" onClick={() => handleAdd(product)} disabled={adding || !product.id}
-                          className="inline-flex items-center justify-center gap-0.5 px-1.5 py-1.5 sm:py-1 min-h-[28px] rounded text-[11px] sm:text-[10px] font-medium transition-colors w-full bg-green-700 text-white hover:bg-green-800 active:bg-green-900 disabled:bg-green-700/70 enabled:cursor-pointer disabled:cursor-not-allowed disabled:opacity-60">
+                          className="inline-flex items-center justify-center gap-0.5 px-1 py-0.5 min-h-[22px] rounded text-[10px] font-medium transition-colors w-full bg-green-700 text-white hover:bg-green-800 active:bg-green-900 disabled:bg-green-700/70 enabled:cursor-pointer disabled:cursor-not-allowed disabled:opacity-60">
                           {adding ? (
-                            <><Loader2 className="w-3 h-3 sm:w-2.5 sm:h-2.5 animate-spin" aria-hidden /><span className="truncate">Adding…</span></>
+                            <><Loader2 className="w-2.5 h-2.5 animate-spin" aria-hidden /><span>…</span></>
                           ) : (
-                            <><ShoppingCart className="w-3 h-3 sm:w-2.5 sm:h-2.5 shrink-0" /><span className="truncate">Add</span></>
+                            <><ShoppingCart className="w-2.5 h-2.5 shrink-0" /><span>+</span></>
                           )}
                         </button>
                       </td>
                     </tr>
                   );
                 })}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      ))}
+              </React.Fragment>
+            ))}
+          </tbody>
+        </table>
+      </div>
     </div>
   );
 }

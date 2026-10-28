@@ -86,7 +86,7 @@ export function PurchaseOrderPanel({ items }: PurchaseOrderPanelProps) {
         ) : (
           <table className="min-w-full text-xs">
             <colgroup>
-              <col className="w-[22%]" />
+              <col className="w-[20ch]" />
               <col className="w-[13%]" />
               <col className="w-[11%]" />
               <col className="w-[13%]" />
