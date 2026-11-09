@@ -41,12 +41,7 @@ prisma/generated/
 # ========================
 # Environment Variables (SENSITIVE)
 # ========================
-.env
-.env.local
-.env.development.local
-.env.test.local
-.env.production.local
-.env*.local
+.env*
 !.env.example
 
 # ========================
@@ -150,19 +145,7 @@ coverage/
 *.swo
 *.bak
 *.tmp
-*.bak
 *.orig
-.env.backup
-.env.production
-.env.staging
 plaintext
-# 环境变量文件
-.env
-.env.local
-.env.*
-# 允许保留模板示例文件
-!/.env.example
-.vercel
-.env*
 # 数据库备份（含业务数据，不入版本库，另行备份到其他磁盘）
 backups/
