@@ -10,15 +10,14 @@ const nextConfig: NextConfig = {
   images: {
     formats: ["image/avif", "image/webp"],
     remotePatterns: [
+      // 开发期 AI 生图接口保留；生产库无外链图片（2026-11-09 审计：
+      // Brand.logo / Product.images / ModelPrice.images 全部为空，站内图均走本地 /images/）。
+      // 未来若供应商导入携带外链图片，需按实际域名逐个加白名单，勿恢复 "**"。
       {
         protocol: "https",
         hostname: "neeko-copilot.bytedance.net",
         port: "",
         pathname: "/api/text_to_image/**",
-      },
-      {
-        protocol: "https",
-        hostname: "**",
       },
     ],
     deviceSizes: [640, 750, 828, 1080, 1200, 1920, 2048, 3840],
