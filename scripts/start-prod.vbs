@@ -56,7 +56,7 @@ End If
 ' ---- 2) next start on 3000 ----
 found = False
 On Error Resume Next
-Set procs = wmi.ExecQuery("SELECT ProcessId FROM Win32_Process WHERE Name = 'node.exe' AND CommandLine LIKE '%next%start%'")
+Set procs = wmi.ExecQuery("SELECT ProcessId FROM Win32_Process WHERE Name = 'node.exe' AND (CommandLine LIKE '%next start%' OR CommandLine LIKE '%next-server%')")
 For Each p In procs
     found = True
 Next
