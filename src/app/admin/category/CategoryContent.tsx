@@ -102,168 +102,209 @@ export function CategoryContent({ categories, parentOptions }: CategoryContentPr
     });
   };
 
+  // 左右双页连续流：记录完整放一侧，左页填满后延续到右页
+  const mid = Math.ceil(categories.length / 2);
+  const leftCategories = categories.slice(0, mid);
+  const rightCategories = categories.slice(mid);
+
+  const colgroup = (
+    <colgroup>
+      <col className="w-[22%]" />
+      <col className="w-[18%]" />
+      <col className="w-[8%]" />
+      <col className="w-[11%]" />
+      <col className="w-[17%]" />
+      <col className="w-[24%]" />
+    </colgroup>
+  );
+
+  const tableHead = (
+    <thead className="bg-slate-50 text-slate-500 text-[10px] uppercase tracking-wide">
+      <tr>
+        <th className="px-1.5 py-1 text-left">Name</th>
+        <th className="px-1.5 py-1 text-left">Slug</th>
+        <th className="px-1.5 py-1 text-right">Sort Order</th>
+        <th className="px-1.5 py-1 text-left">Active</th>
+        <th className="px-1.5 py-1 text-left">Parent</th>
+        <th className="px-1.5 py-1 text-left">Action</th>
+      </tr>
+    </thead>
+  );
+
+  const renderRow = (cat: CategoryItem) => {
+    const isEditing = editingId === cat.categoryId;
+    if (isEditing) {
+      return (
+        <tr key={cat.categoryId} className="bg-blue-50/40">
+          <td className="px-2 py-1">
+            <input
+              type="text"
+              value={editName}
+              onChange={(e) => setEditName(e.target.value)}
+              className={inputClass}
+              autoFocus
+              onKeyDown={(e) => {
+                if (e.key === "Enter") handleSave(cat.categoryId);
+                if (e.key === "Escape") cancelEdit();
+              }}
+            />
+          </td>
+          <td className="px-2 py-1 text-slate-400 text-[11px] italic">auto</td>
+          <td className="px-2 py-1 text-right text-slate-600">{cat.sortOrder}</td>
+          <td className="px-2 py-1">
+            <EditActiveSelect
+              value={editActive}
+              onChange={setEditActive}
+              className={inputClass}
+            />
+          </td>
+          <td className="px-2 py-1">
+            <select
+              value={editParentId}
+              onChange={(e) => setEditParentId(e.target.value)}
+              className={inputClass}
+            >
+              <option value="0">— Top Level —</option>
+              {parentOptions
+                .filter((p) => p.categoryId !== cat.categoryId)
+                .map((p) => (
+                  <option key={p.categoryId} value={p.categoryId}>
+                    {p.categoryName}
+                  </option>
+                ))}
+            </select>
+          </td>
+          <td className="px-2 py-1 whitespace-nowrap">
+            <SaveCancelButtons
+              onSave={() => handleSave(cat.categoryId)}
+              onCancel={cancelEdit}
+              pending={pending}
+            />
+          </td>
+        </tr>
+      );
+    }
+    return (
+      <tr key={cat.categoryId} className="hover:bg-slate-50">
+        <td className="px-1.5 py-1 text-slate-800 font-medium truncate" title={cat.categoryName}>{cat.categoryName}</td>
+        <td className="px-1.5 py-1 text-slate-600 text-[11px] truncate" title={cat.slug}>{cat.slug}</td>
+        <td className="px-1.5 py-1 text-right text-slate-600">{cat.sortOrder}</td>
+        <td className="px-1.5 py-1">
+          <ActiveStatusBadge isActive={cat.isActive} />
+        </td>
+        <td className="px-1.5 py-1 text-slate-600 text-[11px] truncate" title={cat.parentId && cat.parentId !== "0" ? parentById.get(cat.parentId) ?? "" : ""}>
+          {cat.parentId && cat.parentId !== "0"
+            ? parentById.get(cat.parentId) ?? (
+                <span className="text-slate-400 italic">
+                  (deleted #{cat.parentId.slice(-6)})
+                </span>
+              )
+            : <span className="text-slate-400 italic">—</span>}
+        </td>
+        <td className="px-1.5 py-1 whitespace-nowrap">
+          <button
+            type="button"
+            onClick={() => startEdit(cat)}
+            className="inline-flex items-center gap-1 px-1.5 py-0.5 text-[11px] font-medium text-blue-600 hover:bg-blue-50 rounded"
+            title="Edit this category"
+          >
+            <Pencil className="w-3 h-3" />
+            Edit
+          </button>
+          <span className="ml-1 inline-flex align-middle">
+            <DeleteButton
+              id={cat.categoryId}
+              action={deleteCategory}
+              label={cat.categoryName}
+              entity="category"
+            />
+          </span>
+        </td>
+      </tr>
+    );
+  };
+
+  const addRow = (
+    <tr className="bg-amber-50/50">
+      <td className="px-2 py-1">
+        <input
+          type="text"
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          placeholder="New category name"
+          className={inputClass}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") handleCreate();
+          }}
+        />
+      </td>
+      <td className="px-2 py-1 text-slate-400 text-[11px] italic">auto</td>
+      <td className="px-2 py-1 text-slate-400 text-center">—</td>
+      <td className="px-2 py-1 text-slate-400 text-[11px]">Active</td>
+      <td className="px-2 py-1">
+        <select
+          value={parentId}
+          onChange={(e) => setParentId(e.target.value)}
+          className={inputClass}
+        >
+          <option value="0">— Top Level —</option>
+          {parentOptions.map((p) => (
+            <option key={p.categoryId} value={p.categoryId}>
+              {p.categoryName}
+            </option>
+          ))}
+        </select>
+      </td>
+      <td className="px-2 py-1">
+        <button
+          type="button"
+          onClick={handleCreate}
+          disabled={pending}
+          className="inline-flex items-center gap-1 px-2 py-1 text-[11px] font-medium text-white bg-[#336633] hover:bg-[#2d5a2d] rounded disabled:opacity-50"
+        >
+          <Plus className="w-3 h-3" />
+          {pending ? "..." : "Add"}
+        </button>
+      </td>
+    </tr>
+  );
+
   return (
     <div>
-      <div className="bg-white border border-slate-200 rounded-lg overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="min-w-full text-xs">
-            <thead className="bg-slate-50 text-slate-500 text-[10px] uppercase tracking-wide">
-              <tr>
-                <th className="px-1.5 py-1 text-left">Name</th>
-                <th className="px-1.5 py-1 text-left">Slug</th>
-                <th className="px-1.5 py-1 text-right">Sort Order</th>
-                <th className="px-1.5 py-1 text-left">Active</th>
-                <th className="px-1.5 py-1 text-left">Parent</th>
-                <th className="px-1.5 py-1 text-left">Action</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100">
-              {categories.length === 0 ? (
-                <tr>
-                  <td colSpan={6} className="px-3 py-6 text-center text-slate-400">
-                    No categories found
-                  </td>
-                </tr>
-              ) : (
-                categories.map((cat) => {
-                  const isEditing = editingId === cat.categoryId;
-                  if (isEditing) {
-                    return (
-                      <tr key={cat.categoryId} className="bg-blue-50/40">
-                        <td className="px-2 py-1">
-                          <input
-                            type="text"
-                            value={editName}
-                            onChange={(e) => setEditName(e.target.value)}
-                            className={inputClass}
-                            autoFocus
-                            onKeyDown={(e) => {
-                              if (e.key === "Enter") handleSave(cat.categoryId);
-                              if (e.key === "Escape") cancelEdit();
-                            }}
-                          />
-                        </td>
-                        <td className="px-2 py-1 text-slate-400 text-[11px] italic">auto</td>
-                        <td className="px-2 py-1 text-right text-slate-600">{cat.sortOrder}</td>
-                        <td className="px-2 py-1">
-                          <EditActiveSelect
-                            value={editActive}
-                            onChange={setEditActive}
-                            className={inputClass}
-                          />
-                        </td>
-                        <td className="px-2 py-1">
-                          <select
-                            value={editParentId}
-                            onChange={(e) => setEditParentId(e.target.value)}
-                            className={inputClass}
-                          >
-                            <option value="0">— Top Level —</option>
-                            {parentOptions
-                              .filter((p) => p.categoryId !== cat.categoryId)
-                              .map((p) => (
-                                <option key={p.categoryId} value={p.categoryId}>
-                                  {p.categoryName}
-                                </option>
-                              ))}
-                          </select>
-                        </td>
-                        <td className="px-2 py-1 whitespace-nowrap">
-                          <SaveCancelButtons
-                            onSave={() => handleSave(cat.categoryId)}
-                            onCancel={cancelEdit}
-                            pending={pending}
-                          />
-                        </td>
-                      </tr>
-                    );
-                  }
-                  return (
-                    <tr key={cat.categoryId} className="hover:bg-slate-50">
-                      <td className="px-1.5 py-1 text-slate-800 font-medium">{cat.categoryName}</td>
-                      <td className="px-1.5 py-1 text-slate-600 text-[11px]">{cat.slug}</td>
-                      <td className="px-1.5 py-1 text-right text-slate-600">{cat.sortOrder}</td>
-                      <td className="px-1.5 py-1">
-                        <ActiveStatusBadge isActive={cat.isActive} />
-                      </td>
-                      <td className="px-1.5 py-1 text-slate-600 text-[11px]">
-                        {cat.parentId && cat.parentId !== "0"
-                          ? parentById.get(cat.parentId) ?? (
-                              <span className="text-slate-400 italic">
-                                (deleted #{cat.parentId.slice(-6)})
-                              </span>
-                            )
-                          : <span className="text-slate-400 italic">—</span>}
-                      </td>
-                      <td className="px-1.5 py-1 whitespace-nowrap">
-                        <button
-                          type="button"
-                          onClick={() => startEdit(cat)}
-                          className="inline-flex items-center gap-1 px-1.5 py-0.5 text-[11px] font-medium text-blue-600 hover:bg-blue-50 rounded"
-                          title="Edit this category"
-                        >
-                          <Pencil className="w-3 h-3" />
-                          Edit
-                        </button>
-                        <span className="ml-2 inline-flex align-middle">
-                          <DeleteButton
-                            id={cat.categoryId}
-                            action={deleteCategory}
-                            label={cat.categoryName}
-                            entity="category"
-                          />
-                        </span>
-                      </td>
-                    </tr>
-                  );
-                })
-              )}
-
-              {/* 行内新建行 */}
-              <tr className="bg-amber-50/50">
-                <td className="px-2 py-1">
-                  <input
-                    type="text"
-                    value={name}
-                    onChange={(e) => setName(e.target.value)}
-                    placeholder="New category name"
-                    className={inputClass}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter") handleCreate();
-                    }}
-                  />
-                </td>
-                <td className="px-2 py-1 text-slate-400 text-[11px] italic">auto</td>
-                <td className="px-2 py-1 text-slate-400 text-center">—</td>
-                <td className="px-2 py-1 text-slate-400 text-[11px]">Active</td>
-                <td className="px-2 py-1">
-                  <select
-                    value={parentId}
-                    onChange={(e) => setParentId(e.target.value)}
-                    className={inputClass}
-                  >
-                    <option value="0">— Top Level —</option>
-                    {parentOptions.map((p) => (
-                      <option key={p.categoryId} value={p.categoryId}>
-                        {p.categoryName}
-                      </option>
-                    ))}
-                  </select>
-                </td>
-                <td className="px-2 py-1">
-                  <button
-                    type="button"
-                    onClick={handleCreate}
-                    disabled={pending}
-                    className="inline-flex items-center gap-1 px-2 py-1 text-[11px] font-medium text-white bg-[#336633] hover:bg-[#2d5a2d] rounded disabled:opacity-50"
-                  >
-                    <Plus className="w-3 h-3" />
-                    {pending ? "..." : "Add"}
-                  </button>
-                </td>
-              </tr>
-            </tbody>
-          </table>
+      <div className="grid grid-cols-1 xl:grid-cols-2 gap-3 xl:h-full items-start">
+        <div className="min-w-0 w-full bg-white border border-slate-200 rounded-lg overflow-hidden">
+          <div className="overflow-auto xl:max-h-[calc(100dvh-5rem)]">
+            <table className="w-full min-w-[560px] table-fixed text-xs">
+              {colgroup}
+              {tableHead}
+              <tbody className="divide-y divide-slate-100">
+                {categories.length === 0 ? (
+                  <tr>
+                    <td colSpan={6} className="px-3 py-6 text-center text-slate-400">
+                      No categories found
+                    </td>
+                  </tr>
+                ) : (
+                  <>
+                    {leftCategories.map(renderRow)}
+                    {addRow}
+                  </>
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+        <div className="min-w-0 w-full bg-white border border-slate-200 rounded-lg overflow-hidden">
+          <div className="overflow-auto xl:max-h-[calc(100dvh-5rem)]">
+            <table className="w-full min-w-[560px] table-fixed text-xs">
+              {colgroup}
+              {tableHead}
+              <tbody className="divide-y divide-slate-100">
+                {rightCategories.map(renderRow)}
+                {addRow}
+              </tbody>
+            </table>
+          </div>
         </div>
       </div>
 

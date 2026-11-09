@@ -3,6 +3,7 @@
 /**
  * 供应商 Purchase Order 面板 — 右侧区域（标题固定，表格独立滚动）
  *
+ * 数据源：Admin Purchase 页 Approve 后发给本供应商的真实采购单（含管理者调整后的价格/数量）
  * 列：Model / Condition / Leadtime / Price / Qty / Amount / Order Status
  * Price / Qty 只读；底部 Total（sticky）
  */
@@ -75,7 +76,7 @@ export function PurchaseOrderPanel({ items }: PurchaseOrderPanelProps) {
           <ShoppingCart className="w-3.5 h-3.5 text-green-700" /> Purchase Order
         </h1>
         <p className="text-[10px] text-slate-500 mb-1.5 leading-tight">
-          Customer intent.
+          Orders approved and sent by the admin.
         </p>
       </div>
 

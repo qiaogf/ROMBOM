@@ -14,8 +14,9 @@
 ' ============================================================
 Option Explicit
 
-Dim sh, projectDir, ngrokExe, ngrokCfg, domain
+Dim sh, fso, projectDir, ngrokExe, ngrokCfg, domain
 Set sh = CreateObject("WScript.Shell")
+Set fso = CreateObject("Scripting.FileSystemObject")
 
 projectDir = "D:\store\cross-border-store"
 ngrokExe   = "D:\ngrok\ngrok.exe"
@@ -76,5 +77,9 @@ Next
 On Error GoTo 0
 
 If Not found Then
-    sh.Run """" & ngrokExe & """ http 3000 --url=" & domain & " --config=""" & ngrokCfg & """", 0, False
+    If fso.FileExists(ngrokExe) Then
+        sh.Run """" & ngrokExe & """ http 3000 --url=" & domain & " --config=""" & ngrokCfg & """", 0, False
+    Else
+        MsgBox "ngrok.exe not found: " & ngrokExe & vbCrLf & "Tunnel skipped. Local site (localhost:3000) still works." & vbCrLf & "Restore ngrok.exe to this path, then rerun start-prod.vbs.", 48, "start-prod"
+    End If
 End If

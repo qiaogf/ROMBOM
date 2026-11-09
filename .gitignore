@@ -164,3 +164,5 @@ plaintext
 !/.env.example
 .vercel
 .env*
+# 数据库备份（含业务数据，不入版本库，另行备份到其他磁盘）
+backups/

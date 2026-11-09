@@ -45,6 +45,8 @@ export interface CartItemDisplay {
   leadTime: string | null;
   /** 缩略图 URL（旧 Product 或新 ModelPrice 都有该字段，无则 null） */
   thumbnail: string | null;
+  /** 是否可自助下单结算（文件级主开关 或 型号级开关任一开启） */
+  selfOrder: boolean;
   // ===== 规格参数（仅 ModelPrice 路径有值；旧 Product 路径均为 null）=====
   origin: string | null;
   certification: string | null;
@@ -102,6 +104,8 @@ export interface CartItemRelationsInput {
     weightUnit?: string | null;
     batteryAttributes?: string | null;
     datasheetLink?: string | null;
+    selfOrder?: boolean;
+    importBatch?: { selfOrderAll: boolean } | null;
   } | null;
 }
 
@@ -149,6 +153,7 @@ export function toCartItemDisplay(item: CartItemRelationsInput): CartItemDisplay
       condition: item.modelPrice?.condition ?? null,
       leadTime: item.supplierQuote.leadTime ?? item.modelPrice?.leadTime ?? null,
       thumbnail: item.product.thumbnail ?? null,
+      selfOrder: item.modelPrice?.selfOrder === true || item.modelPrice?.importBatch?.selfOrderAll === true,
       ...nullSpecs,
     };
   }
@@ -170,6 +175,7 @@ export function toCartItemDisplay(item: CartItemRelationsInput): CartItemDisplay
       condition: mp.condition ?? null,
       leadTime: mp.leadTime ?? null,
       thumbnail: mp.thumbnail ?? null,
+      selfOrder: mp.selfOrder === true || mp.importBatch?.selfOrderAll === true,
       origin: mp.origin ?? null,
       certification: mp.certification ?? null,
       length: mp.length != null ? decimalToNumber(mp.length) : null,
@@ -200,6 +206,7 @@ export function toCartItemDisplay(item: CartItemRelationsInput): CartItemDisplay
     condition: null,
     leadTime: null,
     thumbnail: item.product?.thumbnail ?? null,
+    selfOrder: false,
     ...nullSpecs,
   };
 }

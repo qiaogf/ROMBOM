@@ -6,5 +6,4 @@ export * from "./admin/accounts";
 export * from "./admin/catalog";
 export * from "./admin/import-batch";
 export * from "./admin/orders";
-export * from "./admin/capital";
 export * from "./admin/api-account";

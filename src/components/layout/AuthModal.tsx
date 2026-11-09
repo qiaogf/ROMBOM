@@ -1,59 +1,66 @@
 "use client";
 
 /**
- * 统一认证弹窗 — admin / supplier / customer 三者共用
+ * 统一认证弹窗 — customer / supplier / admin 三者共用
  * 四个视图：login / register / reset / oneTime
- * 差异仅由 props 注入：提交动作（login/register）与登录成功后的跳转
+ * 注册时由 Account Type 下拉选择角色（Buyer / Supplier / Engineer）
  */
 import { useState } from "react";
 import { ModalShell } from "./ModalShell";
 
 export type AuthView = "login" | "register" | "reset" | "oneTime";
 
+/** 注册下拉选项（页面展示用） */
+export type AccountType = "buyer" | "supplier" | "engineer";
+/** 系统内部角色（对应数据库 customer / supplier / admin 三张表） */
+export type AccountRole = "customer" | "supplier" | "admin";
+
+/** Buyer → customer / Supplier → supplier / Engineer → admin */
+const ACCOUNT_ROLE_BY_TYPE: Record<AccountType, AccountRole> = {
+  buyer: "customer",
+  supplier: "supplier",
+  engineer: "admin",
+};
+
 export interface AuthSubmitInput {
   email: string;
   password: string;
-  name: string;
   stayLoggedIn: boolean;
+  /** 注册时选中的账号类型映射出的系统角色 */
+  accountRole?: AccountRole;
 }
 
 export interface AuthSubmitResult {
   success: boolean;
   message: string;
+  /** 登录成功后返回的实际角色，用于跳转对应入口 */
+  role?: AccountRole;
 }
 
 interface AuthModalProps {
-  /** label/htmlFor 与 input id 的唯一前缀，如 admin / supplier / customer */
+  /** label/htmlFor 与 input id 的唯一前缀 */
   idPrefix: string;
   initialView?: AuthView;
   login: (input: AuthSubmitInput) => Promise<AuthSubmitResult>;
   register: (input: AuthSubmitInput) => Promise<AuthSubmitResult>;
-  /** 登录成功后的行为（关闭弹窗、刷新、跳转由各角色 wrapper 决定） */
-  onLoginSuccess: () => void;
+  /** 登录成功后的行为（关闭弹窗、按角色跳转由 wrapper 决定） */
+  onLoginSuccess: (role?: AccountRole) => void;
   onClose: () => void;
 }
 
 const inputClass =
-  "w-full border border-slate-300 rounded px-2 py-0.5 text-[11px] text-slate-900 placeholder:text-slate-400 focus:outline-none focus:border-[#336633] focus:ring-1 focus:ring-[#336633]";
-const labelClass = "block text-[11px] font-semibold text-slate-700 mb-0";
-const linkClass = "text-[11px] text-[#336633] hover:underline cursor-pointer bg-transparent border-0 p-0 text-left";
+  "w-full border border-slate-300 rounded px-2.5 py-1.5 bg-white text-[13px] leading-5 text-slate-900 placeholder:text-slate-400 focus:outline-none focus:border-[#336633] focus:ring-1 focus:ring-[#336633]";
+const labelClass = "block text-[13px] font-semibold text-slate-700 mb-1";
+const linkClass =
+  "text-[13px] leading-6 text-[#336633] hover:underline cursor-pointer bg-transparent border-0 p-0 text-left";
 const primaryBtnClass =
-  "w-full py-1.5 rounded bg-[#336633] text-white text-[12px] font-bold tracking-wide hover:bg-[#2d5a2d] disabled:opacity-50 disabled:cursor-not-allowed transition-colors";
-
-/** admin / supplier 的 Server Action 接收 FormData，统一转换 */
-export const authInputToFormData = (input: AuthSubmitInput): FormData => {
-  const fd = new FormData();
-  fd.set("email", input.email);
-  fd.set("password", input.password);
-  fd.set("name", input.name);
-  return fd;
-};
+  "w-full py-2 rounded bg-[#336633] text-white text-[13px] font-bold tracking-wide hover:bg-[#2d5a2d] disabled:opacity-50 disabled:cursor-not-allowed transition-colors";
 
 const TITLES: Record<AuthView, string> = {
   login: "Log in",
   register: "Register",
   reset: "Reset Password",
-  oneTime: "Log In with a One-Time Code",
+  oneTime: "Login with code",
 };
 
 export function AuthModal({
@@ -69,7 +76,7 @@ export function AuthModal({
   const [password, setPassword] = useState("");
   const [showPw, setShowPw] = useState(false);
   const [stayLoggedIn, setStayLoggedIn] = useState(true);
-  const [name, setName] = useState("");
+  const [accountType, setAccountType] = useState<AccountType>("buyer");
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
   const [busy, setBusy] = useState(false);
@@ -82,24 +89,24 @@ export function AuthModal({
 
   const submit = async (kind: "login" | "register") => {
     setError("");
-    if (!email.trim() || !password || (kind === "register" && !name.trim())) {
-      setError(
-        kind === "login"
-          ? "Please enter your email and password."
-          : "Please enter your name, email, and password."
-      );
+    if (!email.trim() || !password) {
+      setError("Please enter your email and password.");
       return;
     }
     setBusy(true);
     try {
       const action = kind === "login" ? login : registerAction;
-      const res = await action({ email: email.trim(), password, name: name.trim(), stayLoggedIn });
+      const res = await action({
+        email: email.trim(),
+        password,
+        stayLoggedIn,
+        accountRole: kind === "register" ? ACCOUNT_ROLE_BY_TYPE[accountType] : undefined,
+      });
       if (res.success) {
         if (kind === "login") {
-          onLoginSuccess();
+          onLoginSuccess(res.role);
         } else {
           setPassword("");
-          setName("");
           setNotice("Registration successful! Please log in with your new credentials.");
           setView("login");
         }
@@ -120,7 +127,7 @@ export function AuthModal({
       {/* ── Log in ── */}
       {view === "login" && (
         <div>
-          <div className="mb-1">
+          <div className="mb-3">
             <label htmlFor={id("login-email")} className={labelClass}>Email</label>
             <input
               id={id("login-email")}
@@ -134,7 +141,7 @@ export function AuthModal({
             />
           </div>
 
-          <div className="mb-1">
+          <div className="mb-3">
             <label htmlFor={id("login-password")} className={labelClass}>Password</label>
             <div className="relative">
               <input
@@ -156,33 +163,33 @@ export function AuthModal({
             </div>
           </div>
 
-          <label className="flex items-center gap-2 mb-1 cursor-pointer select-none">
+          <label className="flex items-center gap-2 mb-2 cursor-pointer select-none">
             <input
               type="checkbox"
               checked={stayLoggedIn}
               onChange={(e) => setStayLoggedIn(e.target.checked)}
               className="w-4 h-4 accent-[#336633]"
             />
-            <span className="text-[13px] text-slate-700">Stay logged in</span>
+            <span className="text-[13px] leading-5 text-slate-700">Stay logged in</span>
           </label>
 
-          {error && <p className="mb-1 text-xs text-rose-600" role="alert">{error}</p>}
-          {notice && <p className="mb-1 text-xs text-[#336633]" role="status">{notice}</p>}
+          {error && <p className="mb-2 text-[13px] leading-5 text-rose-600" role="alert">{error}</p>}
+          {notice && <p className="mb-2 text-[13px] leading-5 text-[#336633]" role="status">{notice}</p>}
 
           <button type="button" onClick={() => void submit("login")} disabled={busy} className={primaryBtnClass}>
             {busy ? "Logging in..." : "Log In"}
           </button>
 
-          <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1">
+          <div className="mt-3 flex items-center justify-between gap-3">
             <button type="button" onClick={() => switchView("reset")} className={linkClass}>
               Reset Password
             </button>
             <button type="button" onClick={() => switchView("oneTime")} className={linkClass}>
-              Log In with a One-Time Code
+              Login with code
             </button>
           </div>
 
-          <div className="mt-2 pt-2 border-t border-slate-100">
+          <div className="mt-3 pt-2 border-t border-slate-100">
             <button type="button" onClick={() => { switchView("register"); setPassword(""); }} className={linkClass}>
               Register
             </button>
@@ -193,21 +200,21 @@ export function AuthModal({
       {/* ── Register ── */}
       {view === "register" && (
         <div>
-          <div className="mb-1">
-            <label htmlFor={id("reg-name")} className={labelClass}>Name</label>
-            <input
-              id={id("reg-name")}
-              type="text"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              placeholder="Full name"
+          <div className="mb-3">
+            <label htmlFor={id("reg-account-type")} className={labelClass}>Account Type</label>
+            <select
+              id={id("reg-account-type")}
+              value={accountType}
+              onChange={(e) => setAccountType(e.target.value as AccountType)}
               className={inputClass}
-              autoComplete="name"
-              required
-            />
+            >
+              <option value="buyer">Buyer</option>
+              <option value="supplier">Supplier</option>
+              <option value="engineer">Engineer</option>
+            </select>
           </div>
 
-          <div className="mb-1">
+          <div className="mb-3">
             <label htmlFor={id("reg-email")} className={labelClass}>Email</label>
             <input
               id={id("reg-email")}
@@ -221,7 +228,7 @@ export function AuthModal({
             />
           </div>
 
-          <div className="mb-1">
+          <div className="mb-3">
             <label htmlFor={id("reg-password")} className={labelClass}>Password</label>
             <div className="relative">
               <input
@@ -244,14 +251,14 @@ export function AuthModal({
             </div>
           </div>
 
-          {error && <p className="mb-1 text-xs text-rose-600" role="alert">{error}</p>}
-          {notice && <p className="mb-1 text-xs text-[#336633]" role="status">{notice}</p>}
+          {error && <p className="mb-2 text-[13px] leading-5 text-rose-600" role="alert">{error}</p>}
+          {notice && <p className="mb-2 text-[13px] leading-5 text-[#336633]" role="status">{notice}</p>}
 
           <button type="button" onClick={() => void submit("register")} disabled={busy} className={primaryBtnClass}>
             {busy ? "Creating account..." : "Register"}
           </button>
 
-          <div className="mt-2">
+          <div className="mt-3">
             <button type="button" onClick={() => switchView("login")} className={linkClass}>
               Back to Log in
             </button>
@@ -262,10 +269,10 @@ export function AuthModal({
       {/* ── Reset Password ── */}
       {view === "reset" && (
         <div>
-          <p className="text-[13px] text-slate-600 mb-1">
+          <p className="text-[13px] leading-6 text-slate-600 mb-2">
             Enter your account email and we will send you a password reset link.
           </p>
-          <div className="mb-1">
+          <div className="mb-3">
             <label htmlFor={id("reset-email")} className={labelClass}>Email</label>
             <input
               id={id("reset-email")}
@@ -278,8 +285,8 @@ export function AuthModal({
             />
           </div>
 
-          {notice && <p className="mb-1 text-xs text-[#336633]" role="status">{notice}</p>}
-          {error && <p className="mb-1 text-xs text-rose-600" role="alert">{error}</p>}
+          {notice && <p className="mb-2 text-[13px] leading-5 text-[#336633]" role="status">{notice}</p>}
+          {error && <p className="mb-2 text-[13px] leading-5 text-rose-600" role="alert">{error}</p>}
 
           <button
             type="button"
@@ -295,7 +302,7 @@ export function AuthModal({
             Send Reset Link
           </button>
 
-          <div className="mt-2">
+          <div className="mt-3">
             <button type="button" onClick={() => switchView("login")} className={linkClass}>
               Back to Log in
             </button>
@@ -303,13 +310,13 @@ export function AuthModal({
         </div>
       )}
 
-      {/* ── One-Time Code ── */}
+      {/* ── Login with code ── */}
       {view === "oneTime" && (
         <div>
-          <p className="text-[13px] text-slate-600 mb-1">
+          <p className="text-[13px] leading-6 text-slate-600 mb-2">
             Enter your account email and we will send you a one-time code to log in.
           </p>
-          <div className="mb-1">
+          <div className="mb-3">
             <label htmlFor={id("otc-email")} className={labelClass}>Email</label>
             <input
               id={id("otc-email")}
@@ -323,8 +330,8 @@ export function AuthModal({
             />
           </div>
 
-          {notice && <p className="mb-1 text-xs text-[#336633]" role="status">{notice}</p>}
-          {error && <p className="mb-1 text-xs text-rose-600" role="alert">{error}</p>}
+          {notice && <p className="mb-2 text-[13px] leading-5 text-[#336633]" role="status">{notice}</p>}
+          {error && <p className="mb-2 text-[13px] leading-5 text-rose-600" role="alert">{error}</p>}
 
           <button
             type="button"
@@ -340,7 +347,7 @@ export function AuthModal({
             Send Code
           </button>
 
-          <div className="mt-2">
+          <div className="mt-3">
             <button type="button" onClick={() => switchView("login")} className={linkClass}>
               Back to Log in
             </button>
@@ -348,7 +355,7 @@ export function AuthModal({
         </div>
       )}
 
-      <div className="mt-2 pt-2 border-t border-slate-100 flex justify-end">
+      <div className="mt-3 pt-2 border-t border-slate-100 flex justify-end">
         <button
           type="button"
           onClick={onClose}

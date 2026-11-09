@@ -1,8 +1,8 @@
 import type { ReactNode } from "react";
 import { redirect } from "next/navigation";
-import { LogOut, Shield } from "lucide-react";
+import { LogOut } from "lucide-react";
 import { getAdminSession, clearAdminSession } from "@/lib/auth-admin";
-import { AdminNav } from "./_components/AdminNav";
+import { AdminSidebar } from "./_components/AdminSidebar";
 import { AdminPageTitle } from "./_components/AdminPageTitle";
 
 export const dynamic = "force-dynamic";
@@ -26,14 +26,8 @@ export default async function AdminLayout({
 
   return (
     <div className="h-screen supports-[height:100dvh]:h-dvh flex bg-slate-50 text-slate-900 overflow-hidden">
-      {/* Sidebar */}
-      <aside className="w-36 shrink-0 bg-slate-50 border-r border-slate-200 flex flex-col">
-        <div className="h-11 flex items-center gap-1.5 px-3 border-b border-slate-200 bg-white">
-          <Shield className="w-4 h-4 text-slate-700" />
-          <span className="text-[13px] font-semibold text-slate-800">Admin Panel</span>
-        </div>
-        <AdminNav />
-      </aside>
+      {/* Sidebar（移动端抽屉式收放，桌面端固定） */}
+      <AdminSidebar />
 
       {/* Main content */}
       <div className="flex-1 min-w-0 flex flex-col">

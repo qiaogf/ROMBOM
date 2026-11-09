@@ -142,7 +142,7 @@ export function ProductPriceTable({ seriesGroups, searchQuery, showSeriesHeader 
                           <Highlight text={product.name} query={searchQuery} />
                         </div>
                       </td>
-                      <td className="px-1.5 py-1 text-slate-700 font-semibold align-middle">
+                      <td className="px-1.5 py-1 text-slate-700 font-semibold align-middle truncate" title={product.model}>
                         <Highlight text={product.model} query={searchQuery} />
                       </td>
                       <td className="px-1.5 py-1 text-slate-500 align-middle">
@@ -168,9 +168,6 @@ export function ProductPriceTable({ seriesGroups, searchQuery, showSeriesHeader 
                           )}
                           {product.priceTag === "fastest" && (
                             <span className="text-[9px] px-1 py-0.5 rounded bg-sky-50 text-sky-700 border border-sky-200">Fastest</span>
-                          )}
-                          {product.priceTag === "both" && (
-                            <span className="text-[9px] px-1 py-0.5 rounded bg-amber-50 text-amber-700 border border-amber-200">Best</span>
                           )}
                         </div>
                       </td>

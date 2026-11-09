@@ -130,7 +130,7 @@ export default async function CategoryPage({ params, searchParams }: PageProps) 
               <div className="text-center py-10">
                 <Layers className="w-8 h-8 text-slate-300 mx-auto mb-2" />
                 <p className="text-xs text-slate-500">
-                  暂无产品。上传价格文件时将 Category 列填为 {category.name}，系统会自动按品牌和系列分组展示报价表。
+                  No products yet. When uploading a price file, set the Category column to {category.name}; the price list will then be grouped by brand and series automatically.
                 </p>
               </div>
             )}

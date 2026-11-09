@@ -196,6 +196,7 @@ export async function generatePurchaseOrders(
         salesOrderId: salesOrder.orderId,
         totalAmount,
         poStatus: "draft", // 草稿：管理者确认单价/数量后人工提交审批
+        auditStatus: "pending", // 待审批：管理者 Approve 后才发给供应商
         orderTime: new Date(),
         items: {
           create: poItems.map((it) => ({

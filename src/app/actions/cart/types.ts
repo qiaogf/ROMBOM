@@ -26,7 +26,8 @@ export interface CartActionResult {
 export interface CartItemWithProduct extends CartItem {
   product?: (Product & { category?: { categoryId: string; categoryName: string } | null }) | null;
   supplierQuote?: SupplierQuote | null;
-  modelPrice?: ModelPrice | null;
+  /** 带所属导入批次的主开关，用于计算型号是否可自助下单 */
+  modelPrice?: (ModelPrice & { importBatch?: { selfOrderAll: boolean } | null }) | null;
 }
 
 export interface CartWithItems extends Cart {

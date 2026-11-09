@@ -25,7 +25,7 @@ export function ApiAccountTable({
   return (
     <div className="bg-white border border-slate-200 rounded-lg overflow-hidden">
       <div className="overflow-x-auto">
-        <table className="w-full table-fixed text-[11px]">
+        <table className="w-full min-w-[680px] table-fixed text-[11px]">
           <colgroup>
             <col style={{ width: "14%" }} />
             <col style={{ width: "13%" }} />

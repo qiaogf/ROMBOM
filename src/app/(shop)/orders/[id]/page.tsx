@@ -181,7 +181,7 @@ export default async function OrderDetailPage({ params }: { params: { id: string
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
               <div>
                 <p className="text-slate-300 text-sm mb-1">Order Number</p>
-                <p className="text-white font-bold text-xl sm:text-2xl">{order.orderNumber}</p>
+                <p className="text-emerald-300 font-bold text-xl sm:text-2xl">{order.orderNumber}</p>
               </div>
               <div className="flex items-center gap-3">
                 <span className={`px-4 py-2 rounded-xl text-sm font-medium ${statusInfo.color}`}>

@@ -8,7 +8,7 @@ import { prisma } from "@/lib/prisma";
 import { getCurrentUserId } from "@/lib/auth";
 import { decimalToNumber } from "@/lib/price";
 import { isValidIdFormat } from "@/lib/security";
-import { isInStock } from "./shared";
+import { isInStock, resolveSingleSelfOrder } from "./shared";
 import { addToCart, addToCartByModelPrice } from "./add";
 
 /** ModelPrice 路径伪条目价格行（字段与 CartItemRelationsInput["modelPrice"] 对齐） */
@@ -22,6 +22,8 @@ export interface GuestModelPriceData {
   condition: string | null;
   leadTime: string | null;
   thumbnail: string | null;
+  /** 可自助下单结算（淡绿） */
+  selfOrder: boolean;
 }
 
 /** SupplierQuote 路径伪条目价格行 */
@@ -74,6 +76,7 @@ export async function getModelPriceForGuest(
     if (!isInStock(mp)) {
       return { success: false, message: "Product is currently out of stock" };
     }
+    const selfOrder = await resolveSingleSelfOrder(modelPriceId);
     return {
       success: true,
       message: "OK",
@@ -87,6 +90,7 @@ export async function getModelPriceForGuest(
         condition: mp.condition,
         leadTime: mp.leadTime,
         thumbnail: mp.thumbnail,
+        selfOrder: selfOrder === true,
       },
     };
   } catch {

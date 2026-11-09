@@ -12,9 +12,7 @@ import {
   ShoppingCart,
   Upload,
   UserCog,
-  PackageCheck,
   ReceiptText,
-  Truck,
   Code,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
@@ -25,22 +23,22 @@ interface NavItem {
   icon: LucideIcon;
 }
 
+// 与原来一致：全部为一级导航，不分组、可折叠
 const NAV_ITEMS: NavItem[] = [
-  { href: "/admin/supplier", label: "supplier", icon: Building2 },
-  { href: "/admin/customer", label: "customer", icon: Users },
-  { href: "/admin/admin-user", label: "admin", icon: UserCog },
-  { href: "/admin/category", label: "category", icon: FolderTree },
-  { href: "/admin/brand", label: "brand", icon: Tag },
-  { href: "/admin/series", label: "series", icon: Layers },
-  { href: "/admin/import-price", label: "product", icon: Upload },
-  { href: "/admin/model-price", label: "price", icon: DollarSign },
+  { href: "/admin/supplier", label: "Supplier", icon: Building2 },
+  { href: "/admin/customer", label: "Customer", icon: Users },
+  { href: "/admin/admin-user", label: "Admin", icon: UserCog },
+  { href: "/admin/category", label: "Category", icon: FolderTree },
+  { href: "/admin/brand", label: "Brand", icon: Tag },
+  { href: "/admin/series", label: "Series", icon: Layers },
+  { href: "/admin/import-price", label: "Product", icon: Upload },
+  { href: "/admin/model-price", label: "Price", icon: DollarSign },
   { href: "/admin/purchase-order", label: "Purchase", icon: ShoppingCart },
   { href: "/admin/sales-order", label: "Sales", icon: ReceiptText },
-  { href: "/admin/logistics-capital", label: "LogiFin", icon: Truck },
   { href: "/admin/api", label: "API", icon: Code },
 ];
 
-export function AdminNav() {
+export function AdminNav({ onNavigate }: { onNavigate?: () => void } = {}) {
   const pathname = usePathname();
 
   return (
@@ -53,10 +51,11 @@ export function AdminNav() {
           <Link
             key={item.href}
             href={item.href}
-            className={`flex items-center gap-2 px-3 py-2 text-sm transition-colors border-l-4 ${
+            onClick={onNavigate}
+            className={`flex items-center gap-1.5 px-2 py-2 text-[15px] font-semibold transition-colors border-l-4 ${
               isActive
-                ? "bg-amber-400/25 border-amber-500 text-amber-800 font-bold"
-                : "border-transparent text-slate-700 hover:bg-slate-200/60 hover:text-slate-900"
+                ? "bg-amber-400/25 border-amber-500 text-black font-bold"
+                : "border-transparent text-black hover:bg-slate-200/60 hover:text-black"
             }`}
           >
             <Icon
@@ -64,7 +63,7 @@ export function AdminNav() {
                 isActive ? "text-amber-700" : "text-slate-500"
               }`}
             />
-            <span>{item.label}</span>
+            <span className="truncate">{item.label}</span>
           </Link>
         );
       })}

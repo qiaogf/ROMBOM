@@ -1,7 +1,11 @@
 "use server";
 
+// 客户账号注册 / 传统单角色登录 action。
+
 import { prisma } from "@/lib/prisma";
-import { generateSession, clearSession, getCurrentUserId as getCurrentUserIdFromAuth } from "@/lib/auth";
+import {
+  generateSession,
+} from "@/lib/auth";
 import {
   validateEmailFormat,
   hashPassword,
@@ -10,24 +14,9 @@ import {
   recordLoginAttempt,
   validatePasswordStrength,
   sanitizeInput,
-  sanitizeEmail
+  sanitizeEmail,
 } from "@/lib/security";
-
-export { getCurrentUserIdFromAuth as getCurrentUserId };
-
-export interface AuthResult {
-  success: boolean;
-  message: string;
-  userId?: string;
-}
-
-export interface RegisterData {
-  email: string;
-  password: string;
-  name: string;
-  country?: string;
-  phone?: string;
-}
+import type { AuthResult, RegisterData, LoginData } from "./shared";
 
 export async function register(data: RegisterData): Promise<AuthResult> {
   try {
@@ -88,14 +77,6 @@ export async function register(data: RegisterData): Promise<AuthResult> {
     console.error("Registration error:", error);
     return { success: false, message: "An unexpected error occurred. Please try again later." };
   }
-}
-
-export interface LoginData {
-  email: string;
-  password: string;
-  clientIp?: string;
-  /** 对应登录弹窗 "Stay logged in"：true（默认）→ 7 天持久化；false → 会话级 Cookie */
-  stayLoggedIn?: boolean;
 }
 
 export async function login(data: LoginData): Promise<AuthResult> {
@@ -171,13 +152,5 @@ export async function login(data: LoginData): Promise<AuthResult> {
   } catch (error) {
     console.error("Login error:", error);
     return { success: false, message: "An unexpected error occurred. Please try again later." };
-  }
-}
-
-export async function logout(): Promise<void> {
-  try {
-    await clearSession();
-  } catch (error) {
-    console.error("Logout error:", error);
   }
 }

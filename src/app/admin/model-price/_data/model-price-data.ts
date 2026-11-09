@@ -30,7 +30,8 @@ export async function getBatchDetailViewData(batchId: string) {
       approvedBy: { select: { email: true } },
     },
   });
-  if (!batch || batch.errorCount > 0) return null;
+  // 与 Product 导入页一致：含解析错误的批次也列出，便于管理员查看/驳回/删除
+  if (!batch) return null;
 
   // 始终读取暂存行快照（seriesId 在每行上）
   const items = await prisma.importBatchItem.findMany({
@@ -41,6 +42,7 @@ export async function getBatchDetailViewData(batchId: string) {
       seriesId: true,
       slug: true,
       model: true,
+      categoryName: true,
       costPrice: true,
       sellPrice: true,
       markup: true,
@@ -80,21 +82,54 @@ export async function getBatchDetailViewData(batchId: string) {
   }>[] = [];
 
   if (!isPending && itemRows.length > 0) {
-    modelPrices = await prisma.modelPrice.findMany({
-      where: { importBatchId: batchId },
-      orderBy: { createdAt: "asc" },
-      select: {
-        modelPriceId: true,
-        model: true,
-        costPrice: true,
-        sellPrice: true,
-        markup: true,
-        moq: true,
-        condition: true,
-        leadTime: true,
-        series: { select: { seriesName: true, brand: { select: { brandName: true } } } },
-      },
+    // 线上行按"类目+型号+Condition"文件身份关联：slug 只含型号（跨类目撞 slug），
+    // importBatchId 会因价格批次原地更新/重复确认而漂移，两者都会串行。
+    const catNames = [...new Set(items.map((it) => it.categoryName).filter((v): v is string => !!v))];
+    const cats = await prisma.category.findMany({
+      where: { categoryName: { in: catNames } },
+      select: { categoryId: true, categoryName: true },
     });
+    const catIdByName = new Map(cats.map((c) => [c.categoryName.trim().toLowerCase(), c.categoryId]));
+    const fileKeys = new Set<string>();
+    const rowOrder = new Map<string, number>();
+    items.forEach((it, idx) => {
+      const cid = it.categoryName ? catIdByName.get(it.categoryName.trim().toLowerCase()) : undefined;
+      if (!cid) return;
+      const key = `${cid}|${it.model.trim().toLowerCase()}|${(it.condition ?? "").trim().toLowerCase()}`;
+      fileKeys.add(key);
+      if (!rowOrder.has(key)) rowOrder.set(key, idx);
+    });
+    const categoryIds = [...new Set(cats.map((c) => c.categoryId))];
+    const models = [...new Set(items.map((it) => it.model))];
+    const rows = categoryIds.length > 0 && models.length > 0
+      ? await prisma.modelPrice.findMany({
+          where: { categoryId: { in: categoryIds }, model: { in: models } },
+          select: {
+            modelPriceId: true,
+            model: true,
+            costPrice: true,
+            sellPrice: true,
+            markup: true,
+            moq: true,
+            condition: true,
+            leadTime: true,
+            categoryId: true,
+            series: { select: { seriesName: true, brand: { select: { brandName: true } } } },
+          },
+        })
+      : [];
+    modelPrices = rows
+      .filter((mp) => fileKeys.has(`${mp.categoryId}|${mp.model.trim().toLowerCase()}|${(mp.condition ?? "").trim().toLowerCase()}`))
+      .sort((a, b) => {
+        const ka = rowOrder.get(`${a.categoryId}|${a.model.trim().toLowerCase()}|${(a.condition ?? "").trim().toLowerCase()}`) ?? 0;
+        const kb = rowOrder.get(`${b.categoryId}|${b.model.trim().toLowerCase()}|${(b.condition ?? "").trim().toLowerCase()}`) ?? 0;
+        return ka - kb;
+      })
+      .map((mp) => {
+        const { categoryId, ...rest } = mp;
+        void categoryId;
+        return rest;
+      });
   }
 
   return { batch, itemRows, modelPrices };
@@ -188,7 +223,7 @@ export async function getStandardPriceGroups(): Promise<StandardPriceSeriesGroup
 export async function getListViewData() {
   const [batches, seriesList] = await Promise.all([
     prisma.importBatch.findMany({
-      where: { batchType: "price", errorCount: 0 },
+      where: { batchType: "price" },
       orderBy: { importedAt: "desc" },
       include: {
         series: { select: { seriesName: true, brand: { select: { brandName: true } } } },

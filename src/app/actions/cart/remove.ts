@@ -4,11 +4,12 @@
 
 import { prisma } from "@/lib/prisma";
 import { getCurrentUserId } from "@/lib/auth";
-import type { CartActionResult, CartWithItems } from "./types";
+import type { CartActionResult, CartWithItems, CartItemWithProduct } from "./types";
 import {
   validateItemId,
   calcTotals,
   serializeCartDecimals,
+  resolveCartSelfOrder,
 } from "./shared";
 
 export async function removeFromCart(itemId: string): Promise<CartActionResult> {
@@ -22,7 +23,7 @@ export async function removeFromCart(itemId: string): Promise<CartActionResult> 
       return { success: false, message: "Please login to remove items from cart" };
     }
 
-    return prisma.$transaction(async (tx) => {
+    const txResult = (await prisma.$transaction(async (tx) => {
       const cartItem = await tx.cartItem.findUnique({
         where: { itemId },
         include: { cart: true },
@@ -70,7 +71,12 @@ export async function removeFromCart(itemId: string): Promise<CartActionResult> 
         totalQuantity,
         totalAmount,
       };
-    }) as Promise<CartActionResult>;
+    })) as CartActionResult;
+
+    if (txResult.success && txResult.cart) {
+      await resolveCartSelfOrder(txResult.cart.items as unknown as CartItemWithProduct[]);
+    }
+    return txResult;
   } catch (error) {
     console.error("Remove from cart error:", error);
     return { success: false, message: "An error occurred while removing item from cart" };
@@ -84,7 +90,7 @@ export async function clearCart(): Promise<CartActionResult> {
       return { success: false, message: "Please login to clear cart" };
     }
 
-    return prisma.$transaction(async (tx) => {
+    const txResult = (await prisma.$transaction(async (tx) => {
       const cart = await tx.cart.findFirst({ where: { customerId } });
       if (!cart) {
         return { success: false, message: "Cart not found" };
@@ -101,7 +107,12 @@ export async function clearCart(): Promise<CartActionResult> {
         totalQuantity: 0,
         totalAmount: 0,
       };
-    }) as Promise<CartActionResult>;
+    })) as CartActionResult;
+
+    if (txResult.success && txResult.cart) {
+      await resolveCartSelfOrder(txResult.cart.items as unknown as CartItemWithProduct[]);
+    }
+    return txResult;
   } catch (error) {
     console.error("Clear cart error:", error);
     return { success: false, message: "An error occurred while clearing cart" };

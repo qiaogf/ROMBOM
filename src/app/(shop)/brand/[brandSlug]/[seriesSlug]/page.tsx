@@ -96,24 +96,57 @@ export default async function SeriesDetailPage({ params }: PageProps) {
   const displaySeriesName = seriesRecord?.seriesName || seriesName;
   const displaySeriesDesc = seriesRecord?.description || null;
 
-  if (!seriesRecord && products.length === 0) {
+  // 特殊类目：(Others) 分组对应 seriesId=null 的 ModelPrice
+  // 查 Series 表失败后，尝试按 brandId + seriesId=null + (类目匹配) 查 ModelPrice
+  // seriesSlug 可能是 "(Others)"（品牌页 Link 正确）或 "others"（旧 slugify 产物），都兼容
+  const normalizedSlug = seriesName.replace(/[\s]/g, "").toLowerCase();
+  const isSpecialCategoryGroup =
+    !seriesRecord &&
+    (seriesName === "(Others)" || seriesName === "Others" || normalizedSlug === "(others)" || normalizedSlug === "others");
+
+  if (!seriesRecord && products.length === 0 && !isSpecialCategoryGroup) {
     // 品牌下既无旧产品也无 Series 记录 → 该系列不存在
     notFound();
   }
 
   // 线上展示以 ModelPrice 比价优胜行为准（最低价 / 最快交期可各一行）；
   // 旧 Product 行仅用于新体系未覆盖的型号，避免同型号重复且价格显示 0.00
-  const modelPrices = seriesRecord
-    ? await prisma.modelPrice.findMany({
-        where: {
-          seriesId: seriesRecord.seriesId,
-          isActive: true,
-          status: "on_sale",
-          OR: [{ isWinnerPrice: true }, { isWinnerLeadTime: true }],
-        },
-        orderBy: [{ isWinnerPrice: "desc" }, { sortOrder: "asc" }],
-      })
-    : [];
+  let modelPrices: Awaited<ReturnType<typeof prisma.modelPrice.findMany>>;
+  if (seriesRecord) {
+    modelPrices = await prisma.modelPrice.findMany({
+      where: {
+        seriesId: seriesRecord.seriesId,
+        isActive: true,
+        status: "on_sale",
+        OR: [{ isWinnerPrice: true }, { isWinnerLeadTime: true }],
+      },
+      orderBy: [{ isWinnerPrice: "desc" }, { sortOrder: "asc" }],
+    });
+  } else if (isSpecialCategoryGroup) {
+    // 特殊类目：seriesId=null 的 ModelPrice，按 brandId 过滤
+    // 同时过滤 brandId + categoryId（防止多个特殊类目混在一起）
+    const catBrandLinks = await prisma.categoryBrand.findMany({
+      where: { brandId: brand.id, category: { slug: { not: "discontinued" } } },
+      select: { categoryId: true },
+    });
+    const categoryIds = catBrandLinks.map((cb) => cb.categoryId);
+    modelPrices = await prisma.modelPrice.findMany({
+      where: {
+        brandId: brand.id,
+        seriesId: null,
+        isActive: true,
+        status: "on_sale",
+        categoryId: { in: categoryIds },
+        OR: [{ isWinnerPrice: true }, { isWinnerLeadTime: true }],
+      },
+      orderBy: [{ isWinnerPrice: "desc" }, { sortOrder: "asc" }],
+    });
+  } else {
+    modelPrices = [];
+  }
+
+  // 兜底：如果仍无 ModelPrice 且无 Product → 404
+  if (modelPrices.length === 0 && products.length === 0) notFound();
   const modelPriceModels = new Set(modelPrices.map((mp) => mp.model));
   const productInfoMap = new Map(
     products

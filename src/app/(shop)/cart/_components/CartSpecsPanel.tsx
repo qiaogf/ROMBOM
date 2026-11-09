@@ -23,6 +23,7 @@ export function CartSpecsPanel({ items }: Props) {
               <th className="px-1.5 py-1 text-left font-bold">Model No.</th>
               <th className="px-1.5 py-1 text-left font-bold">Origin</th>
               <th className="px-1.5 py-1 text-left font-bold">Certifications</th>
+              <th className="px-1.5 py-1 text-left font-bold">Datasheet</th>
               <th className="px-1.5 py-1 text-right font-bold">Length</th>
               <th className="px-1.5 py-1 text-right font-bold">Width</th>
               <th className="px-1.5 py-1 text-right font-bold">Height</th>
@@ -32,7 +33,6 @@ export function CartSpecsPanel({ items }: Props) {
               <th className="px-1.5 py-1 text-right font-bold">ack. Weight</th>
               <th className="px-1.5 py-1 text-left font-bold">Wt. Unit</th>
               <th className="px-1.5 py-1 text-left font-bold">Battery Attr.</th>
-              <th className="px-1.5 py-1 text-left font-bold">Datasheet</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100">
@@ -44,15 +44,6 @@ export function CartSpecsPanel({ items }: Props) {
                   <td className="px-1.5 py-1 font-medium text-slate-900">{d.model || "—"}</td>
                   <td className="px-1.5 py-1 text-slate-600">{d.origin || "—"}</td>
                   <td className="px-1.5 py-1 text-slate-600">{d.certification || "—"}</td>
-                  <td className="px-1.5 py-1 text-right text-slate-600">{d.length ?? "—"}</td>
-                  <td className="px-1.5 py-1 text-right text-slate-600">{d.width ?? "—"}</td>
-                  <td className="px-1.5 py-1 text-right text-slate-600">{d.height ?? "—"}</td>
-                  <td className="px-1.5 py-1 text-right text-slate-600">{d.diameter ?? "—"}</td>
-                  <td className="px-1.5 py-1 text-slate-600">{d.dimensionUnit || "—"}</td>
-                  <td className="px-1.5 py-1 text-right text-slate-600">{d.weight ?? "—"}</td>
-                  <td className="px-1.5 py-1 text-right text-slate-600">{d.packingWeight ?? "—"}</td>
-                  <td className="px-1.5 py-1 text-slate-600">{d.weightUnit || "—"}</td>
-                  <td className="px-1.5 py-1 text-slate-600">{d.batteryAttributes || "—"}</td>
                   <td className="px-1.5 py-1">
                     {link ? (
                       <a href={link} target="_blank" rel="noopener noreferrer" className="text-[#336633] hover:underline">
@@ -62,6 +53,15 @@ export function CartSpecsPanel({ items }: Props) {
                       <span className="text-slate-400">—</span>
                     )}
                   </td>
+                  <td className="px-1.5 py-1 text-right text-slate-600">{d.length ?? "—"}</td>
+                  <td className="px-1.5 py-1 text-right text-slate-600">{d.width ?? "—"}</td>
+                  <td className="px-1.5 py-1 text-right text-slate-600">{d.height ?? "—"}</td>
+                  <td className="px-1.5 py-1 text-right text-slate-600">{d.diameter ?? "—"}</td>
+                  <td className="px-1.5 py-1 text-slate-600">{d.dimensionUnit || "—"}</td>
+                  <td className="px-1.5 py-1 text-right text-slate-600">{d.weight ?? "—"}</td>
+                  <td className="px-1.5 py-1 text-right text-slate-600">{d.packingWeight ?? "—"}</td>
+                  <td className="px-1.5 py-1 text-slate-600">{d.weightUnit || "—"}</td>
+                  <td className="px-1.5 py-1 text-slate-600">{d.batteryAttributes || "—"}</td>
                 </tr>
               );
             })}

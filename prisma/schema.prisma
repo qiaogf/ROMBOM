@@ -82,6 +82,7 @@ model Customer {
   address      String?
   zip          String?
   paymentMethod String?
+  level        Int              @default(0)   // 客户评级 0-5：数字越大等级越高
   lastLoginAt  DateTime?
   isActive     Boolean          @default(true)
   createdAt    DateTime         @default(now())
@@ -141,6 +142,7 @@ model ImportBatch {
   errorCount     Int         @default(0)
   importedAt     DateTime    @default(now())
   approvalStatus String      @default("approved") // "pending" | "approved"（历史批次默认 approved 保持上线）
+  selfOrderAll   Boolean     @default(false) // 文件级 Self 主开关：true = 本文件全部型号客户可自助下单
   approvedAt     DateTime?
   approvedById   String?
   series         Series?     @relation(fields: [seriesId], references: [seriesId], onDelete: SetNull)
@@ -193,6 +195,7 @@ model ImportBatchItem {
   datasheetLink String?      // 数据手册链接
   brandName     String?      // 品牌名称（CSV 填写，冗余于 series.brand）
   leadTime      String?      // Leadtime（统一字段：In Stock / Out of Stock / 交期文本）
+  selfOrder     Boolean     @default(false) // 行级 Self：true = 该型号客户可自助下单
   createdAt     DateTime    @default(now())
   importBatch   ImportBatch @relation(fields: [importBatchId], references: [importBatchId], onDelete: Cascade)
 
@@ -333,6 +336,7 @@ model ModelPrice {
   datasheetLink String?        // 数据手册链接
   brandName    String?         // 品牌名称（CSV 填写，冗余于 series.brand）
   leadTime     String?         // Leadtime（统一字段：In Stock / Out of Stock / 交期文本）
+  selfOrder    Boolean         @default(false) // 型号级 Self：true = 客户可自助下单结算
   validUntil   DateTime?        // 报价有效期（上传日 + 5 个工作日），过期后不参与比价与展示
   status       ProductStatus    @default(off_sale)
   stockQuantity    Int              @default(999999) // 可供分配的库存数量
@@ -341,7 +345,7 @@ model ModelPrice {
   isWinnerLeadTime Boolean          @default(false)  // 比价优胜：最快交期（线上展示）
   seriesId     String?          // 可空: 特殊类目（<Discontinued> 等）不建系列，直接按品牌展示
   brandId      String?          // 冗余: 归属品牌（无系列时用于分组/比价）
-  categoryId   String?          // 冗余: 归属类目（无系列时用于类目页查询）
+  categoryId   String           // 必填: 所有型号必须归属一个类目（规则：无类目不得上线）
   supplierId   String?          // 冗余: 供应商直达自有产品查询；无供应商的品牌可为空
   sortOrder    Int              @default(0)
   isActive     Boolean          @default(true)
@@ -350,7 +354,7 @@ model ModelPrice {
   updatedAt    DateTime         @updatedAt
   series       Series?          @relation(fields: [seriesId], references: [seriesId], onDelete: SetNull)
   brand        Brand?           @relation(fields: [brandId], references: [brandId], onDelete: SetNull)
-  category     Category?        @relation(fields: [categoryId], references: [categoryId], onDelete: SetNull)
+  category     Category         @relation(fields: [categoryId], references: [categoryId], onDelete: Restrict)
   supplier     Supplier?        @relation(fields: [supplierId], references: [supplierId])
   importBatch  ImportBatch?     @relation(fields: [importBatchId], references: [importBatchId])
   cartItems    CartItem[]
@@ -486,9 +490,14 @@ model SalesOrder {
   items           SalesOrderItem[]
   soStatus       String?          @default("ordered")  // ordered | paid | shipped | received
   hiddenFromCart Boolean          @default(false)      // true: 用户从 Cart 手动移除，Orders 页仍可见可支付
-  auditStatus    String           @default("approved")  // approved | rejected
+  auditStatus    String           @default("approved")  // approved | rejected | pending（提交后需人工确认时为 pending）
+  submittedAt    DateTime?                              // 客户在 Order Summary 点击 Submit 的时间；null=未提交（My Orders 不显示）
   lockExpiresAt  DateTime?                             // 锁价/锁库存到期时间（下单 +48 小时）
   stockLocked    Boolean          @default(false)      // 是否已预留库存（软预留）
+  requiresManualConfirm Boolean    @default(false)      // 订单含不可自助下单型号，需人工确认
+  subtotalPaid          Boolean    @default(false)      // 部分支付：商品小计已付
+  shippingPaid          Boolean    @default(false)      // 部分支付：运费已付
+  taxPaid               Boolean    @default(false)      // 部分支付：税费已付
   purchaseOrders PurchaseOrder[]
 
   @@index([customerId])
@@ -511,6 +520,8 @@ model SalesOrderItem {
   weight         Decimal? @db.Decimal(18, 4)
   weightUnit     String?        @default("kg")
   leadTime      String?           // snapshot: Leadtime 统一文本
+  condition      String?           // 行级 Condition 快照（手动添加的销售行填写，旧数据回退 ModelPrice）
+  requiresManualConfirm Boolean  @default(false) // 下单时该型号不可自助下单，需人工确认
   itemStatus    String?           @default("ordered")  // ordered | paid | shipped | received
   createdAt      DateTime       @default(now())
   salesOrder     SalesOrder     @relation(fields: [orderId], references: [orderId], onDelete: Cascade)
@@ -531,8 +542,7 @@ model PurchaseOrder {
   salesOrderId   String?          // 关联的销售订单（可选）
   totalAmount   Decimal @db.Decimal(18, 4) @default(0)
   poStatus      String           @default("ordered")  // ordered | paid | shipped | received
-  paymentMethod  String?                              // 付款方式：T/T、L/C 等，手动填写
-  auditStatus   String           @default("approved")  // approved | rejected
+  auditStatus   String           @default("pending")   // pending | approved；approved=已发给供应商，撤回回 pending
   orderTime     DateTime         @default(now())
   createdAt     DateTime         @default(now())
   updatedAt     DateTime         @updatedAt
@@ -553,6 +563,7 @@ model PurchaseOrderItem {
   unitPrice     Decimal @db.Decimal(18, 4)
   purPrice      Decimal? @db.Decimal(18, 4) // 实际采购价（初始=unitPrice，管理者可改；null 回退 unitPrice）
   quantity      Int
+  condition     String?           // Product Condition（增购行手动填写，可空）
   leadTime      String?           // Leadtime（统一字段：In Stock / Out of Stock / 交期文本）
   itemStatus    String           @default("ordered")  // ordered | paid | shipped | received
   createdAt     DateTime         @default(now())

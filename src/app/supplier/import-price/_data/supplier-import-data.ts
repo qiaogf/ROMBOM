@@ -9,61 +9,41 @@ import { loadSeriesMapByIds } from "@/lib/import-batch-rows";
 // ============ 采购单（两个视图共享） ============
 
 /**
- * 采购单：客户购物车中归属当前供应商的意向成交型号。
- * 兼容旧 supplierQuote 路径与新 modelPrice 路径。
+ * 采购单：管理者在 Admin Purchase 页 Approve 后发给当前供应商的真实采购单。
+ * 显示管理者调整后的实际采购价（purPrice ?? unitPrice）与数量；
+ * Condition 经该供应商 ModelPrice（按 model 匹配）补充，无匹配显示 null。
  */
 export async function getPurchaseItems(supplierId: string): Promise<PurchaseItem[]> {
-  const cartRows = await prisma.cartItem.findMany({
-    where: {
-      OR: [
-        { modelPrice: { supplierId } },
-        { supplierQuote: { supplierId } },
-      ],
-    },
-    select: {
-      itemId: true,
-      quantity: true,
-      modelPrice: {
-        select: {
-          model: true,
-          productName: true,
-          sellPrice: true,
-          condition: true,
-          leadTime: true,
-        },
-      },
-      supplierQuote: {
-        select: {
-          sellPrice: true,
-          leadTime: true,
-          product: { select: { model: true, productName: true } },
-        },
-      },
-    },
+  const pos = await prisma.purchaseOrder.findMany({
+    where: { supplierId, auditStatus: "approved" },
+    orderBy: { orderTime: "desc" },
+    include: { items: true },
   });
 
-  return cartRows.map((c) => {
-    if (c.modelPrice) {
-      return {
-        cartItemId: c.itemId,
-        model: c.modelPrice.model,
-        productName: c.modelPrice.productName,
-        quantity: c.quantity,
-        unitPrice: c.modelPrice.sellPrice.toString(),
-        condition: c.modelPrice.condition ?? null,
-        leadTime: c.modelPrice.leadTime ?? null,
-      };
-    }
-    return {
-      cartItemId: c.itemId,
-      model: c.supplierQuote?.product?.model ?? "—",
-      productName: c.supplierQuote?.product?.productName ?? "—",
-      quantity: c.quantity,
-      unitPrice: c.supplierQuote?.sellPrice.toString() ?? "0",
-      condition: null,
-      leadTime: c.supplierQuote?.leadTime ?? null,
-    };
-  });
+  const models = [
+    ...new Set(
+      pos.flatMap((po) => po.items.map((it) => it.model).filter((m): m is string => !!m))
+    ),
+  ];
+  const modelPrices = models.length
+    ? await prisma.modelPrice.findMany({
+        where: { supplierId, model: { in: models } },
+        select: { model: true, condition: true },
+      })
+    : [];
+  const conditionByModel = new Map(modelPrices.map((mp) => [mp.model, mp.condition]));
+
+  return pos.flatMap((po) =>
+    po.items.map((it) => ({
+      cartItemId: it.itemId,
+      model: it.model ?? "—",
+      productName: it.productName,
+      quantity: it.quantity,
+      unitPrice: (it.purPrice ?? it.unitPrice).toString(),
+      condition: it.condition ?? (it.model ? conditionByModel.get(it.model) : null) ?? null,
+      leadTime: it.leadTime ?? null,
+    }))
+  );
 }
 
 // ============ 批次详情视图 ============

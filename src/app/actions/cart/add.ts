@@ -6,7 +6,7 @@
 import { prisma } from "@/lib/prisma";
 import { getCurrentUserId } from "@/lib/auth";
 import { isValidIdFormat } from "@/lib/security";
-import type { CartActionResult, CartWithItems } from "./types";
+import type { CartActionResult, CartWithItems, CartItemWithProduct } from "./types";
 import {
   MAX_QUANTITY_PER_ITEM,
   MAX_CART_ITEMS,
@@ -14,6 +14,7 @@ import {
   isInStock,
   calcTotals,
   serializeCartDecimals,
+  resolveCartSelfOrder,
 } from "./shared";
 
 export async function addToCart(productId: string, quoteId: string, quantity: number = 1): Promise<CartActionResult> {
@@ -60,7 +61,7 @@ export async function addToCart(productId: string, quoteId: string, quantity: nu
       return { success: false, message: `Minimum order quantity is ${quote.moq}` };
     }
 
-    return prisma.$transaction(async (tx) => {
+    const txResult = (await prisma.$transaction(async (tx) => {
       let cart = await tx.cart.findFirst({ where: { customerId } });
 
       if (!cart) {
@@ -121,7 +122,12 @@ export async function addToCart(productId: string, quoteId: string, quantity: nu
         totalQuantity,
         totalAmount,
       };
-    }) as Promise<CartActionResult>;
+    })) as CartActionResult;
+
+    if (txResult.success && txResult.cart) {
+      await resolveCartSelfOrder(txResult.cart.items as unknown as CartItemWithProduct[]);
+    }
+    return txResult;
   } catch (error) {
     console.error("Add to cart error:", error);
     return { success: false, message: "An error occurred while adding item to cart" };
@@ -179,7 +185,7 @@ export async function addToCartByModelPrice(
       return { success: false, message: `Minimum order quantity is ${modelPrice.moq}` };
     }
 
-    return prisma.$transaction(async (tx) => {
+    const txResult = (await prisma.$transaction(async (tx) => {
       let cart = await tx.cart.findFirst({ where: { customerId } });
 
       if (!cart) {
@@ -240,7 +246,12 @@ export async function addToCartByModelPrice(
         totalQuantity,
         totalAmount,
       };
-    }) as Promise<CartActionResult>;
+    })) as CartActionResult;
+
+    if (txResult.success && txResult.cart) {
+      await resolveCartSelfOrder(txResult.cart.items as unknown as CartItemWithProduct[]);
+    }
+    return txResult;
   } catch (error) {
     console.error("Add to cart by model price error:", error);
     return { success: false, message: "An error occurred while adding item to cart" };

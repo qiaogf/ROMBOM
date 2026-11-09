@@ -32,6 +32,8 @@ const seriesSelect = {
   },
 } satisfies Prisma.SeriesSelect;
 
+// 特殊类目（seriesId=null）的 ModelPrice 查询条件内联到调用处，避免 Prisma 类型推断对抽取常量的不兼容
+
 const productInfoSelect = {
   model: true,
   productName: true,
@@ -71,7 +73,8 @@ function buildSeriesGroups(
     indexByKey.set(key, index);
     groups.push({
       seriesName: displayName,
-      seriesSlug: slug || slugify(displayName),
+      // (Others) 是特殊分组，不走 slugify（slugify 会剥掉括号导致系列详情页识别失败）
+      seriesSlug: slug || (displayName === "(Others)" ? "(Others)" : slugify(displayName)),
       seriesDesc: null,
       products: [],
     });
@@ -123,10 +126,13 @@ function buildSeriesGroups(
 
   for (const row of seriesRows) {
     const name = row.seriesName.trim();
-    if (!name) continue;
+    // 空名称：注入的虚拟 seriesRow（特殊类目 seriesId=null 的 ModelPrice）
+    // 没有系列归属，统一合并到 "(Others)" 分组展示
+    const groupName = name || "(Others)";
+    const slug = row.slug || "";
 
     // 空系列也建立分组（型号表中以"暂无型号"提示行展示）
-    const index = ensureGroup(name.toLowerCase(), name, row.slug);
+    const index = ensureGroup(groupName.toLowerCase(), groupName, slug);
     if (!groups[index].seriesDesc) {
       groups[index].seriesDesc = row.description || null;
     }
@@ -153,7 +159,7 @@ function buildSeriesGroups(
         leadTime: mp.leadTime,
         categoryId: row.categoryId,
         brandId: row.brandId,
-        seriesName: name,
+        seriesName: groupName,
         seriesDesc: row.description || null,
         priceTag:
           mp.isWinnerPrice && mp.isWinnerLeadTime
@@ -180,8 +186,8 @@ export async function getSeriesGroupsForCategoryBrand(
   categoryId: string,
   brandId: string
 ): Promise<SeriesGroup[]> {
-  // 三条查询互相独立，并行发出（Product 展示信息不限上架状态）
-  const [products, seriesRows, productInfoRows] = await Promise.all([
+  // 四条查询互相独立，并行发出
+  const [products, seriesRows, productInfoRows, specialMpRows] = await Promise.all([
     prisma.product.findMany({
       where: {
         categoryId,
@@ -200,9 +206,49 @@ export async function getSeriesGroupsForCategoryBrand(
       where: { categoryId, brandId },
       select: productInfoSelect,
     }),
+    // 特殊类目：seriesId=null 的 ModelPrice（不建 Series，价格行直接挂 categoryId+brandId）
+    prisma.modelPrice.findMany({
+      where: {
+        isActive: true,
+        status: "on_sale" as const,
+        seriesId: null,
+        OR: [{ isWinnerPrice: true }, { isWinnerLeadTime: true }],
+        categoryId,
+        brandId,
+      },
+      orderBy: [
+        { isWinnerPrice: "desc" as const },
+        { sortOrder: "asc" as const },
+      ],
+    }),
   ]);
 
-  return buildSeriesGroups(products, seriesRows, productInfoRows);
+  // 注入虚拟 seriesRow：把特殊类目 ModelPrice 塞进 seriesRows，让 buildSeriesGroups 复用统一逻辑
+  let effectiveSeriesRows = seriesRows;
+  if (specialMpRows.length > 0) {
+    effectiveSeriesRows = [
+      ...seriesRows,
+      {
+        seriesName: "", // 空名称 → buildSeriesGroups 会跳过（第 126 行 `if (!name) continue`）
+        slug: "",
+        description: null,
+        categoryId,
+        brandId,
+        modelPrices: specialMpRows,
+      } as unknown as SeriesRow,
+    ];
+  }
+
+  // 规则：Product 独有 model（ModelPrice 表无对应价格行）不得上线展示
+  // 从 ModelPrice 相关结果（Series.modelPrices + specialMpRows）提取全部有价格的 model 集合
+  const modelsWithPrice = new Set<string>();
+  for (const s of effectiveSeriesRows) {
+    for (const mp of s.modelPrices) modelsWithPrice.add(mp.model);
+  }
+  // 过滤掉 Product 里不在 ModelPrice 集合中的行
+  const filteredProducts = products.filter((p) => modelsWithPrice.has(p.model));
+
+  return buildSeriesGroups(filteredProducts, effectiveSeriesRows, productInfoRows);
 }
 
 /**
@@ -217,7 +263,7 @@ export async function getSeriesGroupsForCategoryBrands(
   const result = new Map<string, SeriesGroup[]>();
   if (brandIds.length === 0) return result;
 
-  const [products, seriesRows, productInfoRows] = await Promise.all([
+  const [products, seriesRows, productInfoRows, specialMpRows] = await Promise.all([
     prisma.product.findMany({
       where: { categoryId, brandId: { in: brandIds }, status: "on_sale" },
       include: productInclude,
@@ -232,18 +278,64 @@ export async function getSeriesGroupsForCategoryBrands(
       where: { categoryId, brandId: { in: brandIds } },
       select: productInfoSelect,
     }),
+    prisma.modelPrice.findMany({
+      where: {
+        isActive: true,
+        status: "on_sale" as const,
+        seriesId: null,
+        OR: [{ isWinnerPrice: true }, { isWinnerLeadTime: true }],
+        categoryId,
+        brandId: { in: brandIds },
+      },
+      orderBy: [
+        { brandId: "asc" as const },
+        { isWinnerPrice: "desc" as const },
+        { sortOrder: "asc" as const },
+      ],
+    }),
   ]);
 
-  const buckets = new Map<string, { products: ProductRow[]; seriesRows: SeriesRow[]; infoRows: ProductInfoRow[] }>();
+  // 特殊类目 ModelPrice 按 brandId 分桶，注入虚拟 seriesRow
+  const buckets = new Map<
+    string,
+    {
+      products: ProductRow[];
+      seriesRows: SeriesRow[];
+      infoRows: ProductInfoRow[];
+      specialMps: typeof specialMpRows;
+    }
+  >();
   for (const brandId of brandIds) {
-    buckets.set(brandId, { products: [], seriesRows: [], infoRows: [] });
+    buckets.set(brandId, { products: [], seriesRows: [], infoRows: [], specialMps: [] });
   }
   for (const p of products) buckets.get(p.brandId)?.products.push(p);
   for (const s of seriesRows) buckets.get(s.brandId)?.seriesRows.push(s);
   for (const info of productInfoRows) buckets.get(info.brandId)?.infoRows.push(info);
+  for (const mp of specialMpRows) if (mp.brandId) buckets.get(mp.brandId)?.specialMps.push(mp);
 
   for (const [brandId, bucket] of buckets) {
-    result.set(brandId, buildSeriesGroups(bucket.products, bucket.seriesRows, bucket.infoRows));
+    // 注入虚拟 seriesRow：空名称，modelPrices 填特殊类目行
+    let effectiveSeriesRows = bucket.seriesRows;
+    if (bucket.specialMps.length > 0) {
+      effectiveSeriesRows = [
+        ...bucket.seriesRows,
+        {
+          seriesName: "",
+          slug: "",
+          description: null,
+          categoryId,
+          brandId,
+          modelPrices: bucket.specialMps,
+        } as unknown as SeriesRow,
+      ];
+    }
+    // 规则：Product 独有 model（ModelPrice 表无对应价格行）不得上线展示
+    const modelsWithPrice = new Set<string>();
+    for (const s of effectiveSeriesRows) {
+      for (const mp of s.modelPrices) modelsWithPrice.add(mp.model);
+    }
+    const filteredProducts = bucket.products.filter((p) => modelsWithPrice.has(p.model));
+    result.set(brandId, buildSeriesGroups(filteredProducts, effectiveSeriesRows, bucket.infoRows));
   }
   return result;
 }

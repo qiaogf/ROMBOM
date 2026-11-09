@@ -18,7 +18,7 @@
   --color-background: #ffffff;
   --color-background-secondary: #f8fafc;
   --color-background-tertiary: #f1f5f9;
-  --color-foreground: #0f172a;
+  --color-foreground: #000000;
   --color-foreground-secondary: #475569;
   --color-foreground-muted: #94a3b8;
   --color-foreground-subtle: #cbd5e1;
@@ -31,6 +31,7 @@
   --color-price-sale: #ef4444;
   --color-rating: #fbbf24;
   --font-sans: var(--font-inter), "SF Pro Display", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --font-logo: var(--font-bebas), "Arial Narrow", Impact, sans-serif;
   --font-serif: "Georgia", "Times New Roman", Times, serif;
   --font-mono: "SF Mono", "Monaco", "Inconsolata", "Roboto Mono", monospace;
   --radius-sm: 0.25rem;
@@ -387,4 +388,28 @@ img {
   50% {
     opacity: 0.7;
   }
+}
+
+/* =========================================================
+   全局字号微调（2026-11-01）
+   只调整字号与行高，不改动任何颜色、字体、字距或布局结构。
+   还原方法：用 .backup-before-restyle-20261101/globals.css 覆盖本文件后重新构建。
+   说明：规则放在 Tailwind 图层之外，可覆盖工具类，
+        用于统一全站最细小的表格/面板文字。
+   ========================================================= */
+
+/* 最小字号：10px / 11px 的密集表格文字各上调 1px，并补足行高避免文字拥挤 */
+.text-\[10px\] {
+  font-size: 11px;
+  line-height: 1.35;
+}
+
+.text-\[11px\] {
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+/* 原本接近纯黑的文字统一为纯黑 */
+.text-slate-900 {
+  color: #000000;
 }

@@ -68,7 +68,8 @@ export async function getOrders(customerId?: string): Promise<OrderWithItems[]> 
     if (!currentCustomerId) return [];
 
     const orders = await prisma.salesOrder.findMany({
-      where: { customerId: currentCustomerId },
+      // 只要客户在 Order Summary 提交（Submit）过的订单均显示（Self / Manual 均可见）
+      where: { customerId: currentCustomerId, submittedAt: { not: null } },
       include: { items: { include: { modelPrice: true } } },
       orderBy: { createdAt: "desc" },
     });

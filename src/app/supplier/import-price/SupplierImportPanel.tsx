@@ -13,7 +13,6 @@ import {
   Trash2,
   Loader2,
   Download,
-  FileUp,
   ExternalLink,
 } from "lucide-react";
 import { ImportForm } from "./ImportForm";
@@ -67,34 +66,26 @@ export function SupplierImportPanel({ batches, emptyHint }: SupplierImportPanelP
 
   return (
     <div className="flex-1 min-h-0 flex flex-col p-2.5">
-      {/* 固定头部：标题 + 上传卡片 */}
+      {/* 固定头部：上传卡片 */}
       <div className="shrink-0">
-        <h1 className="text-[13px] font-semibold text-slate-800 leading-tight">Import Price</h1>
-        <p className="text-[10px] text-slate-500 mb-1.5 leading-tight">
-          Upload CSV. Admin confirms before live.
-        </p>
-
         <div className="bg-white border border-slate-200 rounded-md p-2 mb-2">
-          <div className="flex items-center justify-between mb-1">
-            <h2 className="text-[11px] font-semibold text-slate-700 flex items-center gap-1.5">
-              <FileUp className="w-3.5 h-3.5 text-green-700" /> Upload CSV
-            </h2>
-            <a
-              href={`data:text/csv;charset=utf-8,${encodeURIComponent(TEMPLATE_CSV)}`}
-              download="price-import-template.csv"
-              className="inline-flex items-center gap-1 px-1.5 py-0.5 text-[10px] font-medium text-green-700 border border-green-300 rounded hover:bg-green-50"
-            >
-              <Download className="w-3 h-3" /> Template
-            </a>
-          </div>
-          <ImportForm />
+          <ImportForm
+            title="Upload Price File"
+            headerActions={
+              <a
+                href={`data:text/csv;charset=utf-8,${encodeURIComponent(TEMPLATE_CSV)}`}
+                download="price-import-template.csv"
+                className="inline-flex items-center gap-1 px-1.5 py-0.5 text-[10px] font-medium text-green-700 border border-green-300 rounded hover:bg-green-50"
+              >
+                <Download className="w-3 h-3" /> Template
+              </a>
+            }
+          />
         </div>
-
-        <h2 className="text-[11px] font-semibold text-slate-700 mb-1">My Uploaded Files</h2>
       </div>
 
-      {/* 独立滚动区域：文件列表随数量伸缩，右侧滑条 */}
-      <div className="flex-1 min-h-0 overflow-y-auto bg-white border border-slate-200 rounded-md">
+      {/* 独立滚动区域：上传后的文件直接列在下方，随数量伸缩，右侧滑条 */}
+      <div className="flex-1 min-h-0 overflow-y-auto">
         {batches.length === 0 ? (
           <div className="py-8 text-center text-[11px] text-slate-400">{emptyHint ?? "No files yet."}</div>
         ) : (

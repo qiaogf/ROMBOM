@@ -1,16 +1,19 @@
 import type { Metadata } from "next";
-import { Package, Globe, Truck, ShieldCheck } from "lucide-react";
+import CabinetDiagram from "@/components/cabinet/CabinetDiagram";
+import DistributionDiagram from "@/components/cabinet/DistributionDiagram";
+import ProductionLineHero from "@/components/home/ProductionLineHero";
 
 export const metadata: Metadata = {
-  title: "Global-TECH — Cross-Border MRO Industrial Supply",
-  description: "Premium cross-border MRO industrial supply platform. Browse categories and brands for model pricing.",
+  title: "Electrical Cabinet Solution — Control & Power Distribution Cabinets",
+  description:
+    "Typical electrical control cabinet and LV power distribution cabinet design per IEC 61439, GB/T 7251.1-2023, GB/T 7251.2-2023 and GB 50171-2012: DCS, PLC, communication, drive cabinets plus incoming, metering, compensation and outgoing switchgear.",
   alternates: { canonical: "/" },
 };
 
 const siteUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
 
+
 export default function RootPage() {
-  // 站点级结构化数据：WebSite（含搜索行为）+ Organization（品牌身份）
   const jsonLd = [
     {
       "@context": "https://schema.org",
@@ -47,40 +50,29 @@ export default function RootPage() {
         />
       ))}
       <div className="h-0.5 bg-amber-400 shrink-0"></div>
-      <div className="px-3 sm:px-4 py-6">
-        {/* Hero */}
-        <div className="text-center py-8">
-          <h1 className="text-2xl font-bold text-green-800 mb-2">Global-TECH</h1>
-          <p className="text-sm text-slate-600 max-w-md mx-auto">
-            Cross-Border MRO Industrial Supply Platform
-          </p>
+
+      <div className="px-3 sm:px-4 py-6 text-left">
+        <div className="border border-slate-200 rounded bg-white overflow-hidden">
+          <div className="px-3 py-2 text-[13px] font-semibold text-slate-700 border-b border-slate-200 bg-slate-50/60">
+            Flexible Automation
+          </div>
+          <ProductionLineHero />
         </div>
 
-        {/* Feature cards */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 max-w-2xl mx-auto">
-          <div className="flex flex-col items-center p-4 bg-white border border-slate-200 rounded-lg">
-            <Package className="w-6 h-6 text-green-700 mb-2" />
-            <span className="text-xs font-medium text-slate-700">MRO Products</span>
+        <div className="mt-12 border border-slate-200 rounded bg-white overflow-hidden">
+          <div className="px-3 py-2 text-[13px] font-semibold text-slate-700 border-b border-slate-200 bg-slate-50/60">
+            Electrical Control Cabinet
           </div>
-          <div className="flex flex-col items-center p-4 bg-white border border-slate-200 rounded-lg">
-            <Globe className="w-6 h-6 text-green-700 mb-2" />
-            <span className="text-xs font-medium text-slate-700">Global Sourcing</span>
-          </div>
-          <div className="flex flex-col items-center p-4 bg-white border border-slate-200 rounded-lg">
-            <Truck className="w-6 h-6 text-green-700 mb-2" />
-            <span className="text-xs font-medium text-slate-700">Fast Shipping</span>
-          </div>
-          <div className="flex flex-col items-center p-4 bg-white border border-slate-200 rounded-lg">
-            <ShieldCheck className="w-6 h-6 text-green-700 mb-2" />
-            <span className="text-xs font-medium text-slate-700">Quality Assured</span>
-          </div>
+          <CabinetDiagram />
         </div>
 
-        {/* Instructions */}
-        <div className="text-center mt-8">
-          <p className="text-xs text-slate-500">
-            Select a category or brand from the left menu to browse product pricing.
-          </p>
+        <div className="mt-12">
+          <div className="border border-slate-200 rounded bg-white overflow-hidden">
+            <div className="px-3 py-2 text-[13px] font-semibold text-slate-700 border-b border-slate-200 bg-slate-50/60">
+              Power Distribution Cabinet
+            </div>
+            <DistributionDiagram />
+          </div>
         </div>
       </div>
     </div>

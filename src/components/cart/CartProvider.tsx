@@ -176,6 +176,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
             condition: d.condition,
             leadTime: d.leadTime,
             thumbnail: d.thumbnail,
+            selfOrder: d.selfOrder,
           },
         });
         saveGuestItems(next);

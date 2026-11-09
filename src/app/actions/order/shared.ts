@@ -24,6 +24,10 @@ export interface CreateOrderData {
   notes?: string;
   shippingCost?: string | number;
   taxAmount?: string | number;
+  /** 部分支付：标记哪些组件本次支付。默认全付 */
+  paySubtotal?: boolean;
+  payShipping?: boolean;
+  payTax?: boolean;
 }
 
 export const SHIPPING_THRESHOLD = 100;

@@ -13,6 +13,7 @@ import {
   rejectImportBatch,
   deleteImportBatch,
 } from "@/app/actions/adminActions";
+import { SelfOrderToggle } from "./SelfOrderToggle";
 
 type Action = "confirm" | "reject" | "delete";
 
@@ -20,9 +21,13 @@ interface BatchActionButtonsProps {
   importBatchId: string;
   fileName: string;
   approvalStatus: "pending" | "approved";
+  /** 文件级 Self 主开关状态（true = 本文件全部型号可自助下单）；仅详情页传入，列表页不显示该按钮 */
+  selfOrderAll?: boolean;
+  /** 紧凑模式：缩小间距/字号/内边距，保证三个按钮单行放下（Product 导航列表使用） */
+  compact?: boolean;
 }
 
-export function BatchActionButtons({ importBatchId, fileName, approvalStatus }: BatchActionButtonsProps) {
+export function BatchActionButtons({ importBatchId, fileName, approvalStatus, selfOrderAll, compact }: BatchActionButtonsProps) {
   const [pending, startTransition] = useTransition();
   const [active, setActive] = useState<Action | null>(null);
   const [error, setError] = useState("");
@@ -87,15 +92,19 @@ export function BatchActionButtons({ importBatchId, fileName, approvalStatus }: 
     );
   }
 
+  const btnBase = compact
+    ? "inline-flex items-center gap-0.5 px-0.5 py-0.5 text-[10px] font-medium rounded transition-colors whitespace-nowrap"
+    : "inline-flex items-center gap-0.5 px-1.5 py-0.5 text-[11px] font-medium rounded transition-colors";
+
   return (
-    <div className="flex items-center gap-1">
+    <div className={`flex items-center ${compact ? "gap-0.5 whitespace-nowrap" : "gap-1"}`}>
       {approvalStatus === "pending" && (
         <>
           <button
             type="button"
             onClick={() => setActive("confirm")}
             disabled={pending}
-            className="inline-flex items-center gap-0.5 px-1.5 py-0.5 text-[11px] font-medium text-emerald-700 hover:text-emerald-800 hover:bg-emerald-50 rounded transition-colors"
+            className={`${btnBase} text-emerald-700 hover:text-emerald-800 hover:bg-emerald-50`}
             title="Confirm — publish this batch live"
           >
             <Check className="w-3 h-3" />
@@ -105,7 +114,7 @@ export function BatchActionButtons({ importBatchId, fileName, approvalStatus }: 
             type="button"
             onClick={() => setActive("reject")}
             disabled={pending}
-            className="inline-flex items-center gap-0.5 px-1.5 py-0.5 text-[11px] font-medium text-slate-600 hover:text-slate-800 hover:bg-slate-100 rounded transition-colors"
+            className={`${btnBase} text-slate-600 hover:text-slate-800 hover:bg-slate-100`}
             title="Reject — remove this pending batch"
           >
             <X className="w-3 h-3" />
@@ -113,11 +122,19 @@ export function BatchActionButtons({ importBatchId, fileName, approvalStatus }: 
           </button>
         </>
       )}
+      {selfOrderAll !== undefined && (
+        <SelfOrderToggle
+          scope="batch"
+          importBatchId={importBatchId}
+          active={selfOrderAll}
+          disabled={pending}
+        />
+      )}
       <button
         type="button"
         onClick={() => setActive("delete")}
         disabled={pending}
-        className="inline-flex items-center gap-0.5 px-1.5 py-0.5 text-[11px] font-medium text-rose-600 hover:text-rose-700 hover:bg-rose-50 rounded transition-colors"
+        className={`${btnBase} text-rose-600 hover:text-rose-700 hover:bg-rose-50`}
         title={`Delete ${fileName}`}
       >
         <Trash2 className="w-3 h-3" />

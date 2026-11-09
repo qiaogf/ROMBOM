@@ -1,11 +1,14 @@
-﻿// PO 明细表（单 PO / 多 PO 共用）：PurOrder / Model / PurPrice / Qty / Condition / Leadtime / Amount
+// PO 明细表（单 PO / 多 PO 共用）：PurOrder / Model / PurPrice / Qty / Condition / Leadtime / Amount / 减行
 
+import { formatLeadtime } from "@/lib/cart-display";
 import { OrderItemPriceInput } from "@/app/admin/_components/OrderItemPriceInput";
 import { OrderItemQtyInput } from "@/app/admin/_components/OrderItemQtyInput";
-import { formatLeadtime } from "@/lib/cart-display";
+import { AddPurchaseItemRow } from "./AddPurchaseItemRow";
+import { DeletePurchaseItemButton } from "./DeletePurchaseItemButton";
 
 export function PurchaseItemsTable({
   items,
+  poId,
   poNumber,
   conditionByModel,
 }: {
@@ -15,8 +18,10 @@ export function PurchaseItemsTable({
     unitPrice: { toString(): string };
     purPrice: { toString(): string } | null;
     quantity: number;
+    condition: string | null;
     leadTime: string | null;
   }>;
+  poId: string;
   poNumber: string;
   conditionByModel: Map<string, string | null>;
 }) {
@@ -27,15 +32,16 @@ export function PurchaseItemsTable({
   return (
     <div className="bg-white border border-slate-200 rounded-lg overflow-hidden mb-3">
       <div className="overflow-x-auto">
-        <table className="w-full table-fixed text-[11px]">
+        <table className="w-full min-w-[620px] table-fixed text-[11px]">
           <colgroup>
             <col style={{ width: "16%" }} />
             <col style={{ width: "20ch" }} />
-            <col style={{ width: "13%" }} />
+            <col style={{ width: "12%" }} />
             <col style={{ width: "9%" }} />
-            <col style={{ width: "16%" }} />
+            <col style={{ width: "15%" }} />
             <col style={{ width: "13%" }} />
             <col style={{ width: "11%" }} />
+            <col style={{ width: "24px" }} />
           </colgroup>
           <thead className="bg-slate-50 text-slate-500 text-[10px] uppercase tracking-wide">
             <tr>
@@ -46,12 +52,13 @@ export function PurchaseItemsTable({
               <th className="px-1 py-0.5 text-left">Condition</th>
               <th className="px-1 py-0.5 text-left">Leadtime</th>
               <th className="px-1 py-0.5 text-left">Amount</th>
+              <th className="px-0.5 py-0.5"></th>
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100">
             {items.length === 0 ? (
               <tr>
-                <td colSpan={7} className="px-3 py-6 text-left text-slate-400">
+                <td colSpan={8} className="px-3 py-6 text-left text-slate-400">
                   No items found for this purchase order.
                 </td>
               </tr>
@@ -60,10 +67,10 @@ export function PurchaseItemsTable({
                 const purPrice = Number(item.purPrice ?? item.unitPrice);
                 return (
                   <tr key={item.itemId} className="hover:bg-slate-50">
-                    <td className="px-1 py-0.5 text-slate-700 truncate">
+                    <td className="px-1 py-0.5 text-blue-700 truncate">
                       {poNumber}
                     </td>
-                    <td className="px-1 py-0.5 text-slate-600 truncate">
+                    <td className="px-1 py-0.5 text-slate-600 truncate" title={item.model ?? ""}>
                       {item.model ?? "—"}
                     </td>
                     <td className="px-1 py-0.5">
@@ -83,8 +90,8 @@ export function PurchaseItemsTable({
                       />
                     </td>
                     <td className="px-1 py-0.5 text-slate-600 truncate">
-                      {/* Condition：经关联销售订单的 ModelPrice 快照映射，无数据显示 — */}
-                      {conditionByModel.get(item.model ?? "") ?? "—"}
+                      {/* Condition：优先行自身快照（增购行手动填写），否则经关联销售订单的 ModelPrice 快照映射 */}
+                      {item.condition ?? conditionByModel.get(item.model ?? "") ?? "—"}
                     </td>
                     <td className="px-1 py-0.5 text-slate-600 truncate">
                       {/* Leadtime 统一文本：缺货红 / 现货绿 / 交期琥珀 */}
@@ -101,10 +108,16 @@ export function PurchaseItemsTable({
                     <td className="px-1 py-0.5 text-slate-700 tabular-nums text-right">
                       {purPrice > 0 && item.quantity > 0 ? `$${(purPrice * item.quantity).toFixed(2)}` : "—"}
                     </td>
+                    {/* 减行：删除该明细行并重算 PO 总额 */}
+                    <td className="px-0.5 py-0.5 text-center">
+                      <DeletePurchaseItemButton itemId={item.itemId} model={item.model} />
+                    </td>
                   </tr>
                 );
               })
             )}
+            {/* 手动增购行：Model / PurPrice / Qty 输入，Add 后重算 Items 合计 */}
+            <AddPurchaseItemRow poId={poId} />
           </tbody>
         </table>
       </div>

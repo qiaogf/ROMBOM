@@ -28,7 +28,8 @@ export async function getProductGroupBySeries(
         select: { categoryId: true },
       });
 
-      if (!category) return [];
+      // discontinued 只是标记值：不走类目+品牌联动路径（仅 /category/discontinued 扁平页展示）
+      if (!category || catSlug === "discontinued") return [];
 
       const brand = await prisma.brand.findUnique({
         where: { slug: brSlug },
@@ -131,8 +132,9 @@ async function getCategoryProductsGroupsByBrandSlugUncached(
   brandSlug: string
 ): Promise<CategoryProductsGroup[]> {
   // 一条查询同时拿到 brandId 与关联类目（嵌套 where 替代先查 brand 再查 links）
+  // discontinued 只是标记值：品牌页强制排除（该类目数据仅 /category/discontinued 展示）
   const links = await prisma.categoryBrand.findMany({
-    where: { brand: { slug: brandSlug, isActive: true }, category: { isActive: true } },
+    where: { brand: { slug: brandSlug, isActive: true }, category: { isActive: true, slug: { not: "discontinued" } } },
     select: {
       brandId: true,
       category: {
@@ -246,8 +248,29 @@ async function getFlatPriceTableGroupsByCategorySlugUncached(
       orderBy: [{ model: "asc" }],
     });
 
+  // 规则：只显示 Product 表和 ModelPrice 表共同存在的 model
+  // 取 allMP 的唯一 model 列表，查 Product 表存在性，过滤掉 ModelPrice 独有的
+  const mpModels = Array.from(new Set(allMP.map((m) => m.model)));
+  let filteredMP = allMP;
+  // model → Product 的真实品牌：Generic（无品牌）行归到该品牌下，不再单独出 (Others) 组
+  const brandByModel = new Map<string, { brandId: string; brandName: string }>();
+  if (mpModels.length > 0) {
+    const productModels = await prisma.product.findMany({
+      where: { categoryId: category.categoryId, model: { in: mpModels } },
+      select: { model: true, brandId: true, brand: { select: { brandName: true } } },
+      distinct: ["model"],
+    });
+    const productModelSet = new Set(productModels.map((p) => p.model));
+    filteredMP = allMP.filter((m) => productModelSet.has(m.model));
+    productModels.forEach((p) => {
+      if (p.brand?.brandName) {
+        brandByModel.set(p.model, { brandId: p.brandId, brandName: p.brand.brandName });
+      }
+    });
+  }
+
   // 特殊类目按【品牌】分组（不按系列）：CSV 的 Series 列不参与导入，分组标题就是品牌名
-  //   无品牌行（导入时归到 Generic）→ "(Others)"，排在页面末尾
+  //   Generic/无品牌行按 model 归到 Product 的真实品牌；找不到品牌的才落 "(Others)"（页面末尾）
   const normKey = (v: string) => v.replace(/[<>\s]+/g, "").toLowerCase();
   const isOthersBrand = (brandName: string) => normKey(brandName) === "generic";
 
@@ -257,20 +280,33 @@ async function getFlatPriceTableGroupsByCategorySlugUncached(
   // groupKey → 排序层级（0 正常品牌 / 1 Others 末尾）
   const keyRank = new Map<string, number>();
 
-  const brandNameOf = (m: (typeof allMP)[number]) =>
-    m.brand?.brandName ?? m.series?.brand?.brandName ?? "(Others)";
-  const brandIdOf = (m: (typeof allMP)[number]) =>
-    m.brand?.brandId ?? m.series?.brand?.brandId ?? null;
+  const rawBrandNameOf = (m: (typeof filteredMP)[number]) =>
+    m.brand?.brandName ?? m.series?.brand?.brandName ?? null;
+  const brandNameOf = (m: (typeof filteredMP)[number]) => {
+    const raw = rawBrandNameOf(m);
+    if (!raw || isOthersBrand(raw)) {
+      return brandByModel.get(m.model)?.brandName ?? "(Others)";
+    }
+    return raw;
+  };
+  const brandIdOf = (m: (typeof filteredMP)[number]) => {
+    const raw = m.brand?.brandId ?? m.series?.brand?.brandId ?? null;
+    const rawName = rawBrandNameOf(m);
+    if (!raw || !rawName || isOthersBrand(rawName)) {
+      return brandByModel.get(m.model)?.brandId ?? null;
+    }
+    return raw;
+  };
 
   // 品牌 → 系列 → 型号（无系列行 seriesName 视为空，排在该品牌最前）
-  allMP.sort(
+  filteredMP.sort(
     (a, b) =>
       brandNameOf(a).localeCompare(brandNameOf(b)) ||
       (a.series?.seriesName ?? "").localeCompare(b.series?.seriesName ?? "") ||
       a.model.localeCompare(b.model)
   );
 
-  for (const m of allMP) {
+  for (const m of filteredMP) {
     const brandName = brandNameOf(m);
     const groupKey = isOthersBrand(brandName) ? "(Others)" : brandName;
     const displayName = groupKey;
@@ -278,7 +314,8 @@ async function getFlatPriceTableGroupsByCategorySlugUncached(
     if (!groupMap.has(groupKey)) {
       groupMap.set(groupKey, {
         seriesName: displayName,
-        seriesSlug: slugify(groupKey),
+        // (Others) 是特殊分组，不走 slugify（slugify 会剥掉括号导致系列详情页识别失败）
+        seriesSlug: displayName === "(Others)" ? "(Others)" : slugify(groupKey),
         seriesDesc: null,
         products: [],
       });
@@ -310,6 +347,16 @@ async function getFlatPriceTableGroupsByCategorySlugUncached(
             ? "lowest"
             : "fastest",
     } satisfies Product);
+  }
+
+  // 组内同型号去重：Generic 行映射到品牌后可能与该品牌的同型号行同组，优先保留有价格的行
+  for (const g of groupMap.values()) {
+    const seen = new Map<string, (typeof g.products)[number]>();
+    for (const p of g.products) {
+      const prev = seen.get(p.model);
+      if (!prev || (prev.price === 0 && p.price > 0)) seen.set(p.model, p);
+    }
+    g.products = Array.from(seen.values());
   }
 
   // 排序：正常品牌分组（0）→ (Others) 末尾（1），同级保持 SQL 排序顺序（品牌字母序）

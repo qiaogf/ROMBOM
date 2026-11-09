@@ -8,7 +8,7 @@
  */
 
 import { prisma } from "@/lib/prisma";
-import type { Prisma } from "@/../prisma/generated/client";
+import { Prisma } from "@/../prisma/generated/client";
 
 /** 锁价时长（小时） */
 export const PRICE_LOCK_HOURS = 48;
@@ -20,23 +20,45 @@ export function computeLockExpiry(from: Date = new Date()): Date {
 /**
  * 在订单创建事务内软预留库存。
  * 只有引用了 ModelPrice / SupplierQuote 的行才需要预留。
+ * 用单条 SQL 批量累加：跨境库单次 RTT 约 0.5~1.5s，逐行 update 会让事务超时。
  */
 export async function reserveStockForItems(
   tx: Prisma.TransactionClient,
   items: { modelPriceId?: string | null; quoteId?: string | null; quantity: number }[]
 ): Promise<void> {
+  const mpTotals = new Map<string, number>();
+  const quoteTotals = new Map<string, number>();
   for (const item of items) {
+    if (item.quantity <= 0) continue;
     if (item.modelPriceId) {
-      await tx.modelPrice.update({
-        where: { modelPriceId: item.modelPriceId },
-        data: { reservedQuantity: { increment: item.quantity } },
-      });
+      mpTotals.set(item.modelPriceId, (mpTotals.get(item.modelPriceId) ?? 0) + item.quantity);
     } else if (item.quoteId) {
-      await tx.supplierQuote.update({
-        where: { quoteId: item.quoteId },
-        data: { reservedQuantity: { increment: item.quantity } },
-      });
+      quoteTotals.set(item.quoteId, (quoteTotals.get(item.quoteId) ?? 0) + item.quantity);
     }
+  }
+
+  if (mpTotals.size > 0) {
+    const values = Prisma.join(
+      [...mpTotals].map(([id, qty]) => Prisma.sql`(${id}::text, ${qty}::int)`)
+    );
+    await tx.$executeRaw(Prisma.sql`
+      UPDATE "ModelPrice" AS m
+      SET "reservedQuantity" = m."reservedQuantity" + v.qty
+      FROM (VALUES ${values}) AS v(id, qty)
+      WHERE m."modelPriceId" = v.id
+    `);
+  }
+
+  if (quoteTotals.size > 0) {
+    const values = Prisma.join(
+      [...quoteTotals].map(([id, qty]) => Prisma.sql`(${id}::text, ${qty}::int)`)
+    );
+    await tx.$executeRaw(Prisma.sql`
+      UPDATE "SupplierQuote" AS q
+      SET "reservedQuantity" = q."reservedQuantity" + v.qty
+      FROM (VALUES ${values}) AS v(id, qty)
+      WHERE q."quoteId" = v.id
+    `);
   }
 }
 

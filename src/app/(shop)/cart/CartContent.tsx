@@ -75,8 +75,12 @@ export function CartContent({ cart, isLoggedIn }: CartContentProps) {
     <div className="flex-1 min-h-0 overflow-y-scroll main-scrollbar">
       <div className="h-0.5 bg-amber-400 shrink-0"></div>
       <div className="px-1.5 sm:px-2 pt-1.5 pb-3">
-        <div className="mb-1.5">
+        <div className="mb-1.5 flex flex-wrap items-center gap-2">
           <h1 className="text-sm font-bold text-slate-900">Shopping Cart</h1>
+          <span className="flex-1 text-center text-[11px] text-slate-500">
+            <span className="inline-block w-2 h-2 rounded-full bg-green-300 border border-green-400 align-middle mr-1" />
+            Light-green: self-checkout. Others require manual confirmation.
+          </span>
         </div>
 
         {error && (

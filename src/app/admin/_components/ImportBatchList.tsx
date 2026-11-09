@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { FileText, Calendar, Hash } from "lucide-react";
+import { FileText, Hash } from "lucide-react";
 import { BatchActionButtons } from "./BatchActionButtons";
 
 export interface BatchListItem {
@@ -33,7 +33,8 @@ function formatDate(d: Date): string {
   return `${day}/${month}/${year}`;
 }
 
-// 列宽/样式/列名与 Price 导航的 PriceBatchList 保持一致
+// 2026-11-01 起 Product 导航按需求独立调整：Series 单行不换行、Imported→Import 去图标、Act 紧凑、table-fixed 消除横向滑条；
+// 与 Price 导航 PriceBatchList 不再保持完全一致
 export function ImportBatchList({ batches, detailHref, emptyHint }: ImportBatchListProps) {
   if (batches.length === 0) {
     return (
@@ -46,14 +47,23 @@ export function ImportBatchList({ batches, detailHref, emptyHint }: ImportBatchL
   return (
     <div className="bg-white border border-slate-200 rounded-lg overflow-hidden">
       <div className="overflow-x-auto">
-        <table className="min-w-full text-xs">
+        <table className="w-full min-w-[620px] table-fixed text-xs">
+          <colgroup>
+            <col className="w-[23%]" />
+            <col className="w-[15%]" />
+            <col className="w-[21%]" />
+            <col className="w-[9%]" />
+            <col className="w-[8%]" />
+            <col className="w-[6%]" />
+            <col className="w-[18%]" />
+          </colgroup>
           <thead className="bg-slate-50 text-slate-500 text-[10px] uppercase tracking-wide">
             <tr>
               <th className="px-1.5 py-1 text-left">File</th>
               <th className="px-1.5 py-1 text-left">By</th>
               <th className="px-1.5 py-1 text-left">Series</th>
               <th className="px-1.5 py-1 text-left">Status</th>
-              <th className="px-1.5 py-1 text-left">Imported</th>
+              <th className="px-1.5 py-1 text-left">Import</th>
               <th className="px-1.5 py-1 text-right">Rec</th>
               <th className="px-1.5 py-1 text-left">Act</th>
             </tr>
@@ -93,17 +103,23 @@ export function ImportBatchList({ batches, detailHref, emptyHint }: ImportBatchL
                       <span className="text-slate-400 italic">—</span>
                     ) : (
                       <div className="flex flex-col gap-0.5">
-                        {b.seriesRows.map((s) => (
-                          <span
-                            key={s.seriesName}
-                            className="inline-flex items-center gap-1 whitespace-nowrap text-[11px]"
-                          >
-                            {s.brand?.brandName ? (
-                              <span className="text-slate-400">{s.brand.brandName} /</span>
-                            ) : null}
-                            <span className="font-medium text-slate-700">{s.seriesName}</span>
-                          </span>
-                        ))}
+                        {b.seriesRows.map((s) => {
+                          const full = s.brand?.brandName
+                            ? `${s.brand.brandName} / ${s.seriesName}`
+                            : s.seriesName;
+                          return (
+                            <span
+                              key={s.seriesName}
+                              className="block truncate whitespace-nowrap text-[11px]"
+                              title={full}
+                            >
+                              {s.brand?.brandName ? (
+                                <span className="text-slate-400">{s.brand.brandName} / </span>
+                              ) : null}
+                              <span className="font-medium text-slate-700">{s.seriesName}</span>
+                            </span>
+                          );
+                        })}
                       </div>
                     )}
                   </td>
@@ -119,10 +135,7 @@ export function ImportBatchList({ batches, detailHref, emptyHint }: ImportBatchL
                     </span>
                   </td>
                   <td className="px-1.5 py-1 text-slate-600 whitespace-nowrap text-[11px]">
-                    <span className="inline-flex items-center gap-1">
-                      <Calendar className="w-3 h-3 text-slate-400" />
-                      {formatDate(b.importedAt)}
-                    </span>
+                    {formatDate(b.importedAt)}
                   </td>
                   <td className="px-1.5 py-1 text-right text-slate-700">
                     <span className="inline-flex items-center gap-1">
@@ -135,6 +148,7 @@ export function ImportBatchList({ batches, detailHref, emptyHint }: ImportBatchL
                       importBatchId={b.importBatchId}
                       fileName={b.fileName}
                       approvalStatus={status}
+                      compact
                     />
                   </td>
                 </tr>

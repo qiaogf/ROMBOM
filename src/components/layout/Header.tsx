@@ -21,8 +21,9 @@ export function Header() {
           className="flex items-center hover:opacity-80 transition-opacity shrink-0"
           title="Home"
         >
-          <span className="text-xl font-bold tracking-wide text-green-800 whitespace-nowrap">
-            Global-TECH
+          {/* 站点标识：Bebas Neue 窄体大写字体 */}
+          <span className="font-logo text-3xl tracking-wider text-green-800 whitespace-nowrap">
+            MROBOM-TECH
           </span>
         </Link>
 

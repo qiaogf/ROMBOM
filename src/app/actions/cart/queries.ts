@@ -5,8 +5,8 @@
 import { prisma } from "@/lib/prisma";
 import { getCurrentUserId } from "@/lib/auth";
 import { decimalToNumber } from "@/lib/price";
-import type { CartWithItems, CartSummary } from "./types";
-import { getSellPrice, serializeCartDecimals } from "./shared";
+import type { CartWithItems, CartSummary, CartItemWithProduct } from "./types";
+import { getSellPrice, serializeCartDecimals, resolveCartSelfOrder } from "./shared";
 
 export async function getCartWithItems(customerId: string): Promise<CartWithItems | null> {
   const cart = await prisma.cart.findFirst({
@@ -18,11 +18,12 @@ export async function getCartWithItems(customerId: string): Promise<CartWithItem
             include: { category: true },
           },
           supplierQuote: true,
-          modelPrice: true,
+          modelPrice: { include: { importBatch: { select: { selfOrderAll: true } } } },
         },
       },
     },
   });
+  if (cart) await resolveCartSelfOrder(cart.items as unknown as CartItemWithProduct[]);
   return serializeCartDecimals(cart) as unknown as CartWithItems | null;
 }
 

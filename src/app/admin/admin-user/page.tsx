@@ -52,20 +52,19 @@ export default async function AdminUserListPage({
           <div className="min-h-0 flex-1 overflow-y-auto">
             <div className="bg-white border border-slate-200 rounded-lg overflow-hidden">
               <div className="overflow-x-auto">
-                <table className="min-w-full text-xs">
+                <table className="w-full min-w-[520px] text-xs table-fixed">
                   <thead className="bg-slate-50 text-slate-500 text-[10px] uppercase tracking-wide">
                     <tr>
-                      <th className="px-1.5 py-1 text-left">Name</th>
-                      <th className="px-1.5 py-1 text-left">Email</th>
-                      <th className="px-1.5 py-1 text-left">Country</th>
-                      <th className="px-1.5 py-1 text-left">Active</th>
-                      <th className="px-1.5 py-1 text-left">Act</th>
+                      <th className="w-1/4 px-1.5 py-1 text-left">Email</th>
+                      <th className="w-1/4 px-1.5 py-1 text-left">Country</th>
+                      <th className="w-1/4 px-1.5 py-1 text-left">Active</th>
+                      <th className="w-1/4 px-1.5 py-1 text-left">Act</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
                     {admins.length === 0 ? (
                       <tr>
-                        <td colSpan={5} className="px-3 py-6 text-center text-slate-400">
+                        <td colSpan={4} className="px-3 py-6 text-center text-slate-400">
                           No admin accounts found
                         </td>
                       </tr>
@@ -79,13 +78,10 @@ export default async function AdminUserListPage({
                             key={a.adminId}
                             className={isSelected ? "bg-blue-50/60" : "hover:bg-slate-50"}
                           >
-                            <td className="px-1.5 py-1 text-slate-700 whitespace-nowrap">
-                              {a.name ?? empty()}
-                            </td>
                             <td className="px-1.5 py-1">
                               <Link
                                 href={`/admin/admin-user?id=${a.adminId}`}
-                                className={`inline-flex items-center gap-1.5 max-w-[220px] truncate hover:underline ${
+                                className={`inline-flex items-center gap-1.5 max-w-full truncate hover:underline ${
                                   isSelected ? "text-blue-700 font-medium" : "text-blue-600"
                                 }`}
                                 title={a.email}

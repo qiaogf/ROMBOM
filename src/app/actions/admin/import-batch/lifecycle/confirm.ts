@@ -153,49 +153,70 @@ export async function confirmImportBatch(formData: FormData): Promise<{ success:
       return slug;
     };
 
-    // ── 事务内仅写操作 ──
-    await prisma.$transaction(async (tx) => {
-      // 并发双击防护：事务内复查状态
-      const current = await tx.importBatch.findUnique({
-        where: { importBatchId },
-        select: { approvalStatus: true },
-      });
-      if (current?.approvalStatus === "approved") return;
+    // ── 并发双击防护：原子认领批次（pending → approved）──
+    // 跨境 RTT 高（实测 0.5~1.7s/查询），互动事务单连接串行写会分钟级；
+    // 改为先原子认领、再并发写（全部 upsert 幂等，失败回滚认领状态可安全重试）
+    const claimed = await prisma.importBatch.updateMany({
+      where: { importBatchId, approvalStatus: "pending" },
+      data: { approvalStatus: "approved", approvedAt: new Date(), approvedById: session.adminId },
+    });
+    if (claimed.count === 0) {
+      return { success: true, message: "Batch already confirmed." }; // 幂等
+    }
 
-      // ── 导航条目匹配或创建（写操作在事务内；匹配用事务外预读 Map，slug 集合防重）──
-      const findOrCreateBrand = async (name: string) => {
+    // promise 级去重：并发下同键 find-or-create 只执行一次（同步 set 再 await，JS 单线程无竞争）
+    const memo = <R>(m: Map<string, Promise<R>>) => (key: string, fn: () => Promise<R>): Promise<R> => {
+      let p = m.get(key);
+      if (!p) { p = fn(); m.set(key, p); }
+      return p;
+    };
+    const memoBrand = memo(new Map<string, Promise<{ brandId: string; brandName: string }>>());
+    const memoSeries = memo(new Map<string, Promise<{ seriesId: string; seriesName: string; categoryId: string }>>());
+    const memoCatBrand = memo(new Map<string, Promise<void>>());
+    const memoProduct = memo(new Map<string, Promise<string>>());
+    const memoQuote = memo(new Map<string, Promise<void>>());
+
+    try {
+      // ── 导航条目匹配或创建（memo 防并发重复创建；匹配用预读 Map，slug 集合防重）──
+      const findOrCreateBrand = (name: string) => {
         const key = normNavKey(name);
         const hit = brandByKey.get(key);
-        if (hit) return hit;
-        const created = await tx.brand.create({
-          data: { brandName: name, slug: uniqueSlug(name, brandSlugSet) },
-          select: { brandId: true, brandName: true },
+        if (hit) return Promise.resolve(hit);
+        return memoBrand(key, async () => {
+          const created = await prisma.brand.create({
+            data: { brandName: name, slug: uniqueSlug(name, brandSlugSet) },
+            select: { brandId: true, brandName: true },
+          });
+          brandByKey.set(key, created);
+          return created;
         });
-        brandByKey.set(key, created);
-        return created;
       };
       // Category 仅查找不创建：上传时已校验 Category 列必须为系统已有品类
       const stagedSeriesByKey = new Map<string, { seriesId: string; seriesName: string; categoryId: string }>();
-      const findOrCreateSeries = async (name: string, brandId: string, categoryId: string) => {
+      const findOrCreateSeries = (name: string, brandId: string, categoryId: string) => {
         // 索引按「品牌 + 品类 + 归一化系列名」，避免同名系列被跨品牌/跨类目复用或重复创建
         const key = `${brandId}:${categoryId}:${normNavKey(name)}`;
         const hit = stagedSeriesByKey.get(key) ?? seriesByKey.get(key);
-        if (hit) return hit;
-        const created = await tx.series.create({
-          data: { seriesName: name, slug: uniqueSlug(name, seriesSlugSet), brandId, categoryId },
-          select: { seriesId: true, seriesName: true, categoryId: true },
+        if (hit) return Promise.resolve(hit);
+        return memoSeries(key, async () => {
+          const created = await prisma.series.create({
+            data: { seriesName: name, slug: uniqueSlug(name, seriesSlugSet), brandId, categoryId },
+            select: { seriesId: true, seriesName: true, categoryId: true },
+          });
+          stagedSeriesByKey.set(key, created);
+          return created;
         });
-        stagedSeriesByKey.set(key, created);
-        return created;
       };
-      const ensureCategoryBrand = async (categoryId: string, brandId: string) => {
+      const ensureCategoryBrand = (categoryId: string, brandId: string) => {
         const key = `${categoryId}:${brandId}`;
-        if (catBrandSet.has(key)) return;
-        await tx.categoryBrand.create({ data: { categoryId, brandId } });
-        catBrandSet.add(key);
+        if (catBrandSet.has(key)) return Promise.resolve();
+        return memoCatBrand(key, async () => {
+          await prisma.categoryBrand.create({ data: { categoryId, brandId } });
+          catBrandSet.add(key);
+        });
       };
 
-      for (const item of batch.items) {
+      const processItem = async (item: (typeof batch.items)[number]) => {
         // ── 导航解析：已有系列直接复用；暂存新系列 → 匹配/创建 Brand + Category + Series ──
         //    特殊类目（<Discontinued>、(Cement) 等）不建系列：seriesId = null，按 brandId/categoryId 展示
         let seriesCtx: {
@@ -278,7 +299,7 @@ export async function confirmImportBatch(formData: FormData): Promise<{ success:
         if (batchType === "product_info") {
           // ── 产品属性批次：只写属性，不碰价格（按 base|categoryId|model 唯一键 upsert）──
           const baseKey = buildBaseQuoteKey(seriesCtx.categoryId, item.model);
-          await tx.modelPrice.upsert({
+          await prisma.modelPrice.upsert({
             where: { quoteKey: baseKey },
             create: {
               productName: item.productName,
@@ -303,6 +324,7 @@ export async function confirmImportBatch(formData: FormData): Promise<{ success:
               costPrice: 0,
               sellPrice: 0,
               moq: 1,
+              selfOrder: item.selfOrder,
               status: "off_sale",
               // 特殊类目（无系列）：属性行即线上展示行，直接标记为优胜
               isWinnerPrice: seriesCtx.seriesId === null,
@@ -330,33 +352,36 @@ export async function confirmImportBatch(formData: FormData): Promise<{ success:
               datasheetLink: item.datasheetLink,
               brandName: item.brandName,
               unit: item.unit,
+              selfOrder: item.selfOrder,
               importBatchId: batch.importBatchId,
               isWinnerPrice: seriesCtx.seriesId === null,
               isWinnerLeadTime: seriesCtx.seriesId === null,
             },
           });
 
-          // Product create/update（用预取 Map，无逐行 findFirst）
+          // Product create/update（memo 防并发下同型号重复创建）
           const productKey = `${seriesCtx.categoryId}|${item.model}`;
-          const existingProductId = productByKey.get(productKey);
-          if (!existingProductId) {
-            const created = await tx.product.create({
-              data: {
-                categoryId: seriesCtx.categoryId,
-                brandId: seriesCtx.brandId,
-                productName: item.productName,
-                model: item.model,
-                series: seriesCtx.seriesName,
-                description: item.description ?? undefined,
-                unit: item.unit,
-                status: "on_sale",
-                importBatchId: batch.importBatchId,
-              },
-              select: { productId: true },
-            });
-            productByKey.set(productKey, created.productId);
-          } else {
-            await tx.product.update({
+          await memoProduct(productKey, async () => {
+            const existingProductId = productByKey.get(productKey);
+            if (!existingProductId) {
+              const created = await prisma.product.create({
+                data: {
+                  categoryId: seriesCtx.categoryId,
+                  brandId: seriesCtx.brandId,
+                  productName: item.productName,
+                  model: item.model,
+                  series: seriesCtx.seriesName,
+                  description: item.description ?? undefined,
+                  unit: item.unit,
+                  status: "on_sale",
+                  importBatchId: batch.importBatchId,
+                },
+                select: { productId: true },
+              });
+              productByKey.set(productKey, created.productId);
+              return created.productId;
+            }
+            await prisma.product.update({
               where: { productId: existingProductId },
               data: {
                 productName: item.productName,
@@ -366,7 +391,8 @@ export async function confirmImportBatch(formData: FormData): Promise<{ success:
                 importBatchId: batch.importBatchId,
               },
             });
-          }
+            return existingProductId;
+          });
         } else {
           // ── 价格批次：只写价格，不碰属性 ──
           // 特殊类目（无系列）直接上线，不进比价池，不设有效期，直接标记为线上展示行
@@ -382,7 +408,7 @@ export async function confirmImportBatch(formData: FormData): Promise<{ success:
               brandId: seriesCtx.brandId,
             });
             const attrs = baseAttrByKey.get(`${seriesCtx.categoryId}|${item.model}`);
-            await tx.modelPrice.upsert({
+            await prisma.modelPrice.upsert({
               where: { quoteKey },
               create: {
                 productName: item.productName,
@@ -396,6 +422,7 @@ export async function confirmImportBatch(formData: FormData): Promise<{ success:
                 moq: item.moq,
                 condition: item.condition,
               leadTime: item.leadTime,
+                selfOrder: item.selfOrder,
                 status: "on_sale",
                 validUntil,
                 isWinnerPrice: isSpecialRow,
@@ -426,6 +453,7 @@ export async function confirmImportBatch(formData: FormData): Promise<{ success:
                 moq: item.moq,
                 condition: item.condition,
               leadTime: item.leadTime,
+                selfOrder: item.selfOrder,
                 status: "on_sale",
                 validUntil,
                 isWinnerPrice: isSpecialRow,
@@ -440,28 +468,28 @@ export async function confirmImportBatch(formData: FormData): Promise<{ success:
 
           // Product create/update（价格批次只更新 unit/series/status，不碰 productName/
           // description 等属性——价格模板无 Name 列，productName 是型号回退值，
-          // 写入会覆盖产品表里的真实产品名）
+          // 写入会覆盖产品表里的真实产品名；memo 防并发下同型号重复创建）
           const productKey = `${seriesCtx.categoryId}|${item.model}`;
-          const existingProductId = productByKey.get(productKey);
-          let productId: string;
-          if (!existingProductId) {
-            const created = await tx.product.create({
-              data: {
-                categoryId: seriesCtx.categoryId,
-                brandId: seriesCtx.brandId,
-                productName: item.productName,
-                model: item.model,
-                series: seriesCtx.seriesName,
-                unit: item.unit,
-                status: "on_sale",
-                importBatchId: batch.importBatchId,
-              },
-              select: { productId: true },
-            });
-            productByKey.set(productKey, created.productId);
-            productId = created.productId;
-          } else {
-            await tx.product.update({
+          const productId = await memoProduct(productKey, async () => {
+            const existingProductId = productByKey.get(productKey);
+            if (!existingProductId) {
+              const created = await prisma.product.create({
+                data: {
+                  categoryId: seriesCtx.categoryId,
+                  brandId: seriesCtx.brandId,
+                  productName: item.productName,
+                  model: item.model,
+                  series: seriesCtx.seriesName,
+                  unit: item.unit,
+                  status: "on_sale",
+                  importBatchId: batch.importBatchId,
+                },
+                select: { productId: true },
+              });
+              productByKey.set(productKey, created.productId);
+              return created.productId;
+            }
+            await prisma.product.update({
               where: { productId: existingProductId },
               data: {
                 unit: item.unit,
@@ -470,56 +498,64 @@ export async function confirmImportBatch(formData: FormData): Promise<{ success:
                 importBatchId: batch.importBatchId,
               },
             });
-            productId = existingProductId;
-          }
+            return existingProductId;
+          });
 
           // SupplierQuote upsert（价格）—— 无归属供应商的品牌不写旧报价表
+          // memo 防并发下同 productId:supplierId 重复创建；isDefault 在 executor 同步段判定，全批次唯一
           if (sellPrice > 0 && seriesCtx.supplierId) {
-            const quoteKey = `${productId}:${seriesCtx.supplierId}`;
-            const existingQuoteId = quoteMap.get(quoteKey);
-            if (existingQuoteId) {
-              await tx.supplierQuote.update({
-                where: { quoteId: existingQuoteId },
-                data: {
-                  costPrice: costPrice || sellPrice,
-                  sellPrice,
-                  moq: item.moq,
-                  leadTime: item.leadTime,
-                  validUntil: isSpecialRow ? null : computeQuoteValidUntil(),
-                  isValid: true,
-                },
-              });
-            } else {
-              await tx.supplierQuote.create({
-                data: {
-                  supplierId: seriesCtx.supplierId,
-                  productId,
-                  costPrice: costPrice || sellPrice,
-                  sellPrice,
-                  moq: item.moq,
-                  leadTime: item.leadTime,
-                  validUntil: isSpecialRow ? null : computeQuoteValidUntil(),
-                  isValid: true,
-                  isDefault: !anyQuoteSet.has(productId),
-                },
-              });
-              quoteMap.set(quoteKey, "");
-              anyQuoteSet.add(productId);
-            }
+            const supplierId = seriesCtx.supplierId; // 提取为 const：闭包内 let 收窄会失效
+            const quoteKey = `${productId}:${supplierId}`;
+            await memoQuote(quoteKey, async () => {
+              const existingQuoteId = quoteMap.get(quoteKey);
+              if (existingQuoteId) {
+                await prisma.supplierQuote.update({
+                  where: { quoteId: existingQuoteId },
+                  data: {
+                    costPrice: costPrice || sellPrice,
+                    sellPrice,
+                    moq: item.moq,
+                    leadTime: item.leadTime,
+                    validUntil: isSpecialRow ? null : computeQuoteValidUntil(),
+                    isValid: true,
+                  },
+                });
+              } else {
+                const isDefault = !anyQuoteSet.has(productId);
+                anyQuoteSet.add(productId);
+                await prisma.supplierQuote.create({
+                  data: {
+                    supplierId,
+                    productId,
+                    costPrice: costPrice || sellPrice,
+                    sellPrice,
+                    moq: item.moq,
+                    leadTime: item.leadTime,
+                    validUntil: isSpecialRow ? null : computeQuoteValidUntil(),
+                    isValid: true,
+                    isDefault,
+                  },
+                });
+                quoteMap.set(quoteKey, "");
+              }
+            });
           }
         }
-      }
+      };
 
-      // 标记批次为 approved
-      await tx.importBatch.update({
+      // 限流并发执行：每行 2-3 次写，跨境 RTT 下串行是分钟级；8 路并发在连接池默认上限内
+      const CONCURRENCY = 8;
+      for (let i = 0; i < batch.items.length; i += CONCURRENCY) {
+        await Promise.all(batch.items.slice(i, i + CONCURRENCY).map(processItem));
+      }
+    } catch (writeErr) {
+      // 写失败：回滚认领状态允许重试（已写入的行幂等，可安全重复确认）
+      await prisma.importBatch.updateMany({
         where: { importBatchId },
-        data: {
-          approvalStatus: "approved",
-          approvedAt: new Date(),
-          approvedById: session.adminId,
-        },
+        data: { approvalStatus: "pending", approvedAt: null, approvedById: null },
       });
-    }, { timeout: 120000, maxWait: 20000 });
+      throw writeErr;
+    }
 
     // ── 比价任务：新价格表上线后自动比对所有 Approved 文件，写产品 ListPrice ──
     let compareSummary = "";

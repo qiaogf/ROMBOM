@@ -2,6 +2,8 @@ import Link from "next/link";
 import { AuditActionButtons } from "../_components/AuditActionButtons";
 import { OrderItemPriceInput } from "../_components/OrderItemPriceInput";
 import { OrderItemQtyInput } from "../_components/OrderItemQtyInput";
+import { SalesOrderStatusSelect } from "./_components/SalesOrderStatusSelect";
+import { AddSalesItemRow } from "./_components/AddSalesItemRow";
 import { formatUSDSafe } from "@/lib/format";
 import { getSalesOrderList, getSalesOrderDetail } from "./_data/sales-order-data";
 
@@ -12,33 +14,6 @@ function toStr(value: string | string[] | undefined): string | undefined {
   return Array.isArray(value) ? value[0] : value;
 }
 
-function statusBadgeClass(status: string): string {
-  switch (status) {
-    case "ordered":
-      return "bg-amber-50 text-amber-700";
-    case "paid":
-      return "bg-blue-50 text-blue-700";
-    case "shipped":
-      return "bg-purple-50 text-purple-700";
-    case "received":
-      return "bg-emerald-50 text-emerald-700";
-    default:
-      return "bg-slate-100 text-slate-600";
-  }
-}
-
-function StatusBadge({ status }: { status: string | null | undefined }) {
-  const label = status ? status.replace(/_/g, " ") : "—";
-  const cls = status ? statusBadgeClass(status) : "bg-slate-100 text-slate-500";
-  return (
-    <span
-      className={`inline-flex items-center px-1.5 py-0.5 text-[10px] rounded capitalize ${cls}`}
-    >
-      {label}
-    </span>
-  );
-}
-
 function customerLabel(c: {
   firstName: string | null;
   lastName: string | null;
@@ -46,13 +21,6 @@ function customerLabel(c: {
 }): string {
   const full = [c.firstName, c.lastName].filter(Boolean).join(" ").trim();
   return full || c.email;
-}
-
-function resolveSalesOrderStatus(
-  soStatus: string | null,
-  orderStatus: string
-): string {
-  return soStatus ?? orderStatus.replace(/_/g, " ");
 }
 
 export default async function SalesOrderListPage({
@@ -74,13 +42,15 @@ export default async function SalesOrderListPage({
         <div className="min-h-0 flex-1 overflow-y-auto">
           <div className="bg-white border border-slate-200 rounded-lg overflow-hidden">
             <div className="overflow-x-auto">
-              <table className="w-auto table-fixed text-xs min-w-[560px]">
+              <table className="w-full table-fixed text-xs min-w-[674px]">
                 <colgroup>
-                  <col style={{ width: "130px" }} />
-                  <col style={{ width: "95px" }} />
-                  <col style={{ width: "80px" }} />
-                  <col style={{ width: "78px" }} />
-                  <col style={{ width: "175px" }} />
+                  <col style={{ width: "110px" }} />
+                  <col style={{ width: "84px" }} />
+                  <col style={{ width: "64px" }} />
+                  <col style={{ width: "84px" }} />
+                  <col style={{ width: "100px" }} />
+                  <col style={{ width: "62px" }} />
+                  <col style={{ width: "170px" }} />
                 </colgroup>
                 <thead className="bg-slate-50 text-slate-500 text-[10px] uppercase tracking-wide">
                   <tr>
@@ -88,6 +58,8 @@ export default async function SalesOrderListPage({
                     <th className="px-1.5 py-0.5 text-left">SalesOrder</th>
                     <th className="px-1.5 py-0.5 text-left">Total</th>
                     <th className="px-1.5 py-0.5 text-left">Status</th>
+                    <th className="px-1.5 py-0.5 text-center">Pay</th>
+                    <th className="px-1.5 py-0.5 text-center">Mode</th>
                     <th className="px-1.5 py-0.5 text-left">Audit</th>
                   </tr>
                 </thead>
@@ -95,7 +67,7 @@ export default async function SalesOrderListPage({
                   {salesOrders.length === 0 ? (
                     <tr>
                       <td
-                        colSpan={5}
+                        colSpan={7}
                         className="px-3 py-6 text-left text-slate-400"
                       >
                         No sales orders found.
@@ -117,8 +89,8 @@ export default async function SalesOrderListPage({
                               href={`?id=${so.orderId}`}
                               className={`block truncate hover:underline ${
                                 isSelected
-                                  ? "text-blue-700 font-medium"
-                                  : "text-blue-600"
+                                  ? "text-green-800 font-medium"
+                                  : "text-green-700"
                               }`}
                               title={so.orderNumber}
                             >
@@ -128,13 +100,42 @@ export default async function SalesOrderListPage({
                           <td className="px-1.5 py-0.5 text-slate-700 tabular-nums">
                             {formatUSDSafe(so.totalAmount)}
                           </td>
-                          <td className="px-1.5 py-0.5">
-                            <StatusBadge
-                              status={resolveSalesOrderStatus(
-                                so.soStatus,
-                                so.orderStatus
-                              )}
+                          <td className="px-1 py-0.5">
+                            <SalesOrderStatusSelect
+                              orderId={so.orderId}
+                              value={so.soStatus}
                             />
+                          </td>
+                          <td className="px-1 py-0.5 align-middle">
+                            {/* 与客户 Order Summary / My Orders 同色：未点深黄，已点淡绿 */}
+                            <div className="flex flex-wrap items-center justify-center gap-0.5">
+                              <span
+                                className={`inline-flex items-center px-1 py-0.5 text-[9px] font-semibold rounded text-white ${
+                                  so.subtotalPaid ? "bg-emerald-300" : "bg-amber-600"
+                                }`}
+                              >
+                                Goods
+                              </span>
+                              <span
+                                className={`inline-flex items-center px-1 py-0.5 text-[9px] font-semibold rounded text-white ${
+                                  so.shippingPaid ? "bg-emerald-300" : "bg-amber-600"
+                                }`}
+                              >
+                                Charges
+                              </span>
+                            </div>
+                          </td>
+                          <td className="px-1.5 py-0.5 text-center align-middle">
+                            {/* Mode：订单产品全部可自助下单 → Self（免审批）；否则 Manual（需管理员 Approved 后客户 My Orders 才可见） */}
+                            {so.requiresManualConfirm ? (
+                              <span className="inline-flex items-center px-1.5 py-0.5 text-[10px] font-semibold rounded bg-amber-100 text-amber-700">
+                                Manual
+                              </span>
+                            ) : (
+                              <span className="inline-flex items-center px-1.5 py-0.5 text-[10px] font-semibold rounded bg-emerald-100 text-emerald-700">
+                                Self
+                              </span>
+                            )}
                           </td>
                           <td className="px-1.5 py-0.5">
                             <AuditActionButtons
@@ -160,8 +161,8 @@ export default async function SalesOrderListPage({
         <div className="min-h-0 flex-1 overflow-y-auto">
           {selected ? (
             <div className="bg-white border border-slate-200 rounded-lg overflow-hidden">
-              <div>
-                <table className="w-full table-fixed text-[11px]">
+              <div className="overflow-x-auto">
+                <table className="w-full min-w-[620px] table-fixed text-[11px]">
                   <colgroup>
                     <col style={{ width: "15%" }} />
                     <col style={{ width: "20ch" }} />
@@ -197,10 +198,10 @@ export default async function SalesOrderListPage({
                         const unitPrice = Number(item.finalSellPrice ?? item.unitPrice);
                         return (
                           <tr key={item.itemId} className="hover:bg-slate-50">
-                            <td className="px-1 py-0.5 text-slate-700 truncate">
+                            <td className="px-1 py-0.5 text-green-700 truncate">
                               {selected.orderNumber}
                             </td>
-                            <td className="px-1 py-0.5 text-slate-600 truncate">
+                            <td className="px-1 py-0.5 text-slate-600 truncate" title={item.model ?? ""}>
                               {item.model ?? "—"}
                             </td>
                             <td className="px-1.5 py-0.5">
@@ -219,8 +220,8 @@ export default async function SalesOrderListPage({
                               />
                             </td>
                             <td className="px-1 py-0.5 text-slate-600">
-                              {/* Condition：下单时 ModelPrice 快照，旧数据回退 — */}
-                              {item.modelPrice?.condition ?? "—"}
+                              {/* Condition：优先行自身快照（手动添加行填写），旧数据回退下单时 ModelPrice 快照 */}
+                              {item.condition ?? item.modelPrice?.condition ?? "—"}
                             </td>
                             <td className="px-1 py-0.5 text-slate-600 truncate">
                               {item.leadTime || "—"}
@@ -233,6 +234,8 @@ export default async function SalesOrderListPage({
                         );
                       })
                     )}
+                    {/* 手动添加销售行：Model / Price / Qty / Condition / Leadtime 输入，Add 后重算 Items 合计 */}
+                    <AddSalesItemRow orderId={selected.orderId} />
                   </tbody>
                 </table>
               </div>

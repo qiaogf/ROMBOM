@@ -105,6 +105,7 @@ export async function getDetailData(batchId: string) {
       batteryAttributes: true,
       datasheetLink: true,
       brandName: true,
+      selfOrder: true,
     },
   });
   // ImportBatchItem 无 series 关联，按行上的 seriesId 批量取系列后拼装
@@ -127,6 +128,7 @@ export async function getDetailData(batchId: string) {
     batteryAttributes: it.batteryAttributes,
     datasheetLink: it.datasheetLink,
     brandName: it.brandName,
+    selfOrder: it.selfOrder,
     series: it.seriesId ? (itemSeriesMap.get(it.seriesId) ?? null) : null,
   }));
 
@@ -155,6 +157,7 @@ export async function getDetailData(batchId: string) {
         batteryAttributes: true,
         datasheetLink: true,
         brandName: true,
+        selfOrder: true,
         series: { select: { seriesName: true, brand: { select: { brandName: true } } } },
       },
     });

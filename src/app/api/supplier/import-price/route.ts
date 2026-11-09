@@ -162,8 +162,9 @@ export async function POST(request: Request) {
         throw new Error("Model is required.");
       }
       const effectiveProductName = productName || model; // 新模板无 Name 列，Name 回退为 Model
-      // 字段长度上限：Product ≤ 15 字符、Description ≤ 150 字符（Brand/Series 均匹配系统已有条目，无需校验）
+      // 字段长度上限：Model ≤ 20、Product ≤ 50、Description ≤ 150（Brand/Series 均匹配系统已有条目，无需校验）
       const lengthError = validateFieldLengths({
+        model,
         productname: effectiveProductName,
         description,
       });

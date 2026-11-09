@@ -7,8 +7,12 @@
  * the structured shape (per-row errors + optional header mapping). Sizes use
  * the admin "md" preset (text-xs / w-3.5 / gap-2) — supplier portal keeps its
  * own form with smaller sizing and plain-string errors.
+ *
+ * 交互（2026-11-01）：不显示"选择文件"控件，点击 Import 直接弹出文件选择框，
+ * 选中后立即上传。
  */
-import { Upload, Loader2, CheckCircle2, XCircle, FileText } from "lucide-react";
+import { useRef, type ChangeEvent, type ReactNode } from "react";
+import { Upload, Loader2, CheckCircle2, XCircle } from "lucide-react";
 import { useImportForm } from "./useImportForm";
 import {
   ACCEPTED_IMPORT_TYPES,
@@ -23,52 +27,57 @@ export interface SeriesOption {
 
 interface ImportFormBaseProps {
   batchType: "product_info" | "price";
-  subtitle: string;
   /** Reserved for API compatibility; not used by the form itself. */
   seriesOptions?: SeriesOption[];
+  /** 标题行文案（如 Upload Products File / Upload Price File） */
+  title: string;
+  /** 标题行右侧操作区（Template / 比价按钮等） */
+  headerActions?: ReactNode;
 }
 
 export function ImportFormBase({
   batchType,
-  subtitle,
   seriesOptions: _seriesOptions,
+  title,
+  headerActions,
 }: ImportFormBaseProps) {
-  const { file, loading, result, error, onFileChange, onSubmit } =
+  const { loading, result, error, onFileChange, upload } =
     useImportForm<ImportResultStructured>({
       endpoint: "/api/admin/import-price",
       batchType,
-      // 上传成功后刷新 RSC 列表（Imported Files），否则新文件不显示
+      // 上传成功后刷新 RSC 列表（文件列表），否则新文件不显示
       refreshAfterSuccess: true,
     });
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // 点击 Import → 弹出系统文件选择框；选中后立即上传
+  const onPickFile = () => fileInputRef.current?.click();
+
+  const onFileSelected = (e: ChangeEvent<HTMLInputElement>) => {
+    const picked = onFileChange(e);
+    // 清空 value，保证同一文件可以再次选择并触发 change
+    e.target.value = "";
+    if (picked) void upload(picked);
+  };
 
   return (
     <div>
-      <div className="mb-2 text-[11px] text-slate-500">{subtitle}</div>
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept={ACCEPTED_IMPORT_TYPES}
+        onChange={onFileSelected}
+        className="sr-only"
+      />
 
-      <form onSubmit={onSubmit} className="flex items-center gap-2 flex-nowrap">
-        {/* 左侧：文件选择，占一半宽度 */}
-        <div className="flex items-center gap-2 w-1/2 min-w-0">
-          <label className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium text-green-800 bg-green-100 rounded-md hover:bg-green-200 cursor-pointer transition-colors shrink-0">
-            <FileText className="w-3.5 h-3.5" />
-            选择文件
-            <input
-              type="file"
-              accept={ACCEPTED_IMPORT_TYPES}
-              onChange={onFileChange}
-              className="sr-only"
-            />
-          </label>
-          {file && (
-            <span className="text-xs text-slate-600 whitespace-nowrap" title={file.name}>
-              {file.name}
-            </span>
-          )}
-        </div>
-        {/* 右侧：Import 按钮在行中间，结果紧跟其后 */}
-        <div className="w-1/2 flex items-center gap-2">
+      {/* 标题行：左侧标题 / 中间 Import 按钮 / 右侧操作区（三段网格，按钮始终居中） */}
+      <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-2 mb-2">
+        <h2 className="text-xs font-semibold text-slate-800">{title}</h2>
+        <div className="justify-self-center">
           <button
-            type="submit"
-            disabled={loading || !file}
+            type="button"
+            onClick={onPickFile}
+            disabled={loading}
             className="inline-flex items-center gap-1.5 px-3 py-1 text-xs font-medium text-white bg-green-700 rounded-md hover:bg-green-800 disabled:opacity-60 shrink-0"
           >
             {loading ? (
@@ -78,20 +87,26 @@ export function ImportFormBase({
             )}
             {loading ? "Importing..." : "Import"}
           </button>
-          {result && (
-            <span className="inline-flex items-center gap-1.5 text-xs font-medium whitespace-nowrap">
-              {result.failureCount > 0 ? (
-                <XCircle className="w-3.5 h-3.5 text-amber-600" />
-              ) : (
-                <CheckCircle2 className="w-3.5 h-3.5 text-green-700" />
-              )}
-              <span className={result.failureCount > 0 ? "text-amber-700" : "text-green-700"}>
-                Success: {result.successCount} · Failed: {result.failureCount}
-              </span>
-            </span>
-          )}
         </div>
-      </form>
+        <div className="justify-self-end flex items-center gap-2">
+          {headerActions}
+        </div>
+      </div>
+
+      {result && (
+        <div className="mb-1">
+          <span className="inline-flex items-center gap-1.5 text-xs font-medium whitespace-nowrap">
+            {result.failureCount > 0 ? (
+              <XCircle className="w-3.5 h-3.5 text-amber-600" />
+            ) : (
+              <CheckCircle2 className="w-3.5 h-3.5 text-green-700" />
+            )}
+            <span className={result.failureCount > 0 ? "text-amber-700" : "text-green-700"}>
+              Success: {result.successCount} · Failed: {result.failureCount}
+            </span>
+          </span>
+        </div>
+      )}
 
       {error && <p className="mt-1 text-xs text-rose-600">{error}</p>}
 

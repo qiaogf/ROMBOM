@@ -15,7 +15,6 @@ const TITLE_MAP: Record<string, string> = {
   "/admin/model-price": "price",
   "/admin/purchase-order": "Purchase",
   "/admin/sales-order": "Sales",
-  "/admin/logistics-capital": "LogiFin",
   "/admin/customer": "customer",
   "/admin/supplier": "supplier",
   "/admin/admin-user": "admin",

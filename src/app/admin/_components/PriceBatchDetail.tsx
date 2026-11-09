@@ -177,7 +177,7 @@ export function PriceBatchDetail({ batch, items, modelPrices }: PriceBatchDetail
     const key = keyOf(row);
     return (
       <>
-        <td className="px-1.5 py-1 text-slate-700 text-[11px] font-medium">{row.model}</td>
+        <td className="px-1.5 py-1 text-slate-700 text-[11px] font-medium truncate" title={row.model}>{row.model}</td>
         <td className="px-1.5 py-1 text-left text-slate-700 tabular-nums text-[11px]">
           {formatUSDSafe(decimalToNumber(row.costPrice))}
         </td>
@@ -250,7 +250,15 @@ export function PriceBatchDetail({ batch, items, modelPrices }: PriceBatchDetail
 
       <div className="bg-white border border-slate-200 rounded-lg overflow-hidden">
         <div className="overflow-x-auto">
-          <table className="min-w-full text-[11px]">
+          <table className="w-full min-w-[640px] table-fixed text-[11px]">
+            <colgroup>
+              <col style={{ width: "30%" }} />
+              <col style={{ width: "14%" }} />
+              <col style={{ width: "13%" }} />
+              <col style={{ width: "16%" }} />
+              <col style={{ width: "14%" }} />
+              <col style={{ width: "13%" }} />
+            </colgroup>
             <thead className="bg-slate-50 text-slate-500 text-[10px] uppercase tracking-wide">
               <tr>
                 {PRICE_HEADERS.map((h) => (

@@ -150,7 +150,7 @@ export function StandardPriceTable({ groups }: StandardPriceTableProps) {
             {/* 展开：型号明细 */}
             {isOpen && (
               <div className="overflow-auto max-h-64">
-                <table className="min-w-full text-[11px]">
+                <table className="w-full min-w-[560px] text-[11px]">
                   <thead className="bg-white text-slate-500 text-[10px] uppercase tracking-wide border-b border-slate-100 sticky top-0 z-10">
                     <tr>
                       <th className="px-2 py-0.5 text-left">Model</th>

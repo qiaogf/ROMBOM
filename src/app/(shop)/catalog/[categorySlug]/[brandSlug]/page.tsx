@@ -1,4 +1,4 @@
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { ChevronRight, Layers } from "lucide-react";
@@ -18,6 +18,8 @@ export const revalidate = 3600;
 
 export async function generateStaticParams() {
   const pairs = await prisma.categoryBrand.findMany({
+    // discontinued 只是标记值：不生成 catalog 静态页（仅 /category/discontinued 扁平页展示）
+    where: { category: { slug: { not: "discontinued" } } },
     select: {
       category: { select: { slug: true } },
       brand: { select: { slug: true } },
@@ -56,6 +58,9 @@ export default async function CatalogPage({ params }: PageProps) {
   ]);
 
   if (!category || !brand) notFound();
+
+  // discontinued 只是标记值：组合页不展示，引导到专属扁平页
+  if (categorySlug === "discontinued") redirect("/category/discontinued");
 
   // 仅当 CategoryBrand 中存在该品类↔品牌关联时才允许访问组合页
   const linkedBrands = await getBrandsByCategorySlug(categorySlug);

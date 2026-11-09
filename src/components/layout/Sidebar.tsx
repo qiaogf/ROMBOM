@@ -145,10 +145,9 @@ export function Sidebar({ categories, brands }: SidebarProps) {
           onPointerDown={() => prefetchCategory(category.slug)}
           className={`w-full text-left min-h-[36px] sm:min-h-0 sm:py-1 px-2.5 sm:px-2 my-0 mx-0.5 rounded flex items-center leading-tight transition-colors duration-100 truncate active:bg-amber-200 ${
             isSelected
-              ? "bg-amber-400/25 border-l-4 border-amber-500 text-amber-800 font-bold"
-              : "border-l-4 border-transparent text-slate-700 hover:bg-slate-100 hover:text-slate-900"
-          } text-[14px] sm:text-[13px]`}
-          title={category.categoryName}
+              ? "bg-amber-400/25 border-l-4 border-amber-500 text-black font-bold"
+              : "border-l-4 border-transparent text-black hover:bg-slate-100 hover:text-black"
+          } text-[15px] sm:text-[14px]`}
         >
           {category.categoryName}
         </button>
@@ -174,10 +173,9 @@ export function Sidebar({ categories, brands }: SidebarProps) {
           onPointerDown={() => prefetchBrand(brand.slug)}
           className={`w-full text-left min-h-[36px] sm:min-h-0 sm:py-1 px-2.5 sm:px-2 my-0 mx-0.5 rounded flex items-center leading-tight transition-colors duration-100 truncate active:bg-amber-200 ${
             isSelected
-              ? "bg-amber-400/25 border-l-4 border-amber-500 text-amber-800 font-bold"
-              : "border-l-4 border-transparent text-slate-700 hover:bg-slate-100 hover:text-slate-900"
-          } text-[14px] sm:text-[13px]`}
-          title={brand.brandName}
+              ? "bg-amber-400/25 border-l-4 border-amber-500 text-black font-bold"
+              : "border-l-4 border-transparent text-black hover:bg-slate-100 hover:text-black"
+          } text-[15px] sm:text-[14px]`}
         >
           {brand.brandName}
         </button>
@@ -205,7 +203,7 @@ export function Sidebar({ categories, brands }: SidebarProps) {
       </button>
 
       <aside
-        className={`w-52 sm:w-40 md:w-48 bg-white shrink-0 transition-transform duration-200 ease-in-out h-full flex flex-col ${
+        className={`w-44 sm:w-32 md:w-36 bg-white shrink-0 transition-transform duration-200 ease-in-out h-full flex flex-col ${
           mobileOpen ? "max-sm:translate-x-0" : "max-sm:-translate-x-full"
         } max-sm:fixed max-sm:inset-y-0 max-sm:left-0 max-sm:z-40 sm:static sm:translate-x-0`}
       >

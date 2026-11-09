@@ -1,16 +1,16 @@
 "use client";
 
 /**
- * Customer 登录弹窗 — 统一 AuthModal 的 customer 配置
- * 登录成功后交由父组件处理（刷新购物车、跳转）
+ * 统一登录弹窗 — customer / supplier / admin 共用
+ * 登录成功后按返回的角色由父组件决定跳转目标
  */
-import { AuthModal, type AuthView, type AuthSubmitResult } from "./AuthModal";
-import { login, register } from "@/app/actions/authActions";
+import { AuthModal, type AccountRole, type AuthView, type AuthSubmitResult } from "./AuthModal";
+import { loginUnified, registerUnified } from "@/app/actions/authActions";
 
 interface LoginModalProps {
   onClose: () => void;
-  /** 登录成功回调（父组件负责刷新页面与购物车） */
-  onLoggedIn: () => void;
+  /** 登录成功回调（role 用于区分 customer / supplier / admin 的跳转） */
+  onLoggedIn: (role?: AccountRole) => void;
   /** 初始视图（login/register），用于页面内直接以指定视图打开弹窗 */
   initialView?: AuthView;
 }
@@ -18,13 +18,17 @@ interface LoginModalProps {
 export function LoginModal({ onClose, onLoggedIn, initialView }: LoginModalProps) {
   return (
     <AuthModal
-      idPrefix="customer"
+      idPrefix="account"
       initialView={initialView}
       login={async (input): Promise<AuthSubmitResult> =>
-        login({ email: input.email, password: input.password, stayLoggedIn: input.stayLoggedIn })
+        loginUnified({ email: input.email, password: input.password, stayLoggedIn: input.stayLoggedIn })
       }
       register={async (input): Promise<AuthSubmitResult> =>
-        register({ email: input.email, password: input.password, name: input.name })
+        registerUnified({
+          email: input.email,
+          password: input.password,
+          accountRole: input.accountRole ?? "customer",
+        })
       }
       onLoginSuccess={onLoggedIn}
       onClose={onClose}

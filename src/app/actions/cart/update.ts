@@ -4,12 +4,13 @@
 
 import { prisma } from "@/lib/prisma";
 import { getCurrentUserId } from "@/lib/auth";
-import type { CartActionResult, CartWithItems } from "./types";
+import type { CartActionResult, CartWithItems, CartItemWithProduct } from "./types";
 import {
   validateItemId,
   validateQuantity,
   calcTotals,
   serializeCartDecimals,
+  resolveCartSelfOrder,
 } from "./shared";
 
 export async function updateCartItem(itemId: string, quantity: number): Promise<CartActionResult> {
@@ -27,7 +28,7 @@ export async function updateCartItem(itemId: string, quantity: number): Promise<
       return { success: false, message: "Please login to update cart" };
     }
 
-    return prisma.$transaction(async (tx) => {
+    const txResult = (await prisma.$transaction(async (tx) => {
       const cartItem = await tx.cartItem.findUnique({
         where: { itemId },
         include: { cart: true, supplierQuote: true, modelPrice: true },
@@ -77,7 +78,12 @@ export async function updateCartItem(itemId: string, quantity: number): Promise<
         totalQuantity,
         totalAmount,
       };
-    }) as Promise<CartActionResult>;
+    })) as CartActionResult;
+
+    if (txResult.success && txResult.cart) {
+      await resolveCartSelfOrder(txResult.cart.items as unknown as CartItemWithProduct[]);
+    }
+    return txResult;
   } catch (error) {
     console.error("Update cart item error:", error);
     return { success: false, message: "An error occurred while updating cart" };

@@ -32,33 +32,30 @@ export function useImportForm<TResult>({
   const [error, setError] = useState("");
   const router = useRouter();
 
-  const onFileChange = (e: ChangeEvent<HTMLInputElement>) => {
+  const onFileChange = (e: ChangeEvent<HTMLInputElement>): File | null => {
     const f = e.target.files?.[0];
     if (!f) {
       setFile(null);
-      return;
+      return null;
     }
     if (!validateImportFile(f)) {
       setError("Please upload an .xlsx, .xls, or .csv file.");
       setFile(null);
-      return;
+      return null;
     }
     setError("");
     setFile(f);
+    return f;
   };
 
-  const onSubmit = async (e: FormEvent) => {
-    e.preventDefault();
-    if (!file) {
-      setError("Please choose a file. (.xlsx / .xls / .csv)");
-      return;
-    }
+  /** 上传指定文件（供"点 Import 直接上传"的调用方使用，跳过表单提交事件） */
+  const upload = async (f: File) => {
     setError("");
     setResult(null);
     setLoading(true);
     try {
       const fd = new FormData();
-      fd.append("file", file);
+      fd.append("file", f);
       if (batchType) fd.append("batchType", batchType);
       const res = await fetch(endpoint, { method: "POST", body: fd });
       const data = await res.json();
@@ -75,5 +72,14 @@ export function useImportForm<TResult>({
     }
   };
 
-  return { file, loading, result, error, onFileChange, onSubmit };
+  const onSubmit = async (e: FormEvent) => {
+    e.preventDefault();
+    if (!file) {
+      setError("Please choose a file. (.xlsx / .xls / .csv)");
+      return;
+    }
+    await upload(file);
+  };
+
+  return { file, loading, result, error, onFileChange, onSubmit, upload };
 }

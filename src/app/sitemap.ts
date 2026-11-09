@@ -15,9 +15,9 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     { url: `${siteUrl}/products`, lastModified: now, changeFrequency: "daily", priority: 0.9 },
   ];
 
-  // All categories.
+  // All categories (discontinued 只是标记值：不出现在 sitemap)
   const categories = await prisma.category.findMany({
-    where: { isActive: true },
+    where: { isActive: true, slug: { not: "discontinued" } },
     select: { slug: true, updatedAt: true },
   });
   const categoryEntries: MetadataRoute.Sitemap = categories.map((c) => ({
@@ -39,8 +39,9 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     priority: 0.8,
   }));
 
-  // All category-brand catalog pairs.
+  // All category-brand catalog pairs (discontinued 只是标记值：不生成组合页)
   const pairs = await prisma.categoryBrand.findMany({
+    where: { category: { slug: { not: "discontinued" } } },
     select: {
       category: { select: { slug: true, updatedAt: true } },
       brand: { select: { slug: true, updatedAt: true } },

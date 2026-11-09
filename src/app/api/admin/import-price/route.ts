@@ -236,11 +236,12 @@ export async function POST(request: Request) {
     }
     const itemSeriesId = rowSeriesId;
 
-    // 字段长度上限：Brand/Series/Product ≤ 15 字符、Description ≤ 150 字符
+    // 字段长度上限：Brand/Series ≤ 15、Model ≤ 20、Product ≤ 50、Description ≤ 150
     // （仅校验将写入/新建的名称；匹配到系统已有系列的行不校验 Series 长度）
     const lengthError = validateFieldLengths({
       brandname: rowBrandName,
       series: stagedSeriesName,
+      model,
       productname: finalProductName,
       description,
     });

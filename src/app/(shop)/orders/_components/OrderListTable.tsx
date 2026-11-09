@@ -1,7 +1,8 @@
 "use client";
 
 // Left panel: historical order list table.
-// Extracted from OrdersContent.tsx (Phase 19) — pure move, zero behavior change.
+// 2026-11-01: Order No. 点击进入该订单 Order & Payment 页；
+// Pay 列改为纯颜色状态（仍有未点 Pay → 绿色；全部已点 → 灰色），不再跳转。
 
 import { Trash2 } from "lucide-react";
 import type { OrderWithItems } from "@/app/actions/orderActions";
@@ -9,38 +10,38 @@ import { SO_STATUS_LABEL, soStatusBadgeClass, formatDate } from "./order-helpers
 
 interface OrderListTableProps {
   orders: OrderWithItems[];
-  selectedId: string | null;
   deletingId: string | null;
-  onSelect: (orderId: string) => void;
-  onPay: (orderId: string) => void;
+  onOpenOrder: (orderId: string) => void;
   onDelete: (orderId: string) => void;
+  emptyText: string;
 }
 
 export function OrderListTable({
   orders,
-  selectedId,
   deletingId,
-  onSelect,
-  onPay,
+  onOpenOrder,
   onDelete,
+  emptyText,
 }: OrderListTableProps) {
   return (
     <div className="border border-slate-200 rounded bg-white overflow-hidden">
       <div className="overflow-x-auto">
         <table className="w-full table-fixed text-xs">
           <colgroup>
-            <col className="w-[26%]" />
-            <col className="w-[14%]" />
+            <col className="w-[21%]" />
+            <col className="w-[10%]" />
             <col className="w-[12%]" />
-            <col className="w-[16%]" />
-            <col className="w-[14%]" />
-            <col className="w-[18%]" />
+            <col className="w-[11%]" />
+            <col className="w-[24%]" />
+            <col className="w-[13%]" />
+            <col className="w-[9%]" />
           </colgroup>
           <thead className="bg-slate-50 text-slate-500 text-[10px] uppercase tracking-wide">
             <tr>
               <th className="px-1.5 py-1.5 text-left">Order No.</th>
               <th className="px-1.5 py-1.5 text-left">TOTAL</th>
               <th className="px-1.5 py-1.5 text-left">Date</th>
+              <th className="px-1.5 py-1.5 text-center">Mode</th>
               <th className="px-1.5 py-1.5 text-center">Pay</th>
               <th className="px-1.5 py-1.5 text-left">Status</th>
               <th className="px-1.5 py-1.5 text-center">Del</th>
@@ -50,19 +51,13 @@ export function OrderListTable({
             {orders.length > 0 ? (
               orders.map((order) => {
                 const status = order.soStatus ?? "ordered";
-                const isSelected = order.orderId === selectedId;
                 return (
-                  <tr
-                    key={order.orderId}
-                    className={`hover:bg-slate-50 ${isSelected ? "bg-slate-50" : ""}`}
-                  >
+                  <tr key={order.orderId} className="hover:bg-slate-50">
                     <td className="px-1.5 py-1.5">
                       <button
                         type="button"
-                        onClick={() => onSelect(order.orderId)}
-                        className={`text-left font-medium hover:underline ${
-                          isSelected ? "text-[#336633]" : "text-slate-800"
-                        }`}
+                        onClick={() => onOpenOrder(order.orderId)}
+                        className="text-left font-medium hover:underline text-[#336633]"
                       >
                         {order.orderNumber}
                       </button>
@@ -74,19 +69,35 @@ export function OrderListTable({
                       {formatDate(order.createdAt)}
                     </td>
                     <td className="px-1.5 py-1.5 text-center">
-                      {status === "ordered" && order.auditStatus === "approved" ? (
-                        <button
-                          type="button"
-                          onClick={() => onPay(order.orderId)}
-                          className="inline-flex items-center gap-0.5 px-2 py-0.5 text-[10px] font-semibold text-white bg-[#336633] rounded hover:bg-[#2d5a2d] transition-colors"
-                        >
-                          Pay
-                        </button>
-                      ) : status === "ordered" ? (
-                        <span className="text-[10px] text-amber-600">{order.auditStatus === "rejected" ? "Rejected" : "Pending"}</span>
+                      {/* Mode：订单产品全部 Self → Self；否则 Manual */}
+                      {order.requiresManualConfirm ? (
+                        <span className="inline-flex items-center px-1 py-0.5 text-[9px] font-semibold rounded bg-amber-100 text-amber-700 whitespace-nowrap">
+                          Manual
+                        </span>
                       ) : (
-                        <span className="text-slate-400">—</span>
+                        <span className="inline-flex items-center px-1 py-0.5 text-[9px] font-semibold rounded bg-emerald-100 text-emerald-700 whitespace-nowrap">
+                          Self
+                        </span>
                       )}
+                    </td>
+                    <td className="px-1.5 py-1.5">
+                      {/* Pay 指示灯：与 Order Summary 的 Pay 按钮同色（未付深黄 / 已付淡绿） */}
+                      <div className="flex items-center justify-center gap-1">
+                        <span
+                          className={`inline-flex items-center px-1 py-0.5 text-[9px] font-semibold rounded text-white whitespace-nowrap ${
+                            order.subtotalPaid ? "bg-emerald-300" : "bg-amber-600"
+                          }`}
+                        >
+                          Goods
+                        </span>
+                        <span
+                          className={`inline-flex items-center px-1 py-0.5 text-[9px] font-semibold rounded text-white whitespace-nowrap ${
+                            order.shippingPaid ? "bg-emerald-300" : "bg-amber-600"
+                          }`}
+                        >
+                          Charges
+                        </span>
+                      </div>
                     </td>
                     <td className="px-1.5 py-1.5">
                       <span
@@ -113,8 +124,8 @@ export function OrderListTable({
               })
             ) : (
               <tr>
-                <td colSpan={6} className="px-1.5 py-10 text-center text-sm text-slate-400">
-                  No orders yet
+                <td colSpan={7} className="px-1.5 py-10 text-center text-sm text-slate-400">
+                  {emptyText}
                 </td>
               </tr>
             )}

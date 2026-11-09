@@ -188,6 +188,24 @@ export async function updateSupplierQualificationLevel(formData: FormData): Prom
   }
 }
 
+// 更新客户评级 (0-5)
+export async function updateCustomerLevel(formData: FormData): Promise<{ success: boolean; message: string }> {
+  const customerId = (formData.get("customerId") as string)?.trim();
+  const levelStr = (formData.get("level") as string)?.trim();
+  if (!customerId) return { success: false, message: "Customer ID is required." };
+  const level = Number(levelStr);
+  if (isNaN(level) || level < 0 || level > 5) return { success: false, message: "Level must be 0-5." };
+  const session = await getAdminSession();
+  if (!session) return { success: false, message: "Unauthorized." };
+  try {
+    await prisma.customer.update({ where: { customerId }, data: { level } });
+    return { success: true, message: `Customer level set to ${level}.` };
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : "Unknown error";
+    return { success: false, message: `Failed to update level: ${msg}` };
+  }
+}
+
 // 管理员（仅最高管理者可操作；最高管理者账号受保护）
 export async function confirmAdmin(formData: FormData): Promise<{ success: boolean; message: string }> {
   const adminId = (formData.get("adminId") as string)?.trim();

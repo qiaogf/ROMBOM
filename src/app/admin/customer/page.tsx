@@ -4,6 +4,7 @@ import type { ReactNode } from "react";
 import { ArrowLeft, User, Mail, Phone, MapPin } from "lucide-react";
 import { prisma } from "@/lib/prisma";
 import { AccountActionButtons } from "@/app/admin/_components/AccountActionButtons";
+import { CustomerLevelInput } from "@/app/admin/_components/CustomerLevelInput";
 
 export const dynamic = "force-dynamic";
 
@@ -52,14 +53,14 @@ export default async function CustomerListPage({
           <div className="min-h-0 flex-1 overflow-y-auto">
             <div className="bg-white border border-slate-200 rounded-lg overflow-hidden">
               <div className="overflow-x-auto">
-                <table className="min-w-full text-xs">
+                <table className="w-full min-w-[520px] text-xs table-fixed">
                   <thead className="bg-slate-50 text-slate-500 text-[10px] uppercase tracking-wide">
                     <tr>
-                      <th className="px-1.5 py-1 text-left">Name</th>
-                      <th className="px-1.5 py-1 text-left">Email</th>
-                      <th className="px-1.5 py-1 text-left">Country</th>
-                      <th className="px-1.5 py-1 text-left">Active</th>
-                      <th className="px-1.5 py-1 text-left">Act</th>
+                      <th className="w-1/5 px-1.5 py-1 text-left">Email</th>
+                      <th className="w-1/5 px-1.5 py-1 text-left">Country</th>
+                      <th className="w-1/5 px-1.5 py-1 text-left">Active</th>
+                      <th className="w-1/5 px-1.5 py-1 text-left">Level</th>
+                      <th className="w-1/5 px-1.5 py-1 text-left">Act</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
@@ -72,19 +73,15 @@ export default async function CustomerListPage({
                     ) : (
                       customers.map((c) => {
                         const isSelected = c.customerId === selectedId;
-                        const fullName = [c.firstName, c.lastName].filter(Boolean).join(" ");
                         return (
                           <tr
                             key={c.customerId}
                             className={isSelected ? "bg-blue-50/60" : "hover:bg-slate-50"}
                           >
-                            <td className="px-1.5 py-1 text-slate-700 whitespace-nowrap">
-                              {fullName || empty()}
-                            </td>
                             <td className="px-1.5 py-1">
                               <Link
                                 href={`/admin/customer?id=${c.customerId}`}
-                                className={`block max-w-[180px] truncate hover:underline ${
+                                className={`block truncate hover:underline ${
                                   isSelected ? "text-blue-700 font-medium" : "text-blue-600"
                                 }`}
                                 title={c.email}
@@ -105,6 +102,12 @@ export default async function CustomerListPage({
                               >
                                 {c.isActive ? "Active" : "Inactive"}
                               </span>
+                            </td>
+                            <td className="px-1.5 py-1">
+                              <CustomerLevelInput
+                                customerId={c.customerId}
+                                level={c.level}
+                              />
                             </td>
                             <td className="px-1.5 py-1">
                               <AccountActionButtons

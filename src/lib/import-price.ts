@@ -144,7 +144,8 @@ export function normalizeLeadtime(value: string | null | undefined): string {
 export const FIELD_LIMITS = {
   brandname: 15,
   series: 15,
-  productname: 15,
+  model: 20,
+  productname: 50,
   description: 150,
 } as const;
 
@@ -155,12 +156,14 @@ export const FIELD_LIMITS = {
 export function validateFieldLengths(fields: {
   brandname?: string | null;
   series?: string | null;
+  model?: string | null;
   productname?: string | null;
   description?: string | null;
 }): string | null {
   const checks: Array<[keyof typeof FIELD_LIMITS, string, string | null | undefined]> = [
     ["brandname", "Brand", fields.brandname],
     ["series", "Series", fields.series],
+    ["model", "Model", fields.model],
     ["productname", "Product", fields.productname],
     ["description", "Description", fields.description],
   ];
@@ -201,7 +204,7 @@ export function leadTimeRank(lt: string | null | undefined): number {
 }
 
 export interface QuoteKeyParts {
-  categoryId: string | null;
+  categoryId: string;
   model: string;
   condition: string | null;
   supplierId: string | null;
@@ -211,12 +214,12 @@ export interface QuoteKeyParts {
 /** 报价行唯一键：Category + Model + Condition + 供应商键（供应商 > 品牌 > none） */
 export function buildModelPriceQuoteKey(p: QuoteKeyParts): string {
   const supplierKey = p.supplierId ? `s:${p.supplierId}` : p.brandId ? `b:${p.brandId}` : "none";
-  return [p.categoryId ?? "na", normQuoteText(p.model), normQuoteText(p.condition), supplierKey].join("|");
+  return [p.categoryId, normQuoteText(p.model), normQuoteText(p.condition), supplierKey].join("|");
 }
 
 /** 产品属性行唯一键（product_info 批次），与价格/报价行分离 */
-export function buildBaseQuoteKey(categoryId: string | null, model: string): string {
-  return ["base", categoryId ?? "na", normQuoteText(model)].join("|");
+export function buildBaseQuoteKey(categoryId: string, model: string): string {
+  return ["base", categoryId, normQuoteText(model)].join("|");
 }
 
 /** 批次内去重键：Category + Model + Condition + Leadtime */
