@@ -82,7 +82,7 @@ const RIGHT_PART_X = 2014;
 const BAND_TOP = IMG_Y + 8;
 const BAND_BOTTOM = IMG_Y + IMG_H - 8;
 
-const IMG_SRC = "/images/line/hero-line-v17.jpg";
+const IMG_SRC = "/images/line/hero-line-v17.webp";
 
 const CALLOUTS: Callout[] = [
   /* ---------------- left column ---------------- */

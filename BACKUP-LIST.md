@@ -30,7 +30,6 @@
 | `prisma\schema.prisma` | 数据库模型定义（**最重要！**） |
 | `prisma\seed.ts` | 数据库种子数据 |
 | `prisma\generated\` | Prisma 生成的客户端代码（可选备份） |
-| `prisma\templates\` | 模板文件 |
 
 ### 3. 静态资源目录 `public\`
 

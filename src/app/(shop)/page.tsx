@@ -1,6 +1,5 @@
 import type { Metadata } from "next";
-import CabinetDiagram from "@/components/cabinet/CabinetDiagram";
-import DistributionDiagram from "@/components/cabinet/DistributionDiagram";
+import { LazyCabinetDiagram, LazyDistributionDiagram } from "@/components/cabinet/LazyCabinetDiagrams";
 import ProductionLineHero from "@/components/home/ProductionLineHero";
 
 export const metadata: Metadata = {
@@ -63,7 +62,7 @@ export default function RootPage() {
           <div className="px-3 py-2 text-[13px] font-semibold text-slate-700 border-b border-slate-200 bg-slate-50/60">
             Electrical Control Cabinet
           </div>
-          <CabinetDiagram />
+          <LazyCabinetDiagram />
         </div>
 
         <div className="mt-12">
@@ -71,7 +70,7 @@ export default function RootPage() {
             <div className="px-3 py-2 text-[13px] font-semibold text-slate-700 border-b border-slate-200 bg-slate-50/60">
               Power Distribution Cabinet
             </div>
-            <DistributionDiagram />
+            <LazyDistributionDiagram />
           </div>
         </div>
       </div>
