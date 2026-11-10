@@ -1,6 +1,8 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+  // Docker 部署产物：.next/standalone 只含运行必需文件，镜像体积从 ~1.5GB 降到 ~200MB
+  output: "standalone",
   reactStrictMode: true,
   typescript: {
     // Vercel 构建机上 Next 内置 TS 检查进程静默崩溃（"Running TypeScript ..." 后无输出 exit 1）；

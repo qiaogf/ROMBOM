@@ -558,7 +558,7 @@ export function CheckoutContent({ order, defaultName }: CheckoutContentProps) {
                       const itemTotal = Number(item.subtotal);
                       return (
                         <tr key={item.itemId} className="hover:bg-slate-50">
-                          <td className="px-1.5 py-1 text-left font-medium text-slate-900 truncate" title={item.model || item.productName}>{item.model || item.productName || "—"}</td>
+                          <td className="px-1.5 py-1 text-left font-medium text-slate-900 truncate">{item.model || item.productName || "—"}</td>
                           <td className="px-1.5 py-1 text-left text-slate-700">{formatUSD(unitPrice)}</td>
                           <td className="px-1.5 py-1 text-left text-slate-700">{item.quantity}</td>
                           <td className="px-1.5 py-1 text-left font-semibold text-slate-900">{formatUSD(itemTotal)}</td>
@@ -653,6 +653,14 @@ export function CheckoutContent({ order, defaultName }: CheckoutContentProps) {
                       </button>
                     </td>
                   </tr>
+                  <tr>
+                    <td className="px-1.5 py-1" />
+                    <td colSpan={2} className="px-1.5 py-1 text-left align-middle text-[14px] font-semibold whitespace-nowrap text-black">Total</td>
+                    <td className="px-1.5 py-1 text-left align-middle text-[14px] font-semibold text-black">
+                      {formatUSD(subtotal + shippingCost)}
+                    </td>
+                    <td className="px-1.5 py-1 text-left align-middle" />
+                  </tr>
                 </tbody>
               </table>
 
@@ -666,23 +674,6 @@ export function CheckoutContent({ order, defaultName }: CheckoutContentProps) {
                   <ClipboardList className="w-4 h-4" />
                   My Orders
                 </Link>
-                <button
-                  type="button"
-                  onClick={() => slipInputRef.current?.click()}
-                  disabled={isLoading || slipLoading || allPaid || !hasAnySelection}
-                  className="w-full min-w-0 py-2 bg-emerald-50 border border-emerald-200 text-emerald-700 text-[12px] font-semibold rounded hover:bg-emerald-100 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex flex-col items-center justify-center gap-0.5 leading-tight text-center"
-                  title="Upload bank transfer slip"
-                >
-                  {slipLoading ? (
-                    <svg className="animate-spin h-3.5 w-3.5 text-emerald-700" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                    </svg>
-                  ) : (
-                    <Upload className="w-4 h-4" />
-                  )}
-                  Slip
-                </button>
                 <button
                   type="button"
                   onClick={handleDownloadDocuments}
@@ -702,13 +693,30 @@ export function CheckoutContent({ order, defaultName }: CheckoutContentProps) {
                 </button>
                 <button
                   type="button"
+                  onClick={() => slipInputRef.current?.click()}
+                  disabled={isLoading || slipLoading || allPaid || !hasAnySelection}
+                  className="w-full min-w-0 py-2 bg-emerald-50 border border-emerald-200 text-emerald-700 text-[12px] font-semibold rounded hover:bg-emerald-100 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex flex-col items-center justify-center gap-0.5 leading-tight text-center"
+                  title="Upload bank transfer slip"
+                >
+                  {slipLoading ? (
+                    <svg className="animate-spin h-3.5 w-3.5 text-emerald-700" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                  ) : (
+                    <Upload className="w-4 h-4" />
+                  )}
+                  Slip
+                </button>
+                <button
+                  type="button"
                   onClick={handleConfirmReceipt}
                   disabled={isLoading || slipLoading || order.orderStatus === "completed" || order.orderStatus === "cancelled" || !!order.deliveredAt}
                   className="w-full min-w-0 py-2 bg-[#336633] text-white text-[12px] font-semibold rounded hover:bg-[#2d5a2d] disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex flex-col items-center justify-center gap-0.5 leading-tight text-center"
-                  title={order.deliveredAt ? "Receipt already confirmed" : "Confirm receipt"}
+                  title={order.deliveredAt ? "Handover already confirmed" : "Confirm handover"}
                 >
                   <Check className="w-4 h-4" />
-                  Confirm Receipt
+                  Confirm Handover
                 </button>
                 <button
                   type="button"

@@ -1710,7 +1710,6 @@ function CabinetView({
               onFocus={() => onHover(p.key)}
               onBlur={() => onHover(null)}
             >
-              <title>{label.text}</title>
               {body}
             </a>
           ) : (

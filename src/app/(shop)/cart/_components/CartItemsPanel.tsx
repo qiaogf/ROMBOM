@@ -73,7 +73,6 @@ export function CartItemsPanel({ items, isLoggedIn, actions }: Props) {
                   <Link
                     href={`/products/${detailId}`}
                     className="block text-[12px] text-slate-700 hover:text-green-700 truncate font-medium"
-                    title={display.productName || display.model}
                   >
                     {display.model || "-"}
                   </Link>

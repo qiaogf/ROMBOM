@@ -142,7 +142,7 @@ export function ProductPriceTable({ seriesGroups, searchQuery, showSeriesHeader 
                           <Highlight text={product.name} query={searchQuery} />
                         </div>
                       </td>
-                      <td className="px-1.5 py-1 text-slate-700 font-semibold align-middle truncate" title={product.model}>
+                      <td className="px-1.5 py-1 text-slate-700 font-semibold align-middle truncate">
                         <Highlight text={product.model} query={searchQuery} />
                       </td>
                       <td className="px-1.5 py-1 text-slate-500 align-middle">

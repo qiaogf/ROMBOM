@@ -1,4 +1,4 @@
-' ============================================================
+﻿﻿' ============================================================
 ' Cross-border store production launcher (windowless, idempotent)
 ' Invoked from shell:startup via explorer, or manually:
 '   explorer.exe D:\store\cross-border-store\scripts\start-prod.vbs
@@ -63,7 +63,7 @@ Next
 On Error GoTo 0
 
 If Not found Then
-    sh.Run "cmd /c node node_modules\next\dist\bin\next start -p 3000 > next-start.log 2>&1", 0, False
+    sh.Run "cmd /c node .next\standalone\server.js -p 3000 > next-start.log 2>&1", 0, False
     WScript.Sleep 10000
 End If
 

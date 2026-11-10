@@ -14,9 +14,11 @@ interface OrderItemPriceInputProps {
   kind: "sales" | "purchase";
   itemId: string;
   value: number;
+  /** 覆盖输入框最大宽度（默认 64px） */
+  widthClass?: string;
 }
 
-export function OrderItemPriceInput({ kind, itemId, value }: OrderItemPriceInputProps) {
+export function OrderItemPriceInput({ kind, itemId, value, widthClass = "max-w-[64px]" }: OrderItemPriceInputProps) {
   // value 0 = 无报价草稿行：输入框显示为空，由采购手动维护
   const [draft, setDraft] = useState(value > 0 ? String(value) : "");
   const [pending, startTransition] = useTransition();
@@ -54,7 +56,7 @@ export function OrderItemPriceInput({ kind, itemId, value }: OrderItemPriceInput
         if (e.key === "Enter") (e.target as HTMLInputElement).blur();
       }}
       disabled={pending}
-      className="w-full max-w-[64px] px-0.5 py-0.5 text-right text-[11px] tabular-nums border border-slate-200 rounded focus:outline-none focus:ring-1 focus:ring-blue-400 disabled:opacity-50"
+      className={`w-full ${widthClass} px-0.5 py-0.5 text-right text-[11px] tabular-nums text-black border border-slate-200 rounded focus:outline-none focus:ring-1 focus:ring-blue-400 disabled:opacity-50`}
       aria-label={kind === "sales" ? "ListPrice" : "PurPrice"}
     />
   );

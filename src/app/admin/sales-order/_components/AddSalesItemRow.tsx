@@ -142,6 +142,7 @@ export function AddSalesItemRow({ orderId }: { orderId: string }) {
           Add
         </button>
       </td>
+      <td className="px-1 py-0.5" />
     </tr>
   );
 }

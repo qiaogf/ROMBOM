@@ -1,4 +1,4 @@
-﻿// scripts/neon-relay.cjs
+﻿﻿// scripts/neon-relay.cjs
 // 本地 PG 协议中继: 127.0.0.1:6543 -> Neon (IPv4 + TLS + SNI)
 //
 // 背景: 本机到 Neon 的 IPv6 不通(AAAA 记录全部超时), Prisma Rust 引擎经 getaddrinfo 优先取 IPv6
@@ -91,6 +91,38 @@ const server = net.createServer((client) => {
   client.on("close", () => { if (upstream) upstream.destroy(); });
 });
 
-server.listen(LISTEN_PORT, LISTEN_HOST, () => {
-  console.log(`[neon-relay] ${LISTEN_HOST}:${LISTEN_PORT} -> ${UPSTREAM_HOSTS.join(" | ")}:${UPSTREAM_PORT} (SNI=${UPSTREAM_SNI})`);
+// ---- Resilience: keep the relay alive ----
+const LOG = "scripts\\relay.log";
+function log(msg) {
+  const line = `[${new Date().toISOString()}] ${msg}`;
+  console.error(line);
+  try { require("fs").appendFileSync(LOG, line + "\n"); } catch {}
+}
+
+process.on("uncaughtException", (err) => {
+  log(`FATAL uncaughtException: ${err?.message || err}\n${err?.stack || ""}`);
+  // Don't exit — Node would die; we want to keep accepting new clients.
+  // But force-close the server and restart fresh after 2s.
+  try { server.close(); } catch {}
+  setTimeout(() => {
+    log("Restarting server after uncaughtException...");
+    server.listen(LISTEN_PORT, LISTEN_HOST, () => {
+      log(`Relay RESTARTED on ${LISTEN_HOST}:${LISTEN_PORT}`);
+    });
+  }, 2000);
 });
+
+process.on("unhandledRejection", (reason, p) => {
+  log(`FATAL unhandledRejection: ${reason?.message || reason}`);
+  // Swallow — async pipeline shouldn't kill the whole relay
+});
+
+server.on("error", (err) => {
+  log(`server error: ${err.message}`);
+});
+
+server.on("listening", () => {
+  log(`Listening ${LISTEN_HOST}:${LISTEN_PORT} -> ${UPSTREAM_HOSTS.join(" | ")}:${UPSTREAM_PORT}`);
+});
+
+server.listen(LISTEN_PORT, LISTEN_HOST);

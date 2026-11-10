@@ -352,7 +352,6 @@ function Pill({
       onPointerUp={onUp}
       onClick={onOpen}
     >
-      <title>{label}</title>
       <rect
         x={x}
         y={y}
@@ -549,9 +548,7 @@ export default function ProductionLineHero() {
           onPointerDown={press(c.id)}
           onPointerUp={release}
           onClick={(e) => openLink(e, c.href)}
-        >
-          <title>{c.name}</title>
-        </rect>
+        />
       ))}
 
       {/* ---------- labels ---------- */}

@@ -4,6 +4,8 @@ import { OrderItemPriceInput } from "../_components/OrderItemPriceInput";
 import { OrderItemQtyInput } from "../_components/OrderItemQtyInput";
 import { SalesOrderStatusSelect } from "./_components/SalesOrderStatusSelect";
 import { AddSalesItemRow } from "./_components/AddSalesItemRow";
+import { DeleteSalesItemButton } from "./_components/DeleteSalesItemButton";
+import { AllChargesInput } from "./_components/AllChargesInput";
 import { formatUSDSafe } from "@/lib/format";
 import { getSalesOrderList, getSalesOrderDetail } from "./_data/sales-order-data";
 
@@ -44,8 +46,8 @@ export default async function SalesOrderListPage({
             <div className="overflow-x-auto">
               <table className="w-full table-fixed text-xs min-w-[674px]">
                 <colgroup>
-                  <col style={{ width: "110px" }} />
-                  <col style={{ width: "84px" }} />
+                  <col style={{ width: "88px" }} />
+                  <col style={{ width: "72px" }} />
                   <col style={{ width: "64px" }} />
                   <col style={{ width: "84px" }} />
                   <col style={{ width: "100px" }} />
@@ -164,13 +166,14 @@ export default async function SalesOrderListPage({
               <div className="overflow-x-auto">
                 <table className="w-full min-w-[620px] table-fixed text-[11px]">
                   <colgroup>
+                    <col style={{ width: "12%" }} />
+                    <col style={{ width: "17ch" }} />
                     <col style={{ width: "15%" }} />
-                    <col style={{ width: "20ch" }} />
-                    <col style={{ width: "13%" }} />
                     <col style={{ width: "9%" }} />
                     <col style={{ width: "17%" }} />
                     <col style={{ width: "12%" }} />
                     <col style={{ width: "10%" }} />
+                    <col style={{ width: "28px" }} />
                   </colgroup>
                   <thead className="bg-slate-50 text-slate-500 text-[10px] uppercase tracking-wide">
                     <tr>
@@ -181,13 +184,14 @@ export default async function SalesOrderListPage({
                       <th className="px-1 py-0.5 text-left">Condition</th>
                       <th className="px-1 py-0.5 text-left">Leadtime</th>
                       <th className="px-1 py-0.5 text-left">Amount</th>
+                      <th className="px-1 py-0.5" />
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
                     {selected.items.length === 0 ? (
                       <tr>
                         <td
-                          colSpan={7}
+                          colSpan={8}
                           className="px-3 py-6 text-left text-slate-400"
                         >
                           No items found for this sales order.
@@ -210,6 +214,7 @@ export default async function SalesOrderListPage({
                                 kind="sales"
                                 itemId={item.itemId}
                                 value={unitPrice}
+                                widthClass="max-w-[84px]"
                               />
                             </td>
                             <td className="px-1.5 py-0.5">
@@ -230,25 +235,37 @@ export default async function SalesOrderListPage({
                             <td className="px-1 py-0.5 text-slate-700 tabular-nums text-right">
                               ${(unitPrice * item.quantity).toFixed(2)}
                             </td>
+                            {/* 删除该行型号 */}
+                            <td className="px-1 py-0.5 text-center">
+                              <DeleteSalesItemButton itemId={item.itemId} model={item.model} />
+                            </td>
                           </tr>
                         );
                       })
                     )}
                     {/* 手动添加销售行：Model / Price / Qty / Condition / Leadtime 输入，Add 后重算 Items 合计 */}
                     <AddSalesItemRow orderId={selected.orderId} />
+                    {/* All Charges + Items 合并一行：Model=All Charges，Price=补录输入，Leadtime=Items(N)，Amount=合计 */}
+                    <tr className="bg-slate-50/60">
+                      <td className="px-1 py-0.5" />
+                      <td className="px-1 py-0.5 text-black truncate">All Charges</td>
+                      <td className="px-1.5 py-0.5">
+                        <AllChargesInput orderId={selected.orderId} value={Number(selected.shippingCost)} />
+                      </td>
+                      <td className="px-1 py-0.5" />
+                      <td className="px-1 py-0.5" />
+                      <td className="px-1 py-0.5 text-[11px] font-semibold text-black">
+                        Items ({selected.items.length})
+                      </td>
+                      <td className="px-1 py-0.5 text-[11px] font-bold text-black tabular-nums text-right">
+                        ${selected.items
+                          .reduce((sum, it) => sum + Number(it.finalSellPrice ?? it.unitPrice) * it.quantity, 0)
+                          .toFixed(2)}
+                      </td>
+                      <td className="px-1 py-0.5" />
+                    </tr>
                   </tbody>
                 </table>
-              </div>
-              {/* 底部汇总行（与客户订单明细一致） */}
-              <div className="flex items-center justify-between gap-2 px-2 py-1.5 border-t border-slate-200 bg-slate-50">
-                <div className="text-[11px] text-slate-600">
-                  Items ({selected.items.length}):{" "}
-                  <span className="text-[12px] font-bold text-slate-900 ml-0.5">
-                    ${selected.items
-                      .reduce((sum, it) => sum + Number(it.finalSellPrice ?? it.unitPrice) * it.quantity, 0)
-                      .toFixed(2)}
-                  </span>
-                </div>
               </div>
             </div>
           ) : (

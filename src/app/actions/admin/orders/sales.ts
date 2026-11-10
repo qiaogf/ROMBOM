@@ -161,6 +161,72 @@ export async function updateSalesOrderItemQty(formData: FormData): Promise<{ suc
   }
 }
 
+// 管理者删除销售订单明细一行（减行）：删除 SalesOrderItem 并重算订单 subtotal / totalAmount
+export async function deleteSalesOrderItem(formData: FormData): Promise<{ success: boolean; message: string }> {
+  const itemId = (formData.get("itemId") as string)?.trim();
+  if (!itemId) return { success: false, message: "Item ID is required." };
+  const session = await getAdminSession();
+  if (!session) return { success: false, message: "Unauthorized. Admin login required." };
+  try {
+    await prisma.$transaction(async (tx) => {
+      const item = await tx.salesOrderItem.findUnique({ where: { itemId } });
+      if (!item) throw new Error("Sales order item not found.");
+      await tx.salesOrderItem.delete({ where: { itemId } });
+      const items = await tx.salesOrderItem.findMany({ where: { orderId: item.orderId } });
+      const subtotal = round4(
+        items.reduce((sum, it) => sum + Number(it.finalSellPrice ?? it.unitPrice) * it.quantity, 0)
+      );
+      const order = await tx.salesOrder.findUnique({ where: { orderId: item.orderId } });
+      if (!order) throw new Error("Sales order not found.");
+      await tx.salesOrder.update({
+        where: { orderId: item.orderId },
+        data: {
+          subtotal,
+          totalAmount: round4(
+            subtotal + Number(order.shippingCost) + Number(order.taxAmount) - Number(order.discountAmount)
+          ),
+        },
+      });
+    });
+    return { success: true, message: "Item deleted." };
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : "Unknown error";
+    return { success: false, message: `Failed to delete item: ${msg}` };
+  }
+}
+
+// 管理者补录 All Charges（订单 shippingCost）：客户订单页 All Charges 同步显示
+// 同步重算订单 totalAmount
+export async function updateSalesOrderShippingCost(formData: FormData): Promise<{ success: boolean; message: string }> {
+  const orderId = (formData.get("orderId") as string)?.trim();
+  if (!orderId) return { success: false, message: "Order ID is required." };
+  const shippingCost = Number(formData.get("shippingCost"));
+  if (!Number.isFinite(shippingCost) || shippingCost < 0 || shippingCost > 1000000) {
+    return { success: false, message: "All Charges must be a number between 0 and 1,000,000." };
+  }
+  const session = await getAdminSession();
+  if (!session) return { success: false, message: "Unauthorized. Admin login required." };
+  try {
+    await prisma.$transaction(async (tx) => {
+      const order = await tx.salesOrder.findUnique({ where: { orderId } });
+      if (!order) throw new Error("Sales order not found.");
+      await tx.salesOrder.update({
+        where: { orderId },
+        data: {
+          shippingCost: round4(shippingCost),
+          totalAmount: round4(
+            Number(order.subtotal) + round4(shippingCost) + Number(order.taxAmount) - Number(order.discountAmount)
+          ),
+        },
+      });
+    });
+    return { success: true, message: "All Charges updated." };
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : "Unknown error";
+    return { success: false, message: `Failed to update All Charges: ${msg}` };
+  }
+}
+
 // 管理者手动添加一行销售明细（Model / Price / Qty / Condition / Leadtime）
 // 写入 SalesOrderItem 并重算订单 subtotal / totalAmount
 export async function addSalesOrderItem(formData: FormData): Promise<{ success: boolean; message: string }> {

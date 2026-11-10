@@ -2023,7 +2023,6 @@ export default function CabinetDiagram() {
               );
               return label ? (
                 <a key={p.key} href={label.href} aria-label={label.text} className="cursor-pointer" {...hoverProps(p.key)}>
-                  <title>{label.text}</title>
                   {body}
                 </a>
               ) : (
@@ -2048,7 +2047,6 @@ export default function CabinetDiagram() {
                 className="cursor-pointer"
                 {...hoverProps(slot.part.key)}
               >
-                <title>{slot.label.text}</title>
                 <rect
                   x={slot.x}
                   y={slot.y - 9}
