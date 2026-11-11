@@ -53,10 +53,15 @@ If Not found Then
     WScript.Sleep 3000
 End If
 
+' ---- 1.5) 同步 .next\static 到 standalone（next build 不会自动复制） ----
+If fso.FolderExists(projectDir & "\.next\static") Then
+    sh.Run "cmd /c robocopy "".next\static"" "".next\standalone\.next\static"" /E /NFL /NDL /NJH /NJS /NP", 0, True
+End If
+
 ' ---- 2) next start on 3000 ----
 found = False
 On Error Resume Next
-Set procs = wmi.ExecQuery("SELECT ProcessId FROM Win32_Process WHERE Name = 'node.exe' AND (CommandLine LIKE '%next start%' OR CommandLine LIKE '%next-server%')")
+Set procs = wmi.ExecQuery("SELECT ProcessId FROM Win32_Process WHERE Name = 'node.exe' AND (CommandLine LIKE '%next start%' OR CommandLine LIKE '%next-server%' OR CommandLine LIKE '%standalone%server.js%')")
 For Each p In procs
     found = True
 Next
@@ -82,4 +87,17 @@ If Not found Then
     Else
         MsgBox "ngrok.exe not found: " & ngrokExe & vbCrLf & "Tunnel skipped. Local site (localhost:3000) still works." & vbCrLf & "Restore ngrok.exe to this path, then rerun start-prod.vbs.", 48, "start-prod"
     End If
+End If
+
+' ---- 4) watchdog：每 10s 巡检 6543 / 3000 / ngrok，掉线自动重拉 ----
+found = False
+On Error Resume Next
+Set procs = wmi.ExecQuery("SELECT ProcessId FROM Win32_Process WHERE Name = 'powershell.exe' AND CommandLine LIKE '%watchdog.ps1%'")
+For Each p In procs
+    found = True
+Next
+On Error GoTo 0
+
+If Not found Then
+    sh.Run "powershell.exe -NoProfile -WindowStyle Hidden -ExecutionPolicy Bypass -File """ & projectDir & "\scripts\watchdog.ps1""", 0, False
 End If

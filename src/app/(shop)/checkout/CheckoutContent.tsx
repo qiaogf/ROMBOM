@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { updateOrderShippingAndPay, toggleOrderComponentPaid, deleteOrder, withdrawOrderToCart, confirmReceipt, submitOrder } from "@/app/actions/orderActions";
@@ -55,11 +55,15 @@ export function CheckoutContent({ order, defaultName }: CheckoutContentProps) {
     subtotal: order.subtotalPaid,
     shipping: order.shippingPaid,
   });
-
-  // 外部数据刷新（如上传水单）时同步一次
-  useEffect(() => {
+  // 外部数据刷新（如上传水单）时同步一次：渲染期对比 props，避免 effect 级联渲染
+  const [paidSnapshot, setPaidSnapshot] = useState({
+    subtotal: order.subtotalPaid,
+    shipping: order.shippingPaid,
+  });
+  if (paidSnapshot.subtotal !== order.subtotalPaid || paidSnapshot.shipping !== order.shippingPaid) {
+    setPaidSnapshot({ subtotal: order.subtotalPaid, shipping: order.shippingPaid });
     setPaidLocal({ subtotal: order.subtotalPaid, shipping: order.shippingPaid });
-  }, [order.subtotalPaid, order.shippingPaid]);
+  }
   const [slipLoading, setSlipLoading] = useState(false);
   const [docsLoading, setDocsLoading] = useState(false);
   const [bankDetailsOpen, setBankDetailsOpen] = useState(false);
