@@ -1,0 +1,61 @@
+# ============================================================
+# 生产环境编排：Next.js 应用 + Caddy 反向代理（自动 HTTPS）
+#
+# 启动（必须在项目根目录，用 .env.production 提供变量）：
+#   docker compose --env-file .env.production up -d --build
+#
+# .env.production 至少需要：
+#   DATABASE_URL          Neon 直连串，sslmode=require
+#   NEXT_PUBLIC_APP_URL   https://你的域名
+#   DOMAIN                你的域名（不带 https://）
+#   ACME_EMAIL            证书到期通知邮箱
+#   SMTP_HOST/PORT/USER/PASS、INQUIRY_TO_EMAIL   询价邮件
+# ============================================================
+
+services:
+  app:
+    build:
+      context: .
+      args:
+        # 构建期预渲染 313 个商品页需要连库
+        DATABASE_URL: ${DATABASE_URL}
+        NEXT_PUBLIC_APP_URL: ${NEXT_PUBLIC_APP_URL}
+    restart: unless-stopped
+    env_file:
+      - .env.production
+    volumes:
+      # 单证/水单存档，先执行：mkdir -p order-files && sudo chown -R 1001:1001 order-files
+      - ./order-files:/app/order-files
+    expose:
+      - "3000"
+    healthcheck:
+      test:
+        - CMD
+        - node
+        - -e
+        - "fetch('http://127.0.0.1:3000/').then(r=>process.exit(r.status<500?0:1)).catch(()=>process.exit(1))"
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 60s
+
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    depends_on:
+      - app
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    environment:
+      DOMAIN: ${DOMAIN}
+      ACME_EMAIL: ${ACME_EMAIL}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+
+volumes:
+  caddy_data:
+  caddy_config:

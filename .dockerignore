@@ -1,0 +1,30 @@
+node_modules
+.next
+.git
+.gitignore
+*.log
+*.tsbuildinfo
+
+# 环境变量绝不进镜像
+.env
+.env.*
+!.env.example
+
+# 本地生成物与本机工具
+prisma/generated
+backups
+exports
+order-files
+scripts
+.vscode
+.trae
+
+# 部署文件自身与文档
+Dockerfile
+.dockerignore
+docker-compose.yml
+Caddyfile
+README.md
+AGENTS.md
+CLAUDE.md
+BACKUP-LIST.md

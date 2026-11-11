@@ -1,0 +1,24 @@
+# Caddy 反向代理（自动申请并续期 Let's Encrypt 证书）
+# DOMAIN / ACME_EMAIL 由 docker-compose.yml 从 .env.production 注入
+
+{
+	email {$ACME_EMAIL}
+}
+
+{$DOMAIN} {
+	encode zstd gzip
+
+	reverse_proxy app:3000 {
+		header_up X-Forwarded-Proto {scheme}
+	}
+
+	header {
+		-Server
+		Strict-Transport-Security "max-age=31536000"
+	}
+
+	log {
+		output stdout
+		format console
+	}
+}
