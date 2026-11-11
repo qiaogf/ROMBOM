@@ -1,4 +1,4 @@
-﻿﻿// scripts/neon-relay.cjs
+﻿﻿﻿﻿// scripts/neon-relay.cjs
 // 本地 PG 协议中继: 127.0.0.1:6543 -> Neon (IPv4 + TLS + SNI)
 //
 // 背景: 本机到 Neon 的 IPv6 不通(AAAA 记录全部超时), Prisma Rust 引擎经 getaddrinfo 优先取 IPv6

@@ -235,17 +235,19 @@ export function CheckoutContent({ order, defaultName }: CheckoutContentProps) {
     setError("");
     setDocsLoading(true);
     try {
-      const res = await fetch(`/api/order-documents?orderId=${encodeURIComponent(order.orderId)}`);
+      const res = await fetch(`/api/order-files?orderId=${encodeURIComponent(order.orderId)}&kind=pi`);
       if (!res.ok) {
         const data = (await res.json().catch(() => null)) as { message?: string } | null;
-        setError(data?.message || "Failed to generate documents.");
+        setError(data?.message || "No documents are available yet.");
         return;
       }
+      const disposition = res.headers.get("Content-Disposition") ?? "";
+      const matched = /filename="([^"]+)"/.exec(disposition);
       const blob = await res.blob();
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
-      a.download = `${order.orderNumber}-documents.xlsx`;
+      a.download = matched?.[1] || `${order.orderNumber}-PI`;
       document.body.appendChild(a);
       a.click();
       a.remove();
@@ -537,11 +539,13 @@ export function CheckoutContent({ order, defaultName }: CheckoutContentProps) {
               <div className="mb-2 max-h-56 overflow-y-auto pr-1">
                 <table className="w-full table-fixed text-[12px]">
                   <colgroup>
-                    <col className="w-[30%]" />
-                    <col className="w-[16%]" />
+                    <col className="w-[27%]" />
+                    <col className="w-[13%]" />
+                    <col className="w-[10%]" />
                     <col className="w-[14%]" />
-                    <col className="w-[20%]" />
-                    <col className="w-[20%]" />
+                    <col className="w-[10%]" />
+                    <col className="w-[13%]" />
+                    <col className="w-[13%]" />
                   </colgroup>
                   <thead className="bg-slate-50 text-slate-500 text-[10px] uppercase tracking-wide">
                     <tr>
@@ -550,6 +554,8 @@ export function CheckoutContent({ order, defaultName }: CheckoutContentProps) {
                       <th className="px-1.5 py-1 text-left">Qty</th>
                       <th className="px-1.5 py-1 text-left">Amount</th>
                       <th className="px-1.5 py-1 text-left">Self</th>
+                      <th className="px-1.5 py-1 text-left">Condition</th>
+                      <th className="px-1.5 py-1 text-left">Leadtime</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
@@ -569,6 +575,8 @@ export function CheckoutContent({ order, defaultName }: CheckoutContentProps) {
                               <span className="text-[10px] font-semibold text-emerald-600">Yes</span>
                             )}
                           </td>
+                          <td className="px-1.5 py-1 text-left text-slate-700 truncate">{item.modelPrice?.condition || "—"}</td>
+                          <td className="px-1.5 py-1 text-left text-slate-700 truncate">{item.modelPrice?.leadTime || "—"}</td>
                         </tr>
                       );
                     })}
@@ -579,11 +587,13 @@ export function CheckoutContent({ order, defaultName }: CheckoutContentProps) {
               {/* 费用行 — 与上方明细表列宽对齐 */}
               <table className="w-full table-fixed text-[12px] border-t border-slate-100">
                 <colgroup>
-                  <col className="w-[30%]" />
-                  <col className="w-[16%]" />
+                  <col className="w-[27%]" />
+                  <col className="w-[13%]" />
+                  <col className="w-[10%]" />
                   <col className="w-[14%]" />
-                  <col className="w-[20%]" />
-                  <col className="w-[20%]" />
+                  <col className="w-[10%]" />
+                  <col className="w-[13%]" />
+                  <col className="w-[13%]" />
                 </colgroup>
                 <tbody>
                   <tr>
@@ -629,6 +639,8 @@ export function CheckoutContent({ order, defaultName }: CheckoutContentProps) {
                         Pay
                       </button>
                     </td>
+                    <td className="px-1.5 py-1" />
+                    <td className="px-1.5 py-1" />
                   </tr>
                   <tr>
                     <td className="px-1.5 py-1" />
@@ -652,6 +664,8 @@ export function CheckoutContent({ order, defaultName }: CheckoutContentProps) {
                         Pay
                       </button>
                     </td>
+                    <td className="px-1.5 py-1" />
+                    <td className="px-1.5 py-1" />
                   </tr>
                   <tr>
                     <td className="px-1.5 py-1" />
@@ -660,6 +674,8 @@ export function CheckoutContent({ order, defaultName }: CheckoutContentProps) {
                       {formatUSD(subtotal + shippingCost)}
                     </td>
                     <td className="px-1.5 py-1 text-left align-middle" />
+                    <td className="px-1.5 py-1" />
+                    <td className="px-1.5 py-1" />
                   </tr>
                 </tbody>
               </table>

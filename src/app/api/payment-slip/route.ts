@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import nodemailer from "nodemailer";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUserId } from "@/lib/auth";
+import { saveOrderFile } from "@/lib/order-files";
 
 export const dynamic = "force-dynamic";
 
@@ -101,6 +102,9 @@ export async function POST(request: Request) {
       ].join("\n"),
       attachments: [{ filename: safeName, content: buffer }],
     });
+
+    // 落盘存档，供管理员在 Admin Panel → Sales → Documents 下载
+    await saveOrderFile(orderId, "slip", file);
 
     const noteLine = `[Bank slip uploaded] ${safeName} @ ${uploadedAt.toISOString()}`;
     await prisma.salesOrder.update({

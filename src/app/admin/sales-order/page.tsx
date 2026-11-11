@@ -6,6 +6,8 @@ import { SalesOrderStatusSelect } from "./_components/SalesOrderStatusSelect";
 import { AddSalesItemRow } from "./_components/AddSalesItemRow";
 import { DeleteSalesItemButton } from "./_components/DeleteSalesItemButton";
 import { AllChargesInput } from "./_components/AllChargesInput";
+import { AdminSlipUploadButton } from "./_components/AdminSlipUploadButton";
+import { AdminDownloadDocsButton } from "./_components/AdminDownloadDocsButton";
 import { formatUSDSafe } from "@/lib/format";
 import { getSalesOrderList, getSalesOrderDetail } from "./_data/sales-order-data";
 
@@ -262,6 +264,21 @@ export default async function SalesOrderListPage({
                           .reduce((sum, it) => sum + Number(it.finalSellPrice ?? it.unitPrice) * it.quantity, 0)
                           .toFixed(2)}
                       </td>
+                      <td className="px-1 py-0.5" />
+                    </tr>
+                    {/* 单证收发一行：Model 列上传 PI（Slip），Price 列生成下载单证（Documents） */}
+                    <tr>
+                      <td className="px-1 py-0.5" />
+                      <td className="px-1 py-0.5">
+                        <AdminSlipUploadButton orderId={selected.orderId} />
+                      </td>
+                      <td className="px-1.5 py-0.5">
+                        <AdminDownloadDocsButton orderId={selected.orderId} orderNumber={selected.orderNumber} />
+                      </td>
+                      <td className="px-1 py-0.5" />
+                      <td className="px-1 py-0.5" />
+                      <td className="px-1 py-0.5" />
+                      <td className="px-1 py-0.5" />
                       <td className="px-1 py-0.5" />
                     </tr>
                   </tbody>

@@ -37,6 +37,25 @@ function Start-Prod {
         -WindowStyle Hidden
 }
 
+$ngrokExe = "D:\ngrok\ngrok.exe"
+$ngrokCfg = "C:\Users\Administrator\AppData\Local\ngrok\ngrok.yml"
+$ngrokDomain = "dehydrate-esquire-hybrid.ngrok-free.dev"
+
+function Test-Ngrok {
+    return ($null -ne (Get-Process -Name "ngrok" -ErrorAction SilentlyContinue))
+}
+
+function Start-Ngrok {
+    if (-not (Test-Path $ngrokExe)) {
+        Write-WatchLog "ngrok.exe not found at $ngrokExe — tunnel skipped"
+        return
+    }
+    Write-WatchLog "ngrok DOWN — restarting tunnel to $ngrokDomain"
+    Start-Process -FilePath $ngrokExe `
+        -ArgumentList "http","3000","--url=$ngrokDomain","--config=$ngrokCfg","--log=stdout" `
+        -WindowStyle Hidden
+}
+
 Write-WatchLog "Watchdog started. Checking every 10s."
 
 while ($true) {
@@ -45,7 +64,12 @@ while ($true) {
         if (-not (Test-Port 6543)) { Start-Relay }
 
         # Next.js check
-        if (-not (Test-Port 3000)) { Start-Prod }
+        if (-not (Test-Port 3000)) {
+            Start-Prod
+        } elseif (-not (Test-Ngrok)) {
+            # 站点起来后再恢复公网隧道
+            Start-Ngrok
+        }
     } catch {
         Write-WatchLog "Check error: $_"
     }

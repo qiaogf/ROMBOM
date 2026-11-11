@@ -45,7 +45,7 @@ export function CartItemsPanel({ items, isLoggedIn, actions }: Props) {
           <span>Model</span>
           <span>Price</span>
           <span>Qty</span>
-          <span>Subtotal</span>
+          <span>Amount</span>
           <span>Condition</span>
           <span>Leadtime</span>
           <span className="text-center">Self</span>
@@ -128,7 +128,7 @@ export function CartItemsPanel({ items, isLoggedIn, actions }: Props) {
 
               {/* Subtotal */}
               <div className="flex items-center justify-between sm:justify-start">
-                <span className="sm:hidden text-[10px] font-bold uppercase text-slate-400">Subtotal</span>
+                <span className="sm:hidden text-[10px] font-bold uppercase text-slate-400">Amount</span>
                 <span className="text-[12px] text-slate-700 tabular-nums">{formatUSD(itemTotal)}</span>
               </div>
 
