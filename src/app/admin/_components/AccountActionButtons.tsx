@@ -29,6 +29,8 @@ interface AccountActionButtonsProps {
   id: string;
   label: string;
   isActive: boolean;
+  /** 是否显示 Reject（停用）按钮，默认显示；Customer 列表只保留 Confirm / Delete */
+  showReject?: boolean;
 }
 
 const ID_FIELD: Record<Entity, string> = {
@@ -37,7 +39,7 @@ const ID_FIELD: Record<Entity, string> = {
   admin: "adminId",
 };
 
-export function AccountActionButtons({ entity, id, label, isActive }: AccountActionButtonsProps) {
+export function AccountActionButtons({ entity, id, label, isActive, showReject = true }: AccountActionButtonsProps) {
   const [pending, startTransition] = useTransition();
   const [active, setActive] = useState<Action | null>(null);
   const [error, setError] = useState("");
@@ -116,16 +118,18 @@ export function AccountActionButtons({ entity, id, label, isActive }: AccountAct
         <Check className="w-3 h-3" />
         <span>Confirm</span>
       </button>
-      <button
-        type="button"
-        onClick={() => setActive("reject")}
-        disabled={pending || !isActive}
-        className="inline-flex items-center gap-0.5 px-1.5 py-0.5 text-[11px] font-medium text-slate-600 hover:text-slate-800 hover:bg-slate-100 rounded transition-colors disabled:opacity-30 disabled:hover:bg-transparent"
-        title="Reject — deactivate this account"
-      >
-        <X className="w-3 h-3" />
-        <span>Reject</span>
-      </button>
+      {showReject && (
+        <button
+          type="button"
+          onClick={() => setActive("reject")}
+          disabled={pending || !isActive}
+          className="inline-flex items-center gap-0.5 px-1.5 py-0.5 text-[11px] font-medium text-slate-600 hover:text-slate-800 hover:bg-slate-100 rounded transition-colors disabled:opacity-30 disabled:hover:bg-transparent"
+          title="Reject — deactivate this account"
+        >
+          <X className="w-3 h-3" />
+          <span>Reject</span>
+        </button>
+      )}
       <button
         type="button"
         onClick={() => setActive("delete")}
@@ -134,7 +138,6 @@ export function AccountActionButtons({ entity, id, label, isActive }: AccountAct
         title={`Delete ${label}`}
       >
         <Trash2 className="w-3 h-3" />
-        <span>Delete</span>
       </button>
       {error && <span className="text-[11px] text-rose-600">{error}</span>}
     </div>

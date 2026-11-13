@@ -36,8 +36,18 @@ export async function supplierLoginAction(formData: FormData): Promise<SupplierL
   const supplier = await prisma.supplier.findUnique({
     where: { email },
   });
-  if (!supplier || !supplier.isActive) {
+  if (!supplier) {
     return { success: false, message: "Invalid email or password." };
+  }
+  if (!supplier.isActive) {
+    // 从未登录过的停用账号 = 待 Super Admin 审核；登录过的 = 被停用
+    const pending = !supplier.lastLoginAt;
+    return {
+      success: false,
+      message: pending
+        ? "Your account is pending approval by the super admin. You can log in once it is confirmed."
+        : "Account is not active. Please contact support.",
+    };
   }
 
   // SHA-256 校验（与 auth-admin.ts 中 supplierLogin 保持一致）
@@ -119,10 +129,15 @@ export async function supplierRegister(formData: FormData): Promise<SupplierRegi
 
   try {
     const supplier = await prisma.supplier.create({
-      data: { supplierName, email, passwordHash, name: supplierName, isActive: true },
+      // 新注册默认停用：须 Super Admin 在 Admin → Supplier Confirm 后才能登录
+      data: { supplierName, email, passwordHash, name: supplierName, isActive: false },
     });
 
-    return { success: true, message: "Registration successful.", supplierId: supplier.supplierId };
+    return {
+      success: true,
+      message: "Registration successful. Your account is pending approval by the super admin — you can log in once it is confirmed.",
+      supplierId: supplier.supplierId,
+    };
   } catch (err) {
     const msg = err instanceof Error ? err.message : "Unknown error";
     return { success: false, message: `Registration failed: ${msg}` };

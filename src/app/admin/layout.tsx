@@ -1,7 +1,7 @@
 import type { ReactNode } from "react";
 import { redirect } from "next/navigation";
 import { LogOut } from "lucide-react";
-import { getAdminSession, clearAdminSession } from "@/lib/auth-admin";
+import { getAdminSession, clearAdminSession, isSuperAdminEmail } from "@/lib/auth-admin";
 import { AdminSidebar } from "./_components/AdminSidebar";
 import { AdminPageTitle } from "./_components/AdminPageTitle";
 
@@ -26,8 +26,8 @@ export default async function AdminLayout({
 
   return (
     <div className="h-screen supports-[height:100dvh]:h-dvh flex bg-slate-50 text-slate-900 overflow-hidden">
-      {/* Sidebar（移动端抽屉式收放，桌面端固定） */}
-      <AdminSidebar />
+      {/* Sidebar（移动端抽屉式收放，桌面端固定）；账号类导航仅 Super Admin 可见 */}
+      <AdminSidebar isSuperAdmin={isSuperAdminEmail(session.email)} />
 
       {/* Main content */}
       <div className="flex-1 min-w-0 flex flex-col">

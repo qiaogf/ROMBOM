@@ -1,6 +1,8 @@
 import Link from "next/link";
-import { getOrderById } from "@/app/actions/orderActions";
+import { lookupOrder } from "@/app/actions/orderActions";
 import { getCurrentUser } from "@/lib/auth";
+import { prisma } from "@/lib/prisma";
+import { ServiceUnavailable } from "@/components/ServiceUnavailable";
 import { CheckoutContent } from "./CheckoutContent";
 import { ShoppingBag } from "lucide-react";
 
@@ -18,7 +20,7 @@ export default async function CheckoutPage({
 }) {
   const { orderId } = await searchParams;
   const user = await getCurrentUser();
-  const order = orderId && user ? await getOrderById(orderId) : null;
+  const lookup = orderId && user ? await lookupOrder(orderId) : null;
 
   if (!user) {
     return (
@@ -40,6 +42,18 @@ export default async function CheckoutPage({
       </div>
     );
   }
+
+  // 数据库/中继暂时不可用：不伪装成"订单不存在"，给出来重试入口
+  if (lookup?.status === "unavailable") {
+    return (
+      <ServiceUnavailable
+        retryHref={orderId ? `/checkout?orderId=${encodeURIComponent(orderId)}` : "/cart"}
+        message="We couldn't load this order just now. It has not been deleted — please try again in a moment."
+      />
+    );
+  }
+
+  const order = lookup?.status === "ok" ? lookup.order : null;
 
   if (!order || order.items.length === 0) {
     return (
@@ -64,5 +78,33 @@ export default async function CheckoutPage({
 
   const defaultName = [user.firstName, user.lastName].filter(Boolean).join(" ").trim();
 
-  return <CheckoutContent order={order} defaultName={defaultName} />;
+  // 最近一次填写过的收货信息（下单支付时回写到 Customer），用于输入框灰色提示
+  // 该查询失败不应阻断结算页：退回空值，客户按占位提示重新填写即可
+  let savedShipping: {
+    contactName: string | null;
+    phone: string | null;
+    country: string | null;
+    city: string | null;
+    address: string | null;
+    zip: string | null;
+    notes: string | null;
+  } | null = null;
+  try {
+    const [customer, latestPort] = await Promise.all([
+      prisma.customer.findUnique({
+        where: { customerId: user.id },
+        select: { contactName: true, phone: true, country: true, city: true, address: true, zip: true },
+      }),
+      prisma.salesOrder.findFirst({
+        where: { customerId: user.id, customerNote: { not: null } },
+        orderBy: { updatedAt: "desc" },
+        select: { customerNote: true },
+      }),
+    ]);
+    savedShipping = customer ? { ...customer, notes: latestPort?.customerNote ?? null } : null;
+  } catch (error) {
+    console.error("Load saved shipping error:", error);
+  }
+
+  return <CheckoutContent order={order} defaultName={defaultName} savedShipping={savedShipping} />;
 }

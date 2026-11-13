@@ -1,4 +1,4 @@
-﻿﻿﻿﻿// scripts/neon-relay.cjs
+﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿// scripts/neon-relay.cjs
 // 本地 PG 协议中继: 127.0.0.1:6543 -> Neon (IPv4 + TLS + SNI)
 //
 // 背景: 本机到 Neon 的 IPv6 不通(AAAA 记录全部超时), Prisma Rust 引擎经 getaddrinfo 优先取 IPv6
@@ -10,34 +10,69 @@
 
 const net = require("node:net");
 const tls = require("node:tls");
+const dns = require("node:dns").promises;
 
 const LISTEN_HOST = "127.0.0.1";
 const LISTEN_PORT = 6543;
 
-// c-3.ap-southeast-1.aws.neon.tech 的 A 记录(2026-10-27 Resolve-DnsName 实测, 首个已经 TLS 握手验证)
-const UPSTREAM_HOSTS = ["52.76.128.157", "52.76.108.241", "13.251.213.89"];
+// Neon 的 A 记录会变：每次连不上就重新解析，避免硬编码 IP 过期导致 P1001
+const UPSTREAM_HOSTNAME = "ep-rough-king-azebfz8d-pooler.c-3.ap-southeast-1.aws.neon.tech";
 const UPSTREAM_PORT = 5432;
-const UPSTREAM_SNI = "ep-rough-king-azebfz8d-pooler.c-3.ap-southeast-1.aws.neon.tech";
+const UPSTREAM_SNI = UPSTREAM_HOSTNAME;
+const DNS_TTL_MS = 5 * 60 * 1000;
+
+// 兜底列表（DNS 解析失败时使用，2026-10-27 实测）
+let cachedHosts = ["52.76.128.157", "52.76.108.241", "13.251.213.89"];
+let cachedAt = 0;
+
+async function resolveHosts(force = false) {
+  if (!force && cachedHosts.length > 0 && Date.now() - cachedAt < DNS_TTL_MS) {
+    return cachedHosts;
+  }
+  try {
+    const addrs = await dns.resolve4(UPSTREAM_HOSTNAME);
+    if (addrs.length > 0) {
+      cachedHosts = addrs;
+      cachedAt = Date.now();
+    }
+  } catch {
+    /* 解析失败保留上一次结果 */
+  }
+  return cachedHosts;
+}
 
 const SSL_REQUEST_CODE = 80877103; // PostgreSQL SSLRequest
 const GSS_ENC_REQUEST_CODE = 80877104; // PostgreSQL GSSENCRequest
 
-function connectUpstream(onReady, index = 0) {
-  if (index >= UPSTREAM_HOSTS.length) {
-    onReady(new Error("all upstream IPv4 addresses failed"), null);
-    return;
+function connectOne(host) {
+  return new Promise((resolve) => {
+    const sock = tls.connect({
+      host,
+      port: UPSTREAM_PORT,
+      servername: UPSTREAM_SNI,
+      rejectUnauthorized: true,
+    });
+    sock.once("secureConnect", () => resolve(sock));
+    sock.once("error", () => {
+      sock.destroy();
+      resolve(null);
+    });
+  });
+}
+
+async function connectUpstream(onReady) {
+  for (const force of [false, true]) {
+    const hosts = await resolveHosts(force);
+    for (const host of hosts) {
+      const sock = await connectOne(host);
+      if (sock) {
+        onReady(null, sock);
+        return;
+      }
+    }
+    // 全部失败：强制刷新 DNS 后再试一轮
   }
-  const upstream = tls.connect({
-    host: UPSTREAM_HOSTS[index],
-    port: UPSTREAM_PORT,
-    servername: UPSTREAM_SNI,
-    rejectUnauthorized: true,
-  });
-  upstream.once("secureConnect", () => onReady(null, upstream));
-  upstream.once("error", () => {
-    upstream.destroy();
-    connectUpstream(onReady, index + 1);
-  });
+  onReady(new Error("all upstream IPv4 addresses failed"), null);
 }
 
 const server = net.createServer((client) => {
@@ -122,7 +157,7 @@ server.on("error", (err) => {
 });
 
 server.on("listening", () => {
-  log(`Listening ${LISTEN_HOST}:${LISTEN_PORT} -> ${UPSTREAM_HOSTS.join(" | ")}:${UPSTREAM_PORT}`);
+  log(`Listening ${LISTEN_HOST}:${LISTEN_PORT} -> ${UPSTREAM_HOSTNAME}:${UPSTREAM_PORT} (resolved: ${cachedHosts.join(" | ")})`);
 });
 
 server.listen(LISTEN_PORT, LISTEN_HOST);

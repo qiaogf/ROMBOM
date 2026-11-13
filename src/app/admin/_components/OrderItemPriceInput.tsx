@@ -56,7 +56,7 @@ export function OrderItemPriceInput({ kind, itemId, value, widthClass = "max-w-[
         if (e.key === "Enter") (e.target as HTMLInputElement).blur();
       }}
       disabled={pending}
-      className={`w-full ${widthClass} px-0.5 py-0.5 text-right text-[11px] tabular-nums text-black border border-slate-200 rounded focus:outline-none focus:ring-1 focus:ring-blue-400 disabled:opacity-50`}
+      className={`w-full ${widthClass} h-[22px] px-1 text-right text-[11px] leading-none tabular-nums text-black border border-slate-200 rounded focus:outline-none focus:ring-1 focus:ring-blue-400 disabled:opacity-50`}
       aria-label={kind === "sales" ? "ListPrice" : "PurPrice"}
     />
   );

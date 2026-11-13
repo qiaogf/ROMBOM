@@ -5,7 +5,7 @@ import { Grid3X3, Shield, X } from "lucide-react";
 import { AdminNav } from "./AdminNav";
 
 // 移动端抽屉式侧栏：与主页面左侧 Category / Brand 侧栏一致的收放行为
-export function AdminSidebar() {
+export function AdminSidebar({ isSuperAdmin = false }: { isSuperAdmin?: boolean }) {
   const [mobileOpen, setMobileOpen] = useState(false);
 
   return (
@@ -45,7 +45,7 @@ export function AdminSidebar() {
             <X className="w-4 h-4" />
           </button>
         </div>
-        <AdminNav onNavigate={() => setMobileOpen(false)} />
+        <AdminNav onNavigate={() => setMobileOpen(false)} isSuperAdmin={isSuperAdmin} />
       </aside>
     </>
   );

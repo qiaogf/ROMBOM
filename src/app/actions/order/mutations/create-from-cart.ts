@@ -6,7 +6,7 @@ import { prisma } from "@/lib/prisma";
 import { getCurrentUserId } from "@/lib/auth";
 import type { OrderActionResult, OrderWithItems } from "../shared";
 import { toNumber, serializeDecimals } from "../shared";
-import { generateSalesOrderNumber } from "./create-shared";
+import { generateSalesOrderNumber, withOrderNumberRetry } from "./create-shared";
 import { isPurchasableLeadtime } from "@/lib/cart-display";
 import { computeLockExpiry, reserveStockForItems } from "@/lib/order-lock";
 import { resolveCartSelfOrder } from "@/app/actions/cart/shared";
@@ -98,8 +98,9 @@ export async function createOrderFromCart(): Promise<OrderActionResult> {
     const requiresManualConfirm = cart.items.some(needsManualConfirm);
 
     // 写入阶段收窄成短事务：订单 + 订单项 + 批量预留库存 + 清空购物车
-    const order = await prisma.$transaction(
-      async (tx) => {
+    const order = await withOrderNumberRetry(() =>
+      prisma.$transaction(
+        async (tx) => {
         const orderNumber = await generateSalesOrderNumber(tx);
         const created = await tx.salesOrder.create({
           data: {
@@ -164,8 +165,9 @@ export async function createOrderFromCart(): Promise<OrderActionResult> {
         await tx.cartItem.deleteMany({ where: { cartId: cart.cartId } });
 
         return created;
-      },
-      { maxWait: 20000, timeout: 60000 }
+        },
+        { maxWait: 20000, timeout: 60000 }
+      )
     );
 
     // Prisma Decimal 无法被 React 序列化传给客户端（会抛 "Decimal objects are not supported"），必须转 number

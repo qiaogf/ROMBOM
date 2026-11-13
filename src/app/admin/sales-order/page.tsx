@@ -6,12 +6,23 @@ import { SalesOrderStatusSelect } from "./_components/SalesOrderStatusSelect";
 import { AddSalesItemRow } from "./_components/AddSalesItemRow";
 import { DeleteSalesItemButton } from "./_components/DeleteSalesItemButton";
 import { AllChargesInput } from "./_components/AllChargesInput";
-import { AdminSlipUploadButton } from "./_components/AdminSlipUploadButton";
 import { AdminDownloadDocsButton } from "./_components/AdminDownloadDocsButton";
+import { OrderTermsSelect } from "@/components/order/OrderTermsSelect";
+import { HsCodeInput } from "./_components/HsCodeInput";
+import { inferHsCode } from "@/lib/hs-code";
+import {
+  DELIVERY_TERMS_OPTIONS,
+  PAYMENT_METHOD_OPTIONS,
+  PAYMENT_TERMS_OPTIONS,
+} from "@/lib/order-terms";
 import { formatUSDSafe } from "@/lib/format";
 import { getSalesOrderList, getSalesOrderDetail } from "./_data/sales-order-data";
 
 export const dynamic = "force-dynamic";
+
+// Sales 数值框：只允许直接输入，隐藏浏览器上下加减按钮
+const directNumberInputClass =
+  "[appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none";
 
 function toStr(value: string | string[] | undefined): string | undefined {
   if (value === undefined) return undefined;
@@ -38,6 +49,23 @@ export default async function SalesOrderListPage({
   const salesOrders = await getSalesOrderList();
 
   const selected = selectedId ? await getSalesOrderDetail(selectedId) : null;
+
+  // 明细合计（用于 Goods Subtotal 行）与系统推导的订单统一 HS Code（多品类显示 Mixed）
+  const itemsTotal = selected
+    ? selected.items.reduce(
+        (sum, item) => sum + Number(item.finalSellPrice ?? item.unitPrice) * item.quantity,
+        0
+      )
+    : 0;
+  const orderSuggestedHs = selected
+    ? (() => {
+        const codes = new Set(
+          selected.items.map((item) => inferHsCode(item.productName, item.model)).filter(Boolean)
+        );
+        if (codes.size === 0) return "";
+        return codes.size === 1 ? [...codes][0] : "Mixed";
+      })()
+    : "";
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 h-[calc(100vh-3rem-1px)]">
@@ -147,6 +175,8 @@ export default async function SalesOrderListPage({
                               auditStatus={so.auditStatus}
                               kind="sales"
                               label={so.orderNumber}
+                              submittedAt={so.submittedAt ? so.submittedAt.toISOString() : null}
+                              cancelRequestedAt={so.cancelRequestedAt ? so.cancelRequestedAt.toISOString() : null}
                             />
                           </td>
                         </tr>
@@ -165,17 +195,18 @@ export default async function SalesOrderListPage({
         <div className="min-h-0 flex-1 overflow-y-auto">
           {selected ? (
             <div className="bg-white border border-slate-200 rounded-lg overflow-hidden">
-              <div className="overflow-x-auto">
-                <table className="w-full min-w-[620px] table-fixed text-[11px]">
+              <div className="overflow-x-hidden">
+                <table className="w-full table-fixed text-[11px]">
                   <colgroup>
-                    <col style={{ width: "12%" }} />
-                    <col style={{ width: "17ch" }} />
-                    <col style={{ width: "15%" }} />
-                    <col style={{ width: "9%" }} />
-                    <col style={{ width: "17%" }} />
-                    <col style={{ width: "12%" }} />
+                    <col style={{ width: "13%" }} />
+                    <col style={{ width: "20%" }} />
                     <col style={{ width: "10%" }} />
-                    <col style={{ width: "28px" }} />
+                    <col style={{ width: "8%" }} />
+                    <col style={{ width: "14%" }} />
+                    <col style={{ width: "10%" }} />
+                    <col style={{ width: "10%" }} />
+                    <col style={{ width: "11%" }} />
+                    <col style={{ width: "4%" }} />
                   </colgroup>
                   <thead className="bg-slate-50 text-slate-500 text-[10px] uppercase tracking-wide">
                     <tr>
@@ -183,9 +214,10 @@ export default async function SalesOrderListPage({
                       <th className="px-1 py-0.5 text-left">Model</th>
                       <th className="px-1 py-0.5 text-left">Price</th>
                       <th className="px-1 py-0.5 text-left">Qty</th>
+                      <th className="px-1 py-0.5 text-left">Amount</th>
+                      <th className="px-1 py-0.5 text-left">HS Code</th>
                       <th className="px-1 py-0.5 text-left">Condition</th>
                       <th className="px-1 py-0.5 text-left">Leadtime</th>
-                      <th className="px-1 py-0.5 text-left">Amount</th>
                       <th className="px-1 py-0.5" />
                     </tr>
                   </thead>
@@ -193,7 +225,7 @@ export default async function SalesOrderListPage({
                     {selected.items.length === 0 ? (
                       <tr>
                         <td
-                          colSpan={8}
+                          colSpan={9}
                           className="px-3 py-6 text-left text-slate-400"
                         >
                           No items found for this sales order.
@@ -202,12 +234,14 @@ export default async function SalesOrderListPage({
                     ) : (
                       selected.items.map((item) => {
                         const unitPrice = Number(item.finalSellPrice ?? item.unitPrice);
+                        const suggestedHs = inferHsCode(item.productName, item.model);
+                        const orderHs = selected.hsCode ?? null;
                         return (
                           <tr key={item.itemId} className="hover:bg-slate-50">
                             <td className="px-1 py-0.5 text-green-700 truncate">
                               {selected.orderNumber}
                             </td>
-                            <td className="px-1 py-0.5 text-slate-600 truncate" title={item.model ?? ""}>
+                            <td className="px-1 py-0.5 text-slate-600 break-all leading-tight" title={item.model ?? ""}>
                               {item.model ?? "—"}
                             </td>
                             <td className="px-1.5 py-0.5">
@@ -216,7 +250,7 @@ export default async function SalesOrderListPage({
                                 kind="sales"
                                 itemId={item.itemId}
                                 value={unitPrice}
-                                widthClass="max-w-[84px]"
+                                widthClass={`max-w-none ${directNumberInputClass}`}
                               />
                             </td>
                             <td className="px-1.5 py-0.5">
@@ -224,6 +258,21 @@ export default async function SalesOrderListPage({
                               <OrderItemQtyInput
                                 itemId={item.itemId}
                                 value={item.quantity}
+                                widthClass={`max-w-none ${directNumberInputClass}`}
+                              />
+                            </td>
+                            {/* Amount = Price × Qty（行内小计，随 Price/Qty 输入实时刷新） */}
+                            <td className="px-1 py-0.5 text-slate-700 tabular-nums text-left">
+                              ${(unitPrice * item.quantity).toFixed(2)}
+                            </td>
+                            {/* HS Code：未设定时灰色显示系统推导值；管理员修改后绿色 */}
+                            <td className="px-1 py-0.5">
+                              <HsCodeInput
+                                mode="item"
+                                id={item.itemId}
+                                value={orderHs ?? item.hsCode ?? null}
+                                suggested={suggestedHs}
+                                disabled={Boolean(orderHs)}
                               />
                             </td>
                             <td className="px-1 py-0.5 text-slate-600">
@@ -233,10 +282,6 @@ export default async function SalesOrderListPage({
                             <td className="px-1 py-0.5 text-slate-600 truncate">
                               {item.leadTime || "—"}
                             </td>
-                            {/* Amount = Price × Qty（行内小计，随 Price/Qty 输入实时刷新） */}
-                            <td className="px-1 py-0.5 text-slate-700 tabular-nums text-right">
-                              ${(unitPrice * item.quantity).toFixed(2)}
-                            </td>
                             {/* 删除该行型号 */}
                             <td className="px-1 py-0.5 text-center">
                               <DeleteSalesItemButton itemId={item.itemId} model={item.model} />
@@ -245,38 +290,108 @@ export default async function SalesOrderListPage({
                         );
                       })
                     )}
-                    {/* 手动添加销售行：Model / Price / Qty / Condition / Leadtime 输入，Add 后重算 Items 合计 */}
-                    <AddSalesItemRow orderId={selected.orderId} />
-                    {/* All Charges + Items 合并一行：Model=All Charges，Price=补录输入，Leadtime=Items(N)，Amount=合计 */}
+                    {/* 手动添加销售行：Model / Price / Qty / Condition / Leadtime 输入，Add 后重算 Goods Subtotal */}
+                    <AddSalesItemRow orderId={selected.orderId} orderHsCode={selected.hsCode ?? null} />
+                    {/* Goods Subtotal：上面各型号 Amount 之和，HS Code 列保留订单统一码 */}
                     <tr className="bg-slate-50/60">
                       <td className="px-1 py-0.5" />
-                      <td className="px-1 py-0.5 text-black truncate">All Charges</td>
-                      <td className="px-1.5 py-0.5">
+                      <td className="px-1 py-0.5" />
+                      <td colSpan={2} className="px-1 py-0.5 text-[11px] font-semibold text-black whitespace-nowrap">
+                        Goods Subtotal
+                      </td>
+                      <td className="px-1 py-0.5 text-[11px] font-bold text-black tabular-nums text-left">
+                        ${itemsTotal.toFixed(2)}
+                      </td>
+                      <td className="px-1 py-0.5">
+                        <HsCodeInput
+                          mode="order"
+                          id={selected.orderId}
+                          value={selected.hsCode ?? null}
+                          suggested={orderSuggestedHs}
+                        />
+                      </td>
+                      <td className="px-1 py-0.5" />
+                      <td className="px-1 py-0.5" />
+                      <td className="px-1 py-0.5" />
+                    </tr>
+                    {/* All Charges：输入框移至 Amount 列 */}
+                    <tr className="bg-slate-50/60">
+                      <td className="px-1 py-0.5" />
+                      <td className="px-1 py-0.5" />
+                      <td className="px-1 py-0.5 text-[11px] font-semibold text-black whitespace-nowrap">All Charges</td>
+                      <td className="px-1 py-0.5" />
+                      <td className="px-1 py-0.5">
                         <AllChargesInput orderId={selected.orderId} value={Number(selected.shippingCost)} />
                       </td>
                       <td className="px-1 py-0.5" />
                       <td className="px-1 py-0.5" />
-                      <td className="px-1 py-0.5 text-[11px] font-semibold text-black">
-                        Items ({selected.items.length})
-                      </td>
-                      <td className="px-1 py-0.5 text-[11px] font-bold text-black tabular-nums text-right">
-                        ${selected.items
-                          .reduce((sum, it) => sum + Number(it.finalSellPrice ?? it.unitPrice) * it.quantity, 0)
-                          .toFixed(2)}
-                      </td>
+                      <td className="px-1 py-0.5" />
                       <td className="px-1 py-0.5" />
                     </tr>
-                    {/* 单证收发一行：Model 列上传 PI（Slip），Price 列生成下载单证（Documents） */}
+                    {/* Total = Goods Subtotal + All Charges */}
+                    <tr className="bg-slate-50/60">
+                      <td className="px-1 py-0.5" />
+                      <td className="px-1 py-0.5" />
+                      <td className="px-1 py-0.5 text-[11px] font-bold text-black">Total</td>
+                      <td className="px-1 py-0.5" />
+                      <td className="px-1 py-0.5 text-[11px] font-bold text-black tabular-nums text-left">
+                        ${(itemsTotal + Number(selected.shippingCost)).toFixed(2)}
+                      </td>
+                      <td className="px-1 py-0.5" />
+                      <td className="px-1 py-0.5" />
+                      <td className="px-1 py-0.5" />
+                      <td className="px-1 py-0.5" />
+                    </tr>
+                    {/* 商务条款：管理员设定后锁定，客户侧同步显示（绿色、不可修改） */}
                     <tr>
                       <td className="px-1 py-0.5" />
-                      <td className="px-1 py-0.5">
-                        <AdminSlipUploadButton orderId={selected.orderId} />
+                      <td className="px-1 py-0.5 text-[11px] text-slate-600">Payment Terms</td>
+                      <td colSpan={4} className="px-1 py-0.5">
+                        <OrderTermsSelect
+                          orderId={selected.orderId}
+                          field="paymentTerms"
+                          options={PAYMENT_TERMS_OPTIONS}
+                          value={selected.paymentTerms ?? null}
+                          locked={selected.paymentTermsSetByAdmin}
+                          mode="admin"
+                        />
                       </td>
-                      <td className="px-1.5 py-0.5">
-                        <AdminDownloadDocsButton orderId={selected.orderId} orderNumber={selected.orderNumber} />
+                      {/* Documents PDF：靠订单明细表右边框对齐 */}
+                      <td colSpan={3} className="px-1 py-0.5 text-right overflow-visible">
+                        <AdminDownloadDocsButton orderId={selected.orderId} orderNumber={selected.orderNumber} format="pdf" />
                       </td>
+                    </tr>
+                    <tr>
                       <td className="px-1 py-0.5" />
+                      <td className="px-1 py-0.5 text-[11px] text-slate-600">Payment Method</td>
+                      <td colSpan={4} className="px-1 py-0.5">
+                        <OrderTermsSelect
+                          orderId={selected.orderId}
+                          field="paymentMethod"
+                          options={PAYMENT_METHOD_OPTIONS}
+                          value={selected.paymentMethod ?? null}
+                          locked={selected.paymentMethodSetByAdmin}
+                          mode="admin"
+                        />
+                      </td>
+                      {/* Documents EXCEL：靠订单明细表右边框对齐 */}
+                      <td colSpan={3} className="px-1 py-0.5 text-right overflow-visible">
+                        <AdminDownloadDocsButton orderId={selected.orderId} orderNumber={selected.orderNumber} format="xlsx" />
+                      </td>
+                    </tr>
+                    <tr>
                       <td className="px-1 py-0.5" />
+                      <td className="px-1 py-0.5 text-[11px] text-slate-600">Delivery Terms</td>
+                      <td colSpan={4} className="px-1 py-0.5">
+                        <OrderTermsSelect
+                          orderId={selected.orderId}
+                          field="deliveryTerms"
+                          options={DELIVERY_TERMS_OPTIONS}
+                          value={selected.deliveryTerms ?? null}
+                          locked={selected.deliveryTermsSetByAdmin}
+                          mode="admin"
+                        />
+                      </td>
                       <td className="px-1 py-0.5" />
                       <td className="px-1 py-0.5" />
                       <td className="px-1 py-0.5" />

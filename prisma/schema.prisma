@@ -69,6 +69,7 @@ model AdminUser {
 model Customer {
   customerId   String           @id @default(cuid())
   email        String           @unique
+  buyerNo      String?          // Buyer ID：超级管理员维护的客户编号
   passwordHash String
   firstName    String?
   lastName     String?
@@ -100,6 +101,7 @@ model Supplier {
   supplierId     String          @id @default(cuid())
   email          String          @unique
   passwordHash   String
+  supplierNo     String?         // Supplier ID（工号），由超级管理员在后台维护
   supplierName   String
   name           String?
   contactInfo    String?
@@ -476,6 +478,13 @@ model SalesOrder {
   discountAmount  Decimal @db.Decimal(18, 4) @default(0)
   currency        String           @default("USD")
   paymentMethod   String?
+  paymentTerms    String?
+  deliveryTerms   String?
+  /** 订单级 HS Code：管理员设定后对本订单全部型号生效 */
+  hsCode          String?
+  paymentTermsSetByAdmin    Boolean @default(false)
+  paymentMethodSetByAdmin   Boolean @default(false)
+  deliveryTermsSetByAdmin   Boolean @default(false)
   paymentStatus   String           @default("pending")
   deliveryMethod  String?
   shippedAt       DateTime?
@@ -498,6 +507,7 @@ model SalesOrder {
   subtotalPaid          Boolean    @default(false)      // 部分支付：商品小计已付
   shippingPaid          Boolean    @default(false)      // 部分支付：运费已付
   taxPaid               Boolean    @default(false)      // 部分支付：税费已付
+  cancelRequestedAt     DateTime?                      // 客户在 Approved 状态提交取消申请的时间；管理员 Cancel 后订单转 cancelled
   purchaseOrders PurchaseOrder[]
 
   @@index([customerId])
@@ -513,6 +523,8 @@ model SalesOrderItem {
   modelPriceId   String?        // 新 ModelPrice 引用
   productName    String         // 冗余快照: 下单时产品名
   model          String?        // 冗余快照: 下单时型号
+  /** 行级 HS Code：管理员单行修改后保存 */
+  hsCode         String?
   unitPrice      Decimal @db.Decimal(18, 4) // 下单时单价
   finalSellPrice Decimal @db.Decimal(18, 4) // 最终成交价
   quantity       Int

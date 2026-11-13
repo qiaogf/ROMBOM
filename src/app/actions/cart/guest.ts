@@ -1,7 +1,7 @@
 "use server";
 
 // Guest (not-logged-in) cart support — read-only price lookup + post-login merge.
-// 游客购物车本体存放在浏览器 localStorage（components/cart/guest-cart.ts），
+// 游客购物车本体存放在浏览器 sessionStorage（components/cart/guest-cart.ts，仅当前会话有效），
 // 服务端只负责：① 返回真实价格行供本地构造伪条目；② 登录后把本地行合并入库。
 
 import { prisma } from "@/lib/prisma";

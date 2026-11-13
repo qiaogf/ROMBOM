@@ -4,23 +4,18 @@
 // 2026-11-01: Order No. 点击进入该订单 Order & Payment 页；
 // Pay 列改为纯颜色状态（仍有未点 Pay → 绿色；全部已点 → 灰色），不再跳转。
 
-import { Trash2 } from "lucide-react";
 import type { OrderWithItems } from "@/app/actions/orderActions";
 import { SO_STATUS_LABEL, soStatusBadgeClass, formatDate } from "./order-helpers";
 
 interface OrderListTableProps {
   orders: OrderWithItems[];
-  deletingId: string | null;
   onOpenOrder: (orderId: string) => void;
-  onDelete: (orderId: string) => void;
   emptyText: string;
 }
 
 export function OrderListTable({
   orders,
-  deletingId,
   onOpenOrder,
-  onDelete,
   emptyText,
 }: OrderListTableProps) {
   return (
@@ -34,7 +29,6 @@ export function OrderListTable({
             <col className="w-[11%]" />
             <col className="w-[24%]" />
             <col className="w-[13%]" />
-            <col className="w-[9%]" />
           </colgroup>
           <thead className="bg-slate-50 text-slate-500 text-[10px] uppercase tracking-wide">
             <tr>
@@ -44,7 +38,6 @@ export function OrderListTable({
               <th className="px-1.5 py-1.5 text-center">Mode</th>
               <th className="px-1.5 py-1.5 text-center">Pay</th>
               <th className="px-1.5 py-1.5 text-left">Status</th>
-              <th className="px-1.5 py-1.5 text-center">Del</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100">
@@ -108,23 +101,12 @@ export function OrderListTable({
                         {SO_STATUS_LABEL[status] || status}
                       </span>
                     </td>
-                    <td className="px-1.5 py-1.5 text-center">
-                      <button
-                        type="button"
-                        onClick={() => onDelete(order.orderId)}
-                        disabled={deletingId === order.orderId}
-                        className="p-0.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded transition-colors disabled:opacity-40"
-                        aria-label="Delete order"
-                      >
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </button>
-                    </td>
                   </tr>
                 );
               })
             ) : (
               <tr>
-                <td colSpan={7} className="px-1.5 py-10 text-center text-sm text-slate-400">
+                <td colSpan={6} className="px-1.5 py-10 text-center text-sm text-slate-400">
                   {emptyText}
                 </td>
               </tr>

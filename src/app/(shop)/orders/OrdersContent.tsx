@@ -8,7 +8,6 @@
  */
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { deleteOrder } from "@/app/actions/orderActions";
 import type { OrderWithItems } from "@/app/actions/orderActions";
 import { OrderListTable } from "./_components/OrderListTable";
 
@@ -21,8 +20,7 @@ function statusOf(order: OrderWithItems): string {
 }
 
 export function OrdersContent({ orders }: OrdersContentProps) {
-  const [deletingId, setDeletingId] = useState<string | null>(null);
-  const [error, setError] = useState("");
+  const [error] = useState("");
   const router = useRouter();
 
   const validOrders = orders.filter(
@@ -35,24 +33,6 @@ export function OrdersContent({ orders }: OrdersContentProps) {
     return s === "ordered" || s === "paid";
   });
   const receivedOrders = validOrders.filter((o) => statusOf(o) === "received");
-
-  const handleDelete = async (orderId: string) => {
-    if (!confirm("Are you sure you want to delete this order?")) return;
-    setDeletingId(orderId);
-    setError("");
-    try {
-      const res = await deleteOrder(orderId);
-      if (!res.success) {
-        setError(res.message);
-      } else {
-        router.refresh();
-      }
-    } catch {
-      setError("An error occurred. Please try again.");
-    } finally {
-      setDeletingId(null);
-    }
-  };
 
   return (
     <div className="flex-1 min-h-0 overflow-y-scroll main-scrollbar">
@@ -76,9 +56,7 @@ export function OrdersContent({ orders }: OrdersContentProps) {
           <div className="md:col-span-1 min-w-0">
             <OrderListTable
               orders={activeOrders}
-              deletingId={deletingId}
               onOpenOrder={(orderId) => router.push(`/checkout?orderId=${orderId}`)}
-              onDelete={(orderId) => void handleDelete(orderId)}
               emptyText="No orders yet"
             />
           </div>
@@ -87,9 +65,7 @@ export function OrdersContent({ orders }: OrdersContentProps) {
           <div className="md:col-span-1 min-w-0">
             <OrderListTable
               orders={receivedOrders}
-              deletingId={deletingId}
               onOpenOrder={(orderId) => router.push(`/checkout?orderId=${orderId}`)}
-              onDelete={(orderId) => void handleDelete(orderId)}
               emptyText="No received orders"
             />
           </div>

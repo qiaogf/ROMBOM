@@ -3,8 +3,10 @@ import { redirect } from "next/navigation";
 import type { ReactNode } from "react";
 import { ArrowLeft, User, Mail, Phone, MapPin } from "lucide-react";
 import { prisma } from "@/lib/prisma";
+import { countryName } from "@/lib/countries";
+import { getAdminSession, isSuperAdminEmail } from "@/lib/auth-admin";
 import { AccountActionButtons } from "@/app/admin/_components/AccountActionButtons";
-import { CustomerLevelInput } from "@/app/admin/_components/CustomerLevelInput";
+import { CustomerBuyerIdInput } from "@/app/admin/_components/CustomerBuyerIdInput";
 
 export const dynamic = "force-dynamic";
 
@@ -15,6 +17,19 @@ function toStr(value: string | string[] | undefined): string | undefined {
 
 function empty(): ReactNode {
   return <span className="text-slate-400 italic">—</span>;
+}
+
+/** 左栏排序：Buyer ID 数字升序，空值排最后，同值按 email */
+function compareBuyerNo(
+  a: { buyerNo: string | null; email: string },
+  b: { buyerNo: string | null; email: string }
+): number {
+  const x = a.buyerNo?.trim() ?? "";
+  const y = b.buyerNo?.trim() ?? "";
+  if (!x && !y) return a.email.localeCompare(b.email);
+  if (!x) return 1;
+  if (!y) return -1;
+  return x.localeCompare(y, undefined, { numeric: true });
 }
 
 // 右侧详情行：左标签右值
@@ -35,15 +50,29 @@ export default async function CustomerListPage({
   const sp = await searchParams;
   const selectedId = toStr(sp.id);
 
-  const customers = await prisma.customer.findMany({
-    orderBy: { createdAt: "desc" },
-  });
+  // 账号类页面仅 Super Admin 可进入（其他管理员看不到导航，直接访问也拦下）
+  const session = await getAdminSession();
+  if (!isSuperAdminEmail(session?.email)) redirect("/admin");
+
+  const customers = await prisma.customer.findMany();
+  customers.sort(compareBuyerNo);
 
   // 右栏：选中账号详情
   let detail = selectedId
     ? await prisma.customer.findUnique({ where: { customerId: selectedId } })
     : null;
   if (selectedId && !detail) redirect("/admin/customer");
+
+  // 客户最近一次订单里填写的目的港（结算页 Port of Destination）
+  const latestNote = detail
+    ? (
+        await prisma.salesOrder.findFirst({
+          where: { customerId: detail.customerId, customerNote: { not: null } },
+          orderBy: { updatedAt: "desc" },
+          select: { customerNote: true },
+        })
+      )?.customerNote?.trim() || null
+    : null;
 
   return (
     <div className="h-full">
@@ -53,14 +82,14 @@ export default async function CustomerListPage({
           <div className="min-h-0 flex-1 overflow-y-auto">
             <div className="bg-white border border-slate-200 rounded-lg overflow-hidden">
               <div className="overflow-x-auto">
-                <table className="w-full min-w-[520px] text-xs table-fixed">
+                <table className="w-full text-xs table-fixed">
                   <thead className="bg-slate-50 text-slate-500 text-[10px] uppercase tracking-wide">
                     <tr>
-                      <th className="w-1/5 px-1.5 py-1 text-left">Email</th>
-                      <th className="w-1/5 px-1.5 py-1 text-left">Country</th>
-                      <th className="w-1/5 px-1.5 py-1 text-left">Active</th>
-                      <th className="w-1/5 px-1.5 py-1 text-left">Level</th>
-                      <th className="w-1/5 px-1.5 py-1 text-left">Act</th>
+                      <th className="w-[100px] px-1.5 py-1 text-left whitespace-nowrap">Buyer ID</th>
+                      <th className="w-[220px] px-1.5 py-1 text-left">Email</th>
+                      <th className="w-[72px] px-1.5 py-1 text-left whitespace-nowrap">Active</th>
+                      <th className="w-[180px] px-1.5 py-1 text-left whitespace-nowrap">Act</th>
+                      <th className="px-1.5 py-1"></th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
@@ -79,6 +108,9 @@ export default async function CustomerListPage({
                             className={isSelected ? "bg-blue-50/60" : "hover:bg-slate-50"}
                           >
                             <td className="px-1.5 py-1">
+                              <CustomerBuyerIdInput customerId={c.customerId} value={c.buyerNo} />
+                            </td>
+                            <td className="px-1.5 py-1">
                               <Link
                                 href={`/admin/customer?id=${c.customerId}`}
                                 className={`block truncate hover:underline ${
@@ -88,9 +120,6 @@ export default async function CustomerListPage({
                               >
                                 {c.email}
                               </Link>
-                            </td>
-                            <td className="px-1.5 py-1 text-slate-600">
-                              {c.country ?? empty()}
                             </td>
                             <td className="px-1.5 py-1">
                               <span
@@ -104,12 +133,6 @@ export default async function CustomerListPage({
                               </span>
                             </td>
                             <td className="px-1.5 py-1">
-                              <CustomerLevelInput
-                                customerId={c.customerId}
-                                level={c.level}
-                              />
-                            </td>
-                            <td className="px-1.5 py-1">
                               <AccountActionButtons
                                 entity="customer"
                                 id={c.customerId}
@@ -117,6 +140,7 @@ export default async function CustomerListPage({
                                 isActive={c.isActive}
                               />
                             </td>
+                            <td className="px-1.5 py-1"></td>
                           </tr>
                         );
                       })
@@ -160,16 +184,16 @@ export default async function CustomerListPage({
 
               <div className="bg-white border border-slate-200 rounded-lg overflow-hidden">
                 <dl className="divide-y divide-slate-100">
-                  <DetailRow label="Country">
+                  <DetailRow label="Country/Region">
                     <span className="inline-flex items-center gap-1">
                       <MapPin className="w-3 h-3 text-slate-400 shrink-0" />
-                      {detail.country || empty()}
+                      {detail.country ? countryName(detail.country) : empty()}
                     </span>
                   </DetailRow>
                   <DetailRow label="City">{detail.city || empty()}</DetailRow>
                   <DetailRow label="Address">{detail.address || empty()}</DetailRow>
                   <DetailRow label="ZIP">{detail.zip || empty()}</DetailRow>
-                  <DetailRow label="Phone">
+                  <DetailRow label="Contact Details">
                     {detail.phone ? (
                       <a
                         href={`tel:${detail.phone}`}
@@ -182,7 +206,7 @@ export default async function CustomerListPage({
                       empty()
                     )}
                   </DetailRow>
-                  <DetailRow label="Payment Method">{detail.paymentMethod || empty()}</DetailRow>
+                  <DetailRow label="Port of Destination">{latestNote || empty()}</DetailRow>
                 </dl>
               </div>
 

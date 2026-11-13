@@ -78,7 +78,8 @@ export async function updateOrderShippingAndPay(
           shippingCost: finalShipping,
           taxAmount: finalTax,
           totalAmount,
-          paymentMethod: data.paymentMethod || order.paymentMethod || "credit_card",
+          // 付款方式改由 Payment Method 下拉单独维护（管理员锁定后不被支付动作覆盖）
+          ...(data.paymentMethod ? { paymentMethod: data.paymentMethod } : {}),
           customerNote: data.notes?.trim(),
           subtotalPaid,
           shippingPaid,
@@ -86,6 +87,19 @@ export async function updateOrderShippingAndPay(
           paymentStatus: allPaid ? "paid" : "partial",
         },
         include: { items: true },
+      });
+
+      // 回写客户账户档案：保留最近一次填写的收货信息（下次结算作为灰色提示，Admin → Customer 同步显示）
+      await tx.customer.update({
+        where: { customerId },
+        data: {
+          contactName: data.shippingName?.trim() || undefined,
+          phone: data.shippingPhone?.trim() || undefined,
+          country: data.shippingCountry.toUpperCase(),
+          city: data.shippingCity?.trim() || undefined,
+          address: data.shippingAddress?.trim() || undefined,
+          zip: data.shippingZip?.trim() || undefined,
+        },
       });
 
       return {

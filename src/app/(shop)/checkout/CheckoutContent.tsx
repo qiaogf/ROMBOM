@@ -2,16 +2,39 @@
 
 import { useState, useRef } from "react";
 import { useRouter } from "next/navigation";
-import Link from "next/link";
-import { updateOrderShippingAndPay, toggleOrderComponentPaid, deleteOrder, withdrawOrderToCart, confirmReceipt, submitOrder } from "@/app/actions/orderActions";
+import { updateOrderShippingAndPay, toggleOrderComponentPaid, withdrawOrderToCart, confirmReceipt, submitOrder, requestOrderCancel } from "@/app/actions/orderActions";
 import { formatUSD } from "@/lib/price";
-import { Package, Trash2, Undo2, Check, Upload, ClipboardList, FileDown } from "lucide-react";
+import { COUNTRY_OPTIONS } from "@/lib/countries";
+import { Package, Undo2, Check, Upload, FileDown, XCircle, Send, Wallet } from "lucide-react";
+import {
+  STATUS_META,
+  canSubmit as canSubmitFor,
+  canWithdraw as canWithdrawFor,
+  isCancelPending,
+  resolveOrderLifecycle,
+} from "@/app/actions/order/status-machine";
 import type { OrderWithItems } from "@/app/actions/orderActions";
+import { OrderTermsSelect } from "@/components/order/OrderTermsSelect";
+import {
+  DELIVERY_TERMS_OPTIONS,
+  PAYMENT_METHOD_OPTIONS,
+  PAYMENT_TERMS_OPTIONS,
+} from "@/lib/order-terms";
 
 interface CheckoutContentProps {
   order: NonNullable<OrderWithItems>;
   /** 从 session 预填收货联系人姓名 */
   defaultName?: string;
+  /** 客户最近一次填写的收货信息，作为输入框灰色提示 */
+  savedShipping?: {
+    contactName?: string | null;
+    phone?: string | null;
+    country?: string | null;
+    city?: string | null;
+    address?: string | null;
+    zip?: string | null;
+    notes?: string | null;
+  } | null;
 }
 
 const MAX_FIELD_LENGTHS = {
@@ -25,18 +48,15 @@ const MAX_FIELD_LENGTHS = {
 
 const DEBOUNCE_DELAY = 1000;
 
-export function CheckoutContent({ order, defaultName }: CheckoutContentProps) {
+export function CheckoutContent({ order, defaultName, savedShipping }: CheckoutContentProps) {
   // 表单（左栏：地址 / 支付方式 / 备注；右栏：运费税费数值）
   const [formData, setFormData] = useState({
-    shippingCountry: order.shippingCountry || "US",
+    shippingCountry: order.shippingCountry || savedShipping?.country || "US",
     shippingCity: order.shippingCity || "",
     shippingAddress: order.shippingAddress || "",
     shippingZip: order.shippingZip || "",
     shippingName: order.shippingName || defaultName || "",
     shippingPhone: order.shippingPhone || "",
-    paymentMethod: ["western_union", "xtransfer", "airwallex"].includes(order.paymentMethod ?? "")
-      ? (order.paymentMethod as string)
-      : "airwallex",
     notes: order.customerNote || "",
     shippingCost: String(order.shippingCost ?? 0),
     taxAmount: String(order.taxAmount ?? 0),
@@ -79,23 +99,44 @@ export function CheckoutContent({ order, defaultName }: CheckoutContentProps) {
   const allPaid = order.subtotalPaid && order.shippingPaid && order.taxPaid;
   const hasAnySelection = paySubtotal || payShipping;
 
+  // 客户侧订单生命周期：Draft（未提交）/ Pending / Rejected / Approved / Cancelled
+  const lifecycle = resolveOrderLifecycle(order);
+  const canWithdraw = canWithdrawFor(order);
+  const canSubmitNow = canSubmitFor(order);
+  const canCancelRequest = lifecycle === "approved";
+  const cancelRequested = isCancelPending(order);
+
+  /**
+   * 最终生效的收货信息：输入框留空时回落到客户最近一次记录
+   * （占位提示即上次的地址，不输入也能直接提交）
+   */
+  const resolveShipping = () => ({
+    shippingCountry: (formData.shippingCountry || "").toUpperCase(),
+    shippingCity: formData.shippingCity.trim() || savedShipping?.city || "",
+    shippingAddress: formData.shippingAddress.trim() || savedShipping?.address || "",
+    shippingZip: formData.shippingZip.trim() || savedShipping?.zip || "",
+    shippingName: formData.shippingName.trim() || savedShipping?.contactName || defaultName || "",
+    shippingPhone: formData.shippingPhone.trim() || savedShipping?.phone || "",
+  });
+
   const validateForm = () => {
-    if (!formData.shippingCountry || !/^[A-Z]{2}$/.test(formData.shippingCountry.toUpperCase())) {
+    const shipping = resolveShipping();
+    if (!shipping.shippingCountry || !/^[A-Z]{2}$/.test(shipping.shippingCountry)) {
       return "Please select a valid country";
     }
-    if (!formData.shippingCity.trim() || formData.shippingCity.length > MAX_FIELD_LENGTHS.shippingCity) {
+    if (!shipping.shippingCity || shipping.shippingCity.length > MAX_FIELD_LENGTHS.shippingCity) {
       return "Please enter a valid city name";
     }
-    if (!formData.shippingAddress.trim() || formData.shippingAddress.length > MAX_FIELD_LENGTHS.shippingAddress) {
+    if (!shipping.shippingAddress || shipping.shippingAddress.length > MAX_FIELD_LENGTHS.shippingAddress) {
       return "Please enter a valid address";
     }
-    if (!formData.shippingZip.trim() || formData.shippingZip.length > MAX_FIELD_LENGTHS.shippingZip) {
+    if (!shipping.shippingZip || shipping.shippingZip.length > MAX_FIELD_LENGTHS.shippingZip) {
       return "Please enter a valid ZIP/Postal code";
     }
-    if (!formData.shippingName.trim() || formData.shippingName.length > MAX_FIELD_LENGTHS.shippingName) {
+    if (!shipping.shippingName || shipping.shippingName.length > MAX_FIELD_LENGTHS.shippingName) {
       return "Please enter a valid recipient name";
     }
-    if (formData.shippingPhone && formData.shippingPhone.length > MAX_FIELD_LENGTHS.shippingPhone) {
+    if (shipping.shippingPhone && shipping.shippingPhone.length > MAX_FIELD_LENGTHS.shippingPhone) {
       return "Phone number is too long";
     }
     if (formData.notes && formData.notes.length > MAX_FIELD_LENGTHS.notes) {
@@ -132,14 +173,8 @@ export function CheckoutContent({ order, defaultName }: CheckoutContentProps) {
 
     try {
       const result = await updateOrderShippingAndPay(order.orderId, {
-        shippingCountry: formData.shippingCountry.toUpperCase(),
-        shippingCity: formData.shippingCity.trim(),
-        shippingAddress: formData.shippingAddress.trim(),
-        shippingZip: formData.shippingZip.trim(),
-        shippingName: formData.shippingName.trim(),
-        shippingPhone: formData.shippingPhone.trim(),
-        paymentMethod: formData.paymentMethod,
-        notes: formData.notes.trim(),
+        ...resolveShipping(),
+        notes: formData.notes.trim() || savedShipping?.notes || "",
         shippingCost: formData.shippingCost,
         taxAmount: formData.taxAmount,
         paySubtotal: paySubtotal && !order.subtotalPaid,
@@ -162,22 +197,23 @@ export function CheckoutContent({ order, defaultName }: CheckoutContentProps) {
     }
   };
 
-  const handleDelete = async () => {
+  const handleCancelRequest = async () => {
     if (isLoading) return;
-    if (!window.confirm("Delete this order?")) return;
+    if (!window.confirm("Submit a cancellation request for this order? The order stays visible until an admin approves it.")) return;
     setIsLoading(true);
     setError("");
+    setSuccess("");
     try {
-      const result = await deleteOrder(order.orderId);
+      const result = await requestOrderCancel(order.orderId);
       if (result.success) {
-        setSuccess("Order deleted. Redirecting to My Orders...");
-        setTimeout(() => router.push("/orders"), 800);
+        setSuccess(result.message);
+        router.refresh();
       } else {
         setError(result.message);
-        setIsLoading(false);
       }
     } catch {
-      setError("Failed to delete. Please try again.");
+      setError("Failed to submit the cancellation request. Please try again.");
+    } finally {
       setIsLoading(false);
     }
   };
@@ -233,16 +269,16 @@ export function CheckoutContent({ order, defaultName }: CheckoutContentProps) {
     }
   };
 
-  /** 下载报关单证（Commercial Invoice + Packing List，Excel 工作簿） */
+  /** 下载单证：按本订单数据生成 PI + 销售合同 + 商业发票 + 装箱单（合并 PDF） */
   const handleDownloadDocuments = async () => {
     if (docsLoading) return;
     setError("");
     setDocsLoading(true);
     try {
-      const res = await fetch(`/api/order-files?orderId=${encodeURIComponent(order.orderId)}&kind=pi`);
+      const res = await fetch(`/api/order-documents?orderId=${encodeURIComponent(order.orderId)}`);
       if (!res.ok) {
         const data = (await res.json().catch(() => null)) as { message?: string } | null;
-        setError(data?.message || "No documents are available yet.");
+        setError(data?.message || "Failed to generate the documents.");
         return;
       }
       const disposition = res.headers.get("Content-Disposition") ?? "";
@@ -251,7 +287,7 @@ export function CheckoutContent({ order, defaultName }: CheckoutContentProps) {
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
-      a.download = matched?.[1] || `${order.orderNumber}-PI`;
+      a.download = matched?.[1] || `${order.orderNumber}-Documents.pdf`;
       document.body.appendChild(a);
       a.click();
       a.remove();
@@ -300,14 +336,8 @@ export function CheckoutContent({ order, defaultName }: CheckoutContentProps) {
       }
 
       const result = await updateOrderShippingAndPay(order.orderId, {
-        shippingCountry: formData.shippingCountry.toUpperCase(),
-        shippingCity: formData.shippingCity.trim(),
-        shippingAddress: formData.shippingAddress.trim(),
-        shippingZip: formData.shippingZip.trim(),
-        shippingName: formData.shippingName.trim(),
-        shippingPhone: formData.shippingPhone.trim(),
-        paymentMethod: formData.paymentMethod,
-        notes: formData.notes.trim(),
+        ...resolveShipping(),
+        notes: formData.notes.trim() || savedShipping?.notes || "",
         shippingCost: formData.shippingCost,
         taxAmount: formData.taxAmount,
         paySubtotal: paySubtotal && !order.subtotalPaid,
@@ -340,7 +370,10 @@ export function CheckoutContent({ order, defaultName }: CheckoutContentProps) {
     setError("");
     setSuccess("");
     try {
-      const result = await submitOrder(order.orderId);
+      const result = await submitOrder(order.orderId, {
+        ...resolveShipping(),
+        notes: formData.notes.trim() || savedShipping?.notes || "",
+      });
       if (result.success) {
         setSuccess(result.message);
         router.refresh();
@@ -357,16 +390,18 @@ export function CheckoutContent({ order, defaultName }: CheckoutContentProps) {
   const labelClass = "block text-[11px] font-semibold text-slate-700 mb-0";
   const cardClass = "border border-slate-200 rounded bg-white p-3";
   const compactInputClass =
-    "w-full border border-slate-300 rounded px-1.5 py-0.5 text-[11px] text-slate-900 placeholder:text-slate-400 focus:outline-none focus:border-[#336633] focus:ring-1 focus:ring-[#336633]";
+    "w-full border border-slate-300 rounded px-1.5 py-0.5 text-[11px] text-slate-900 focus:outline-none focus:border-[#336633] focus:ring-1 focus:ring-[#336633]";
+  /** 占位提示：新用户浅灰；老客户回填历史记录用深灰（输入内容本身为黑色） */
+  const inputClass = (deepPlaceholder = false) =>
+    `${compactInputClass} ${deepPlaceholder ? "placeholder:text-slate-500" : "placeholder:text-slate-300"}`;
 
-  // 支付方式附加信息（未配置时显示兜底文案，不虚构银行账户）
+  // 支付渠道信息（未配置时不虚构银行账户或支付链接）
   const whatsappNumber = process.env.NEXT_PUBLIC_WHATSAPP_NUMBER?.trim();
   const xTransferDetails = (process.env.NEXT_PUBLIC_XTRANSFER_BANK_DETAILS ?? "")
     .split(/\r?\n/)
     .map((line) => line.trim())
     .filter(Boolean);
-  const orderTotal = Number(order.totalAmount);
-  const westernUnionBlocked = orderTotal > 5000;
+  const airwallexPayUrl = process.env.NEXT_PUBLIC_AIRWALLEX_PAY_URL?.trim();
 
   return (
     <div className="flex-1 min-h-0 overflow-y-scroll main-scrollbar">
@@ -404,79 +439,88 @@ export function CheckoutContent({ order, defaultName }: CheckoutContentProps) {
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-2 gap-y-0.5">
                 <div>
                   <label className={labelClass}>Full Name <span className="text-rose-500">*</span></label>
-                  <input type="text" value={formData.shippingName} onChange={(e) => setFormData({ ...formData, shippingName: e.target.value })} className={compactInputClass} placeholder="John Doe" required />
+                  <input type="text" value={formData.shippingName} onChange={(e) => setFormData({ ...formData, shippingName: e.target.value })} className={inputClass(!!savedShipping?.contactName)} placeholder={savedShipping?.contactName || "John Doe"} />
                 </div>
                 <div>
-                  <label className={labelClass}>Phone</label>
-                  <input type="tel" value={formData.shippingPhone} onChange={(e) => setFormData({ ...formData, shippingPhone: e.target.value })} className={compactInputClass} placeholder="+1 234 567 8900" />
+                  <label className={labelClass}>Contact Details</label>
+                  <input type="tel" value={formData.shippingPhone} onChange={(e) => setFormData({ ...formData, shippingPhone: e.target.value })} className={inputClass(!!savedShipping?.phone)} placeholder={savedShipping?.phone || "+1 234 567 8900"} />
                 </div>
                 <div>
-                  <label className={labelClass}>Country <span className="text-rose-500">*</span></label>
-                  <select value={formData.shippingCountry} onChange={(e) => setFormData({ ...formData, shippingCountry: e.target.value })} className={`${compactInputClass} cursor-pointer`}>
-                    <option value="US">United States</option>
-                    <option value="CA">Canada</option>
-                    <option value="GB">United Kingdom</option>
-                    <option value="DE">Germany</option>
-                    <option value="FR">France</option>
-                    <option value="JP">Japan</option>
-                    <option value="CN">China</option>
-                    <option value="AU">Australia</option>
-                    <option value="SG">Singapore</option>
-                    <option value="HK">Hong Kong</option>
-                    <option value="KR">South Korea</option>
-                    <option value="TW">Taiwan</option>
-                    <option value="TH">Thailand</option>
+                  <label className={labelClass}>Country/Region <span className="text-rose-500">*</span></label>
+                  <select value={formData.shippingCountry} onChange={(e) => setFormData({ ...formData, shippingCountry: e.target.value })} className={`${inputClass()} cursor-pointer`}>
+                    {COUNTRY_OPTIONS.map((c) => (
+                      <option key={c.code} value={c.code}>{c.name}</option>
+                    ))}
                   </select>
                 </div>
                 <div>
                   <label className={labelClass}>City <span className="text-rose-500">*</span></label>
-                  <input type="text" value={formData.shippingCity} onChange={(e) => setFormData({ ...formData, shippingCity: e.target.value })} className={compactInputClass} placeholder="New York" required />
+                  <input type="text" value={formData.shippingCity} onChange={(e) => setFormData({ ...formData, shippingCity: e.target.value })} className={inputClass(!!savedShipping?.city)} placeholder={savedShipping?.city || "New York"} />
                 </div>
                 <div className="sm:col-span-2">
                   <label className={labelClass}>Address <span className="text-rose-500">*</span></label>
-                  <input type="text" value={formData.shippingAddress} onChange={(e) => setFormData({ ...formData, shippingAddress: e.target.value })} className={compactInputClass} placeholder="123 Main Street" required />
+                  <input type="text" value={formData.shippingAddress} onChange={(e) => setFormData({ ...formData, shippingAddress: e.target.value })} className={inputClass(!!savedShipping?.address)} placeholder={savedShipping?.address || "123 Main Street"} />
                 </div>
                 <div>
                   <label className={labelClass}>ZIP <span className="text-rose-500">*</span></label>
-                  <input type="text" value={formData.shippingZip} onChange={(e) => setFormData({ ...formData, shippingZip: e.target.value })} className={compactInputClass} placeholder="10001" required />
+                  <input type="text" value={formData.shippingZip} onChange={(e) => setFormData({ ...formData, shippingZip: e.target.value })} className={inputClass(!!savedShipping?.zip)} placeholder={savedShipping?.zip || "10001"} />
                 </div>
                 <div>
-                  <label className={labelClass}>Notes</label>
-                  <input type="text" value={formData.notes} onChange={(e) => setFormData({ ...formData, notes: e.target.value })} className={compactInputClass} placeholder="Optional" />
+                  <label className={labelClass}>Port of Destination</label>
+                  <input type="text" value={formData.notes} onChange={(e) => setFormData({ ...formData, notes: e.target.value })} className={inputClass(!!savedShipping?.notes)} placeholder={savedShipping?.notes || "Optional"} />
                 </div>
               </div>
             </div>
 
             {/* Payment Method */}
             <div className={cardClass}>
-              <h2 className="text-[12px] font-bold text-slate-900 mb-2">
-                Payment Method
+              <h2 className="text-[12px] font-bold text-slate-900 mb-2 flex items-center gap-1">
+                <Wallet className="w-3.5 h-3.5 text-[#336633]" />
+                Payment &amp; Delivery
               </h2>
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img src="/payment-methods.png" alt="Payment Methods" className="w-2/3 mx-auto h-auto mb-2 object-contain" />
               <div className="space-y-1.5">
-                {/* Western Union */}
+                {/* Payment Terms */}
                 <div className="rounded border border-slate-200 bg-slate-50 p-2">
-                  <p className="text-[13px] font-bold text-slate-900">Western Union. Contact seller.</p>
-                  <p className="text-[13px] text-slate-600 leading-snug mt-0.5">
-                    Max USD 5,000. {westernUnionBlocked ? "Over-limit orders unavailable." : ""}
-                  </p>
-                  <p className="text-[13px] text-slate-600 leading-snug mt-0.5">Submit payment info after payment.</p>
+                  <p className="text-[13px] font-bold text-slate-900 mb-1">Payment Terms</p>
+                  <div className="flex items-center gap-2">
+                    <OrderTermsSelect
+                      orderId={order.orderId}
+                      field="paymentTerms"
+                      options={PAYMENT_TERMS_OPTIONS}
+                      value={order.paymentTerms ?? null}
+                      locked={order.paymentTermsSetByAdmin}
+                      mode="customer"
+                      compact
+                      className="w-[60%]"
+                    />
+                    <span className="ml-auto shrink-0 w-[160px] invisible" aria-hidden="true" />
+                  </div>
                 </div>
 
-                {/* XTransfer */}
+                {/* Payment Method + XTransfer 银行信息 */}
                 <div className="rounded border border-slate-200 bg-slate-50 p-2">
-                  <div className="flex items-center justify-between gap-2">
-                    <p className="text-[13px] font-bold text-slate-900">T/T via XTransfer</p>
+                  <p className="text-[13px] font-bold text-slate-900 mb-1">Payment Method</p>
+                  <div className="flex items-center gap-2">
+                    <OrderTermsSelect
+                      orderId={order.orderId}
+                      field="paymentMethod"
+                      options={PAYMENT_METHOD_OPTIONS}
+                      value={order.paymentMethod ?? null}
+                      locked={order.paymentMethodSetByAdmin}
+                      mode="customer"
+                      compact
+                      className="w-[60%]"
+                    />
                     <button
                       type="button"
                       onClick={() => setBankDetailsOpen((v) => !v)}
-                      className="shrink-0 w-[140px] inline-flex items-center justify-center px-2 py-0.5 bg-[#336633] text-white text-[11px] font-bold rounded hover:bg-[#2d5a2d] transition-colors"
+                      className="ml-auto shrink-0 w-[160px] whitespace-nowrap inline-flex items-center justify-center px-2 py-0.5 bg-[#336633] text-white text-[11px] font-bold rounded hover:bg-[#2d5a2d] transition-colors"
                     >
                       View Bank Details
                     </button>
                   </div>
-                  <p className="text-[13px] text-slate-600 leading-snug mt-0.5">Copy account details after selection.</p>
                   {bankDetailsOpen && (
                     <div className="mt-1.5 rounded border border-slate-200 bg-white p-2">
                       {xTransferDetails.length > 0 ? (
@@ -506,24 +550,36 @@ export function CheckoutContent({ order, defaultName }: CheckoutContentProps) {
                       )}
                     </div>
                   )}
-                  <p className="text-[12px] text-slate-500 mt-1">Submit payment info after payment.</p>
                 </div>
 
-                {/* Airwallex */}
+                {/* Delivery Terms + Airwallex 支付入口 */}
                 <div className="rounded border border-slate-200 bg-slate-50 p-2">
-                  <div className="flex items-center justify-between gap-2">
-                    <p className="text-[14px] font-bold text-slate-900">Pay by Airwallex</p>
+                  <p className="text-[13px] font-bold text-slate-900 mb-1">Delivery Terms</p>
+                  <div className="flex items-center gap-2">
+                    <OrderTermsSelect
+                      orderId={order.orderId}
+                      field="deliveryTerms"
+                      options={DELIVERY_TERMS_OPTIONS}
+                      value={order.deliveryTerms ?? null}
+                      locked={order.deliveryTermsSetByAdmin}
+                      mode="customer"
+                      compact
+                      className="w-[60%]"
+                    />
                     <button
                       type="button"
-                      onClick={() => setFormData({ ...formData, paymentMethod: "airwallex" })}
-                      className="shrink-0 w-[140px] inline-flex items-center justify-center px-2 py-0.5 bg-[#336633] text-white text-[11px] font-bold rounded hover:bg-[#2d5a2d] transition-colors"
+                      onClick={() => {
+                        if (airwallexPayUrl) {
+                          window.open(airwallexPayUrl, "_blank", "noopener,noreferrer");
+                        }
+                      }}
+                      disabled={!airwallexPayUrl}
+                      title={airwallexPayUrl ? undefined : "Airwallex payment link is not configured"}
+                      className="ml-auto shrink-0 w-[160px] whitespace-nowrap inline-flex items-center justify-center px-2 py-0.5 bg-[#336633] text-white text-[11px] font-bold rounded hover:bg-[#2d5a2d] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                     >
-                      Proceed to Checkout
+                      Pay Now via Airwallex
                     </button>
                   </div>
-                  <p className="text-[13px] text-slate-600 leading-snug mt-0.5">
-                    Secure checkout via Airwallex.
-                  </p>
                 </div>
               </div>
             </div>
@@ -601,30 +657,7 @@ export function CheckoutContent({ order, defaultName }: CheckoutContentProps) {
                 </colgroup>
                 <tbody>
                   <tr>
-                    <td className="px-1.5 py-1 text-left align-middle whitespace-nowrap">
-                      {/* Submit 按钮与审批指示灯分开并列：提交后按钮置灰，指示灯显示 Approved/Pending */}
-                      <div className="flex items-center gap-1.5">
-                        <button
-                          type="button"
-                          onClick={handleSubmitOrder}
-                          disabled={submitLoading || isLoading || !!order.submittedAt}
-                          className="px-2.5 py-0.5 text-[12px] font-bold rounded bg-[#336633] text-white hover:bg-[#2d5a2d] disabled:opacity-50 transition-colors"
-                          title="Submit order for approval"
-                        >
-                          {submitLoading ? "..." : "Submit"}
-                        </button>
-                        {order.submittedAt &&
-                          (order.auditStatus === "approved" ? (
-                            <span className="inline-block px-2 py-0.5 text-[12px] font-bold rounded bg-emerald-600 text-white">
-                              Approved
-                            </span>
-                          ) : (
-                            <span className="inline-block px-2 py-0.5 text-[12px] font-bold rounded bg-amber-500 text-white">
-                              Pending
-                            </span>
-                          ))}
-                      </div>
-                    </td>
+                    <td className="px-1.5 py-1" />
                     <td colSpan={2} className="px-1.5 py-1 text-left align-middle text-[14px] font-normal whitespace-nowrap text-black">Goods Subtotal</td>
                     <td className={`px-1.5 py-1 text-left align-middle text-[14px] font-normal ${paidLocal.subtotal ? "text-emerald-600 line-through" : "text-black"}`}>
                       {formatUSD(subtotal)}
@@ -647,7 +680,16 @@ export function CheckoutContent({ order, defaultName }: CheckoutContentProps) {
                     <td className="px-1.5 py-1" />
                   </tr>
                   <tr>
-                    <td className="px-1.5 py-1" />
+                    <td className="px-1.5 py-1 text-left align-middle">
+                      {/* 订单状态框：Draft / Pending / Rejected / Approved / Cancelled */}
+                      <span
+                        className="inline-flex items-center justify-center px-3 py-1 text-[14px] font-bold text-white rounded shadow-sm whitespace-nowrap"
+                        style={{ backgroundColor: STATUS_META[lifecycle].color }}
+                        title={`Order status: ${STATUS_META[lifecycle].label}`}
+                      >
+                        {STATUS_META[lifecycle].label}
+                      </span>
+                    </td>
                     <td colSpan={2} className="px-1.5 py-1 text-left align-middle text-[14px] font-normal whitespace-nowrap text-black">All Charges</td>
                     <td className="px-1.5 py-1 text-left align-middle">
                       <span className={`text-[14px] font-normal ${paidLocal.shipping ? "text-emerald-600 line-through" : "text-black"}`}>
@@ -686,14 +728,23 @@ export function CheckoutContent({ order, defaultName }: CheckoutContentProps) {
 
               {/* 六个等宽按钮框：同一行排满 */}
               <div className="mt-2 grid grid-cols-6 gap-1">
-                <Link
-                  href="/orders"
-                  className="w-full min-w-0 py-2 bg-slate-50 border border-slate-200 text-slate-700 text-[12px] font-semibold rounded hover:bg-slate-100 transition-colors flex flex-col items-center justify-center gap-0.5 leading-tight text-center"
-                  title="Go to My Orders"
+                <button
+                  type="button"
+                  onClick={handleSubmitOrder}
+                  disabled={submitLoading || isLoading || !canSubmitNow}
+                  className="w-full min-w-0 py-2 bg-[#336633] text-white text-[12px] font-semibold rounded hover:bg-[#2d5a2d] disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex flex-col items-center justify-center gap-0.5 leading-tight text-center"
+                  title={order.auditStatus === "rejected" ? "Resubmit order for approval" : "Submit order for approval"}
                 >
-                  <ClipboardList className="w-4 h-4" />
-                  My Orders
-                </Link>
+                  {submitLoading ? (
+                    <svg className="animate-spin h-3.5 w-3.5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                  ) : (
+                    <Send className="w-4 h-4" />
+                  )}
+                  Submit
+                </button>
                 <button
                   type="button"
                   onClick={handleDownloadDocuments}
@@ -738,25 +789,34 @@ export function CheckoutContent({ order, defaultName }: CheckoutContentProps) {
                   <Check className="w-4 h-4" />
                   Confirm Handover
                 </button>
-                <button
-                  type="button"
-                  onClick={handleWithdraw}
-                  disabled={isLoading || allPaid}
-                  className="w-full min-w-0 py-2 bg-amber-50 border border-amber-200 text-amber-700 text-[12px] font-semibold rounded hover:bg-amber-100 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex flex-col items-center justify-center gap-0.5 leading-tight text-center"
-                  title="Return items to cart"
-                >
-                  <Undo2 className="w-4 h-4" />
-                  Withdraw
-                </button>
-                <button
-                  type="button"
-                  onClick={handleDelete}
-                  disabled={isLoading}
-                  className="w-full min-w-0 py-2 bg-slate-50 border border-slate-200 text-slate-700 text-[12px] font-semibold rounded hover:bg-slate-100 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex flex-col items-center justify-center gap-0.5 leading-tight text-center"
-                >
-                  <Trash2 className="w-4 h-4" />
-                  Delete
-                </button>
+                {canWithdraw && (
+                  <button
+                    type="button"
+                    onClick={handleWithdraw}
+                    disabled={isLoading || allPaid}
+                    className="w-full min-w-0 py-2 bg-amber-50 border border-amber-200 text-amber-700 text-[12px] font-semibold rounded hover:bg-amber-100 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex flex-col items-center justify-center gap-0.5 leading-tight text-center"
+                    title="Withdraw this order and return items to cart"
+                  >
+                    <Undo2 className="w-4 h-4" />
+                    Withdraw
+                  </button>
+                )}
+                {canCancelRequest && (
+                  <button
+                    type="button"
+                    onClick={handleCancelRequest}
+                    disabled={isLoading || cancelRequested}
+                    className="w-full min-w-0 py-2 bg-rose-50 border border-rose-200 text-rose-700 text-[12px] font-semibold rounded hover:bg-rose-100 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex flex-col items-center justify-center gap-0.5 leading-tight text-center"
+                    title={
+                      cancelRequested
+                        ? "Cancellation requested — waiting for admin approval"
+                        : "Request order cancellation"
+                    }
+                  >
+                    <XCircle className="w-4 h-4" />
+                    {cancelRequested ? "Cancel Requested" : "Cancel Request"}
+                  </button>
+                )}
                 <input
                   ref={slipInputRef}
                   type="file"

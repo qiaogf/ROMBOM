@@ -9,7 +9,7 @@ import { generateIdempotencyKey } from "@/lib/security";
 import type { OrderActionResult, OrderWithItems, CreateOrderData } from "../shared";
 import { toNumber, serializeDecimals, SHIPPING_THRESHOLD, SHIPPING_COST, TAX_RATE } from "../shared";
 import { validateOrderData } from "./shared";
-import { generateSalesOrderNumber } from "./create-shared";
+import { generateSalesOrderNumber, withOrderNumberRetry } from "./create-shared";
 import { generatePurchaseOrders, idempotencyStore } from "./create-full-helpers";
 import { isPurchasableLeadtime } from "@/lib/cart-display";
 
@@ -48,7 +48,8 @@ export async function createOrder(data: CreateOrderData): Promise<OrderActionRes
       idempotencyStore.delete(idempotencyKey);
     }
 
-    return prisma.$transaction(async (tx) => {
+    return withOrderNumberRetry(() =>
+      prisma.$transaction(async (tx) => {
       const customer = await tx.customer.findUnique({
         where: { customerId },
       });
@@ -233,7 +234,8 @@ export async function createOrder(data: CreateOrderData): Promise<OrderActionRes
         message: "Order placed successfully",
         order: serializeDecimals(orderWithItems) as OrderWithItems,
       };
-    }, { maxWait: 20000, timeout: 60000 }) as Promise<OrderActionResult>;
+      }, { maxWait: 20000, timeout: 60000 })
+    ) as Promise<OrderActionResult>;
   } catch (error) {
     console.error("Create order error:", error);
     return { success: false, message: "An error occurred while creating order. Please try again." };

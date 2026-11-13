@@ -32,8 +32,15 @@ export async function adminLoginAction(formData: FormData): Promise<AdminLoginRe
   const email = rawEmail.toLowerCase();
 
   const admin = await prisma.adminUser.findUnique({ where: { email } });
-  if (!admin || !admin.isActive) {
+  if (!admin) {
     return { success: false, message: "Invalid email or password." };
+  }
+  if (!admin.isActive) {
+    // AdminUser 无 lastLoginAt，无法区分"待审"与"被停用"，统一提示
+    return {
+      success: false,
+      message: "Account is not active. It is either pending super-admin approval or has been deactivated.",
+    };
   }
 
   const crypto = await import("crypto");
@@ -115,11 +122,16 @@ export async function adminRegister(formData: FormData): Promise<{ success: bool
         email,
         passwordHash,
         name,
-        isActive: true,
+        // 新注册默认停用：须 Super Admin 在 Admin → Admin Confirm 后才能登录
+        isActive: false,
         role: "admin",
       },
     });
-    return { success: true, message: "Registration successful.", adminId: admin.adminId };
+    return {
+      success: true,
+      message: "Registration successful. Your account is pending approval by the super admin — you can log in once it is confirmed.",
+      adminId: admin.adminId,
+    };
   } catch (err) {
     const msg = err instanceof Error ? err.message : "Unknown error";
     return { success: false, message: `Registration failed: ${msg}` };

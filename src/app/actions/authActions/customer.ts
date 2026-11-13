@@ -67,12 +67,17 @@ export async function register(data: RegisterData): Promise<AuthResult> {
         country,
         currency: "USD",
         phone,
-        isActive: true,
+        // 新注册默认停用：须 Super Admin 在 Admin → Customer Confirm 后才能登录
+        isActive: false,
       },
     });
 
-    // 与 admin 一致：注册成功后不自动登录，由用户在登录视图手动登录
-    return { success: true, message: "Registration successful", userId: customer.customerId };
+    // 注册成功后不自动登录；账号待 Super Admin 审核通过后方可登录
+    return {
+      success: true,
+      message: "Registration successful. Your account is pending approval by the super admin — you can log in once it is confirmed.",
+      userId: customer.customerId,
+    };
   } catch (error) {
     console.error("Registration error:", error);
     return { success: false, message: "An unexpected error occurred. Please try again later." };
@@ -113,7 +118,14 @@ export async function login(data: LoginData): Promise<AuthResult> {
     }
 
     if (!customer.isActive) {
-      return { success: false, message: "Account is not active. Please contact support." };
+      // 从未登录过的停用账号 = 待 Super Admin 审核；登录过的 = 被停用
+      const pending = !customer.lastLoginAt;
+      return {
+        success: false,
+        message: pending
+          ? "Your account is pending approval by the super admin. You can log in once it is confirmed."
+          : "Account is not active. Please contact support.",
+      };
     }
 
     // 使用安全的密码验证

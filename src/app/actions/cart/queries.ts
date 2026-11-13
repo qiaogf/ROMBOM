@@ -4,6 +4,7 @@
 
 import { prisma } from "@/lib/prisma";
 import { getCurrentUserId } from "@/lib/auth";
+import { withDbRetry } from "@/lib/db-retry";
 import { decimalToNumber } from "@/lib/price";
 import type { CartWithItems, CartSummary, CartItemWithProduct } from "./types";
 import { getSellPrice, serializeCartDecimals, resolveCartSelfOrder } from "./shared";
@@ -35,6 +36,29 @@ export async function getCurrentCart(): Promise<CartWithItems | null> {
   } catch (error) {
     console.error("Get cart error:", error);
     return null;
+  }
+}
+
+/** 购物车查询结果：区分"确实为空"与"数据库暂时不可用" */
+export type CartLookup =
+  | { status: "ok"; cart: CartWithItems | null }
+  | { status: "unauthenticated" }
+  | { status: "unavailable" };
+
+/**
+ * 购物车页专用：瞬时连接错误重试一次，仍失败返回 unavailable，
+ * 避免把"取不到数据"渲染成"购物车为空"。
+ */
+export async function lookupCurrentCart(): Promise<CartLookup> {
+  const customerId = await getCurrentUserId();
+  if (!customerId) return { status: "unauthenticated" };
+
+  try {
+    const cart = await withDbRetry(() => getCartWithItems(customerId));
+    return { status: "ok", cart };
+  } catch (error) {
+    console.error("Lookup cart error:", error);
+    return { status: "unavailable" };
   }
 }
 

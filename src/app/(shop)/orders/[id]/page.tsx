@@ -1,6 +1,7 @@
 import Link from "next/link";
-import { getOrderById } from "@/app/actions/orderActions";
+import { lookupOrder } from "@/app/actions/orderActions";
 import { getCurrentUserId } from "@/lib/auth";
+import { ServiceUnavailable } from "@/components/ServiceUnavailable";
 import { formatUSD, formatUSDWithoutSymbol, decimalToNumber } from "@/lib/price";
 import { 
   Package, 
@@ -47,7 +48,8 @@ export default async function OrderDetailPage({ params }: { params: { id: string
     );
   }
 
-  const order = userId ? await getOrderById(resolvedParams.id) : null;
+  const lookup = userId ? await lookupOrder(resolvedParams.id) : null;
+  const order = lookup?.status === "ok" ? lookup.order : null;
 
   if (!userId) {
     return (
@@ -67,6 +69,16 @@ export default async function OrderDetailPage({ params }: { params: { id: string
           </Link>
         </div>
       </div>
+    );
+  }
+
+  if (lookup?.status === "unavailable") {
+    return (
+      <ServiceUnavailable
+        compact
+        retryHref={`/orders/${resolvedParams.id}`}
+        message="We couldn't load this order just now. It has not been deleted — please try again in a moment."
+      />
     );
   }
 

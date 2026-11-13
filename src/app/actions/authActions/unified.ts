@@ -69,7 +69,14 @@ export async function loginUnified(data: LoginData): Promise<UnifiedLoginResult>
         };
       }
       if (!customer.isActive) {
-        return { success: false, message: "Account is not active. Please contact support." };
+        // 从未登录过的停用账号 = 待 Super Admin 审核；登录过的 = 被停用
+        const pending = !customer.lastLoginAt;
+        return {
+          success: false,
+          message: pending
+            ? "Your account is pending approval by the super admin. You can log in once it is confirmed."
+            : "Account is not active. Please contact support.",
+        };
       }
       if (!verifyPassword(rawPassword, customer.passwordHash)) {
         recordLoginAttempt(email, clientIp, false);
@@ -98,6 +105,16 @@ export async function loginUnified(data: LoginData): Promise<UnifiedLoginResult>
     const secureCookie = await isHttpsRequest();
 
     // ── Supplier ──
+    if (supplier && !supplier.isActive) {
+      // 从未登录过的停用账号 = 待 Super Admin 审核；登录过的 = 被停用
+      const pending = !supplier.lastLoginAt;
+      return {
+        success: false,
+        message: pending
+          ? "Your account is pending approval by the super admin. You can log in once it is confirmed."
+          : "Account is not active. Please contact support.",
+      };
+    }
     if (supplier && supplier.isActive && sha256Hex(rawPassword) === supplier.passwordHash) {
       cookieStore.set({
         name: SUPPLIER_COOKIE,
@@ -132,6 +149,13 @@ export async function loginUnified(data: LoginData): Promise<UnifiedLoginResult>
     }
 
     // ── Admin ──
+    if (admin && !admin.isActive) {
+      // AdminUser 无 lastLoginAt，无法区分"待审"与"被停用"，统一提示
+      return {
+        success: false,
+        message: "Account is not active. It is either pending super-admin approval or has been deactivated.",
+      };
+    }
     if (admin && admin.isActive && sha256Hex(rawPassword) === admin.passwordHash) {
       cookieStore.set({
         name: ADMIN_COOKIE,

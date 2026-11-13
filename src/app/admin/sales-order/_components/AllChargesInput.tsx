@@ -49,7 +49,7 @@ export function AllChargesInput({
         if (e.key === "Enter") (e.target as HTMLInputElement).blur();
       }}
       disabled={pending}
-      className="w-full max-w-[84px] px-0.5 py-0.5 text-right text-[11px] tabular-nums text-black border border-slate-200 rounded focus:outline-none focus:ring-1 focus:ring-blue-400 disabled:opacity-50"
+      className="w-full max-w-none h-[22px] px-1 text-right text-[11px] leading-none tabular-nums text-black border border-slate-200 rounded focus:outline-none focus:ring-1 focus:ring-blue-400 disabled:opacity-50 [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
       aria-label="All Charges"
     />
   );

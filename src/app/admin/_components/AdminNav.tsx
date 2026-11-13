@@ -21,13 +21,15 @@ interface NavItem {
   href: string;
   label: string;
   icon: LucideIcon;
+  /** 仅 Super Admin 可见：账号类管理页 */
+  superOnly?: boolean;
 }
 
 // 与原来一致：全部为一级导航，不分组、可折叠
 const NAV_ITEMS: NavItem[] = [
-  { href: "/admin/supplier", label: "Supplier", icon: Building2 },
-  { href: "/admin/customer", label: "Customer", icon: Users },
-  { href: "/admin/admin-user", label: "Admin", icon: UserCog },
+  { href: "/admin/supplier", label: "Supplier", icon: Building2, superOnly: true },
+  { href: "/admin/customer", label: "Customer", icon: Users, superOnly: true },
+  { href: "/admin/admin-user", label: "Admin", icon: UserCog, superOnly: true },
   { href: "/admin/category", label: "Category", icon: FolderTree },
   { href: "/admin/brand", label: "Brand", icon: Tag },
   { href: "/admin/series", label: "Series", icon: Layers },
@@ -38,12 +40,16 @@ const NAV_ITEMS: NavItem[] = [
   { href: "/admin/api", label: "API", icon: Code },
 ];
 
-export function AdminNav({ onNavigate }: { onNavigate?: () => void } = {}) {
+export function AdminNav({
+  onNavigate,
+  isSuperAdmin = false,
+}: { onNavigate?: () => void; isSuperAdmin?: boolean } = {}) {
   const pathname = usePathname();
+  const items = isSuperAdmin ? NAV_ITEMS : NAV_ITEMS.filter((item) => !item.superOnly);
 
   return (
     <nav className="flex-1 overflow-y-auto py-1">
-      {NAV_ITEMS.map((item) => {
+      {items.map((item) => {
         const Icon = item.icon;
         // 子路由也算选中（如 /admin/import-price?batch=xxx）
         const isActive = pathname === item.href || pathname.startsWith(item.href + "/");

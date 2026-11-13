@@ -11,9 +11,11 @@ interface OrderItemQtyInputProps {
   itemId: string;
   value: number;
   kind?: "sales" | "purchase";
+  /** 覆盖输入框最大宽度及页面特定样式 */
+  widthClass?: string;
 }
 
-export function OrderItemQtyInput({ itemId, value, kind = "sales" }: OrderItemQtyInputProps) {
+export function OrderItemQtyInput({ itemId, value, kind = "sales", widthClass = "max-w-[48px]" }: OrderItemQtyInputProps) {
   // value 0 = 无报价草稿行：输入框显示为空，由采购手动维护
   const [draft, setDraft] = useState(value > 0 ? String(value) : "");
   const [pending, startTransition] = useTransition();
@@ -47,7 +49,7 @@ export function OrderItemQtyInput({ itemId, value, kind = "sales" }: OrderItemQt
         if (e.key === "Enter") (e.target as HTMLInputElement).blur();
       }}
       disabled={pending}
-      className="w-full max-w-[48px] px-0.5 py-0.5 text-right text-[11px] tabular-nums border border-slate-200 rounded focus:outline-none focus:ring-1 focus:ring-blue-400 disabled:opacity-50"
+      className={`w-full ${widthClass} h-[22px] px-1 text-right text-[11px] leading-none tabular-nums border border-slate-200 rounded focus:outline-none focus:ring-1 focus:ring-blue-400 disabled:opacity-50`}
       aria-label="Qty"
     />
   );

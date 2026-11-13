@@ -3,8 +3,18 @@
 import { prisma } from "@/lib/prisma";
 import { getAdminSession, isSuperAdminEmail } from "@/lib/auth-admin";
 
+/** 账号类操作（Supplier / Customer / Admin）仅 Super Admin 可执行 */
+async function denyNonSuperAdmin(): Promise<string | null> {
+  const session = await getAdminSession();
+  if (!session) return "Unauthorized.";
+  if (!isSuperAdminEmail(session.email)) return "Only the super admin can manage accounts.";
+  return null;
+}
+
 // ── 删除客户 ──
 export async function deleteCustomer(formData: FormData): Promise<{ success: boolean; message: string }> {
+  const denied = await denyNonSuperAdmin();
+  if (denied) return { success: false, message: denied };
   const customerId = (formData.get("customerId") as string)?.trim();
   if (!customerId) return { success: false, message: "Customer ID is required." };
 
@@ -25,6 +35,8 @@ export async function deleteCustomer(formData: FormData): Promise<{ success: boo
 
 // ── 删除供应商 ──
 export async function deleteSupplier(formData: FormData): Promise<{ success: boolean; message: string }> {
+  const denied = await denyNonSuperAdmin();
+  if (denied) return { success: false, message: denied };
   const supplierId = (formData.get("supplierId") as string)?.trim();
   if (!supplierId) return { success: false, message: "Supplier ID is required." };
 
@@ -109,6 +121,8 @@ export async function deleteAdmin(formData: FormData): Promise<{ success: boolea
 // ── 账号启用/停用（Confirm = 启用，Reject = 停用）──
 // 客户
 export async function confirmCustomer(formData: FormData): Promise<{ success: boolean; message: string }> {
+  const denied = await denyNonSuperAdmin();
+  if (denied) return { success: false, message: denied };
   const customerId = (formData.get("customerId") as string)?.trim();
   if (!customerId) return { success: false, message: "Customer ID is required." };
   try {
@@ -126,6 +140,8 @@ export async function confirmCustomer(formData: FormData): Promise<{ success: bo
 // 注意：confirmCustomer（重新启用）不会自动恢复 API 密钥——
 // 管理员必须在 /admin/api 页手动重新 Enable 密钥，确保「显式授权」而非隐式恢复。
 export async function rejectCustomer(formData: FormData): Promise<{ success: boolean; message: string }> {
+  const denied = await denyNonSuperAdmin();
+  if (denied) return { success: false, message: denied };
   const customerId = (formData.get("customerId") as string)?.trim();
   if (!customerId) return { success: false, message: "Customer ID is required." };
   try {
@@ -147,6 +163,8 @@ export async function rejectCustomer(formData: FormData): Promise<{ success: boo
 
 // 供应商
 export async function confirmSupplier(formData: FormData): Promise<{ success: boolean; message: string }> {
+  const denied = await denyNonSuperAdmin();
+  if (denied) return { success: false, message: denied };
   const supplierId = (formData.get("supplierId") as string)?.trim();
   if (!supplierId) return { success: false, message: "Supplier ID is required." };
   try {
@@ -159,6 +177,8 @@ export async function confirmSupplier(formData: FormData): Promise<{ success: bo
 }
 
 export async function rejectSupplier(formData: FormData): Promise<{ success: boolean; message: string }> {
+  const denied = await denyNonSuperAdmin();
+  if (denied) return { success: false, message: denied };
   const supplierId = (formData.get("supplierId") as string)?.trim();
   if (!supplierId) return { success: false, message: "Supplier ID is required." };
   try {
@@ -172,13 +192,13 @@ export async function rejectSupplier(formData: FormData): Promise<{ success: boo
 
 // 更新供应商资质等级 (0-5)
 export async function updateSupplierQualificationLevel(formData: FormData): Promise<{ success: boolean; message: string }> {
+  const denied = await denyNonSuperAdmin();
+  if (denied) return { success: false, message: denied };
   const supplierId = (formData.get("supplierId") as string)?.trim();
   const levelStr = (formData.get("level") as string)?.trim();
   if (!supplierId) return { success: false, message: "Supplier ID is required." };
   const level = Number(levelStr);
   if (isNaN(level) || level < 0 || level > 5) return { success: false, message: "Level must be 0-5." };
-  const session = await getAdminSession();
-  if (!session) return { success: false, message: "Unauthorized." };
   try {
     await prisma.supplier.update({ where: { supplierId }, data: { qualificationLevel: level } });
     return { success: true, message: `Qualification level set to ${level}.` };
@@ -190,19 +210,79 @@ export async function updateSupplierQualificationLevel(formData: FormData): Prom
 
 // 更新客户评级 (0-5)
 export async function updateCustomerLevel(formData: FormData): Promise<{ success: boolean; message: string }> {
+  const denied = await denyNonSuperAdmin();
+  if (denied) return { success: false, message: denied };
   const customerId = (formData.get("customerId") as string)?.trim();
   const levelStr = (formData.get("level") as string)?.trim();
   if (!customerId) return { success: false, message: "Customer ID is required." };
   const level = Number(levelStr);
   if (isNaN(level) || level < 0 || level > 5) return { success: false, message: "Level must be 0-5." };
-  const session = await getAdminSession();
-  if (!session) return { success: false, message: "Unauthorized." };
   try {
     await prisma.customer.update({ where: { customerId }, data: { level } });
     return { success: true, message: `Customer level set to ${level}.` };
   } catch (err) {
     const msg = err instanceof Error ? err.message : "Unknown error";
     return { success: false, message: `Failed to update level: ${msg}` };
+  }
+}
+
+// 更新供应商 Supplier ID（工号）：由超级管理员在 Supplier 列表内直接维护
+export async function updateSupplierWorkId(formData: FormData): Promise<{ success: boolean; message: string }> {
+  const denied = await denyNonSuperAdmin();
+  if (denied) return { success: false, message: denied };
+  const supplierId = (formData.get("supplierId") as string)?.trim();
+  const workId = ((formData.get("workId") as string) ?? "").trim();
+  if (!supplierId) return { success: false, message: "Supplier ID is required." };
+  if (workId.length > 40) return { success: false, message: "Supplier ID must be 40 characters or fewer." };
+  try {
+    await prisma.supplier.update({
+      where: { supplierId },
+      data: { supplierNo: workId || null },
+    });
+    return { success: true, message: workId ? `Supplier ID set to ${workId}.` : "Supplier ID cleared." };
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : "Unknown error";
+    return { success: false, message: `Failed to update Supplier ID: ${msg}` };
+  }
+}
+
+// 更新客户 Buyer ID：由超级管理员在 Customer 列表内直接维护
+export async function updateCustomerBuyerId(formData: FormData): Promise<{ success: boolean; message: string }> {
+  const denied = await denyNonSuperAdmin();
+  if (denied) return { success: false, message: denied };
+  const customerId = (formData.get("customerId") as string)?.trim();
+  const buyerId = ((formData.get("buyerId") as string) ?? "").trim();
+  if (!customerId) return { success: false, message: "Customer ID is required." };
+  if (buyerId.length > 40) return { success: false, message: "Buyer ID must be 40 characters or fewer." };
+  try {
+    await prisma.customer.update({
+      where: { customerId },
+      data: { buyerNo: buyerId || null },
+    });
+    return { success: true, message: buyerId ? `Buyer ID set to ${buyerId}.` : "Buyer ID cleared." };
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : "Unknown error";
+    return { success: false, message: `Failed to update Buyer ID: ${msg}` };
+  }
+}
+
+// 更新管理员 Work ID（工号）：由超级管理员在 Admin 列表内直接维护
+export async function updateAdminWorkId(formData: FormData): Promise<{ success: boolean; message: string }> {
+  const denied = await denyNonSuperAdmin();
+  if (denied) return { success: false, message: denied };
+  const adminId = (formData.get("adminId") as string)?.trim();
+  const workId = ((formData.get("workId") as string) ?? "").trim();
+  if (!adminId) return { success: false, message: "Admin ID is required." };
+  if (workId.length > 40) return { success: false, message: "Work ID must be 40 characters or fewer." };
+  try {
+    await prisma.adminUser.update({
+      where: { adminId },
+      data: { staffNo: workId || null },
+    });
+    return { success: true, message: workId ? `Work ID set to ${workId}.` : "Work ID cleared." };
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : "Unknown error";
+    return { success: false, message: `Failed to update Work ID: ${msg}` };
   }
 }
 

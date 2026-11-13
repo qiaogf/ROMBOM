@@ -4,7 +4,7 @@
  * 购物车全局 Context（单一事实来源）
  *
  * 登录用户：委托给 cartActions server action（Prisma Cart/CartItem 表）。
- * 游客（未登录）：localStorage 本地购物车（guest-cart.ts），加购走服务端只读查价
+ * 游客（未登录）：sessionStorage 会话内临时购物车（guest-cart.ts），加购走服务端只读查价
  * 保证价格真实；登录成功后由 mergeGuestCart server action 合并入库并清空本地。
  */
 import {
@@ -14,6 +14,7 @@ import {
   useEffect,
   useMemo,
   useReducer,
+  useRef,
   useState,
   type ReactNode,
 } from "react";
@@ -26,6 +27,7 @@ import {
   getQuoteForGuest,
   mergeGuestCart as serverMergeGuestCart,
 } from "@/app/actions/cartActions";
+import { useRouter } from "next/navigation";
 import { toSnapshot, type CartSnapshot } from "./cart-snapshot";
 import { cartReducer, initialCartState, type CartState } from "./cart-reducer";
 import {
@@ -99,6 +101,9 @@ export function CartProvider({ children }: { children: ReactNode }) {
   const [toasts, setToasts] = useState<ToastState[]>([]);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [guestItems, setGuestItems] = useState<GuestCartItem[]>([]);
+  /** /api/me 是否已返回 + 最新登录态（避免加购时把登录用户误判成游客） */
+  const loginCheckedRef = useRef(false);
+  const isLoggedInRef = useRef(false);
 
   const pushToast = useCallback((kind: ToastKind, message: string) => {
     setToasts((prev) => {
@@ -106,6 +111,34 @@ export function CartProvider({ children }: { children: ReactNode }) {
       return [...prev, { id, kind, message }];
     });
   }, []);
+
+  /** 登录态确认后：把水合前误入游客车的条目合并入库，再拉服务端购物车 */
+  const router = useRouter();
+  const mergePendingGuestItems = useCallback(async () => {
+    const pending = loadGuestItems();
+    let mergedAnything = false;
+    if (pending.length > 0) {
+      await serverMergeGuestCart(toMergeInputs(pending));
+      clearGuestStorage();
+      setGuestItems([]);
+      mergedAnything = true;
+    }
+    const cart = await getCurrentCart();
+    dispatch({ type: "HYDRATE", cart: toSnapshot(cart) });
+    // 服务端渲染的购物车页数据是旧的 → 刷新一次让列表与徽标一致
+    if (mergedAnything) router.refresh();
+  }, [router]);
+
+  /** 加购前确保登录态已知：首屏 /api/me 未返回时不能按游客处理 */
+  const ensureLoggedIn = useCallback(async () => {
+    if (loginCheckedRef.current) return isLoggedInRef.current;
+    const loggedIn = await detectLoggedIn();
+    loginCheckedRef.current = true;
+    isLoggedInRef.current = loggedIn;
+    setIsLoggedIn(loggedIn);
+    if (loggedIn) await mergePendingGuestItems();
+    return loggedIn;
+  }, [mergePendingGuestItems]);
 
   // 自动 dismiss toast（3s）
   useEffect(() => {
@@ -117,16 +150,17 @@ export function CartProvider({ children }: { children: ReactNode }) {
     return () => window.clearTimeout(t);
   }, [toasts]);
 
-  // 初始化：登录 → 服务端购物车；游客 → localStorage 本地购物车
+  // 初始化：登录 → 服务端购物车；游客 → sessionStorage 本地购物车
   useEffect(() => {
     let alive = true;
     (async () => {
       const loggedIn = await detectLoggedIn();
-      if (!alive) return;
+      loginCheckedRef.current = true;
+      isLoggedInRef.current = loggedIn;
       setIsLoggedIn(loggedIn);
       if (loggedIn) {
-        const cart = await getCurrentCart();
-        if (alive) dispatch({ type: "HYDRATE", cart: toSnapshot(cart) });
+        // 水合前可能已把条目加进游客车 → 先合并入库再拉服务端车
+        await mergePendingGuestItems();
       } else {
         const items = loadGuestItems();
         setGuestItems(items);
@@ -136,21 +170,22 @@ export function CartProvider({ children }: { children: ReactNode }) {
     return () => {
       alive = false;
     };
-  }, []);
+  }, [mergePendingGuestItems]);
 
   // 登录态变化后由外部触发（如登录弹窗成功回调），重新拉取购物车并刷新登录态
   const rehydrate = useCallback(async () => {
     const loggedIn = await detectLoggedIn();
+    loginCheckedRef.current = true;
+    isLoggedInRef.current = loggedIn;
     setIsLoggedIn(loggedIn);
     if (loggedIn) {
-      const cart = await getCurrentCart();
-      dispatch({ type: "HYDRATE", cart: toSnapshot(cart) });
+      await mergePendingGuestItems();
     } else {
       const items = loadGuestItems();
       setGuestItems(items);
       dispatch({ type: "HYDRATE", cart: snapshotFromGuest(items) });
     }
-  }, []);
+  }, [mergePendingGuestItems]);
 
   // 游客加购（ModelPrice 路径）：服务端只读查价 → 本地构造伪条目合并
   const guestAddByModelPrice = useCallback(
@@ -224,7 +259,8 @@ export function CartProvider({ children }: { children: ReactNode }) {
         return { ok: false, error: "No available quote" };
       }
       dispatch({ type: "ADD_START", productId });
-      if (!isLoggedIn) {
+      const loggedIn = isLoggedIn || (await ensureLoggedIn());
+      if (!loggedIn) {
         const res = await guestAddByQuote(productId, quoteId, quantity);
         if (!res.ok) dispatch({ type: "ADD_FAIL", productId });
         return res;
@@ -239,7 +275,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
       dispatch({ type: "ADD_DONE", productId, cart: snap });
       return { ok: true as const };
     },
-    [isLoggedIn, guestAddByQuote, pushToast]
+    [isLoggedIn, guestAddByQuote, pushToast, ensureLoggedIn]
   );
 
   const addToCartByModelPrice = useCallback(
@@ -249,7 +285,8 @@ export function CartProvider({ children }: { children: ReactNode }) {
         return { ok: false, error: "Invalid model price" };
       }
       dispatch({ type: "ADD_START", productId: modelPriceId });
-      if (!isLoggedIn) {
+      const loggedIn = isLoggedIn || (await ensureLoggedIn());
+      if (!loggedIn) {
         const res = await guestAddByModelPrice(modelPriceId, quantity);
         if (!res.ok) dispatch({ type: "ADD_FAIL", productId: modelPriceId });
         return res;
@@ -264,7 +301,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
       dispatch({ type: "ADD_DONE", productId: modelPriceId, cart: snap });
       return { ok: true as const };
     },
-    [isLoggedIn, guestAddByModelPrice, pushToast]
+    [isLoggedIn, guestAddByModelPrice, pushToast, ensureLoggedIn]
   );
 
   const clearCart = useCallback(async () => {

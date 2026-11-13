@@ -4,58 +4,11 @@
 
 import { prisma } from "@/lib/prisma";
 import { getCurrentUserId } from "@/lib/auth";
+import { withDbRetry } from "@/lib/db-retry";
 import type { Prisma } from "@/../prisma/generated/client";
 import type { OrderWithItems } from "./shared";
 import { serializeDecimals } from "./shared";
-
-/** 生成今日日期前缀 YYMMDD，如 260919 */
-function getDatePrefix(d: Date = new Date()): string {
-  const yy = String(d.getFullYear()).slice(-2);
-  const mm = String(d.getMonth() + 1).padStart(2, "0");
-  const dd = String(d.getDate()).padStart(2, "0");
-  return `${yy}${mm}${dd}`;
-}
-
-/**
- * 按日期顺序生成销售订单号：YYMMDD-N
- * - 同一天内按顺序递增
- * - 若存在已取消（cancelled）订单的空号，则优先填补最小空号
- */
-async function generateSalesOrderNumber(tx: Prisma.TransactionClient): Promise<string> {
-  const prefix = getDatePrefix();
-  const orders = await tx.salesOrder.findMany({
-    where: { orderNumber: { startsWith: `${prefix}-` } },
-    select: { orderNumber: true, orderStatus: true },
-  });
-
-  const taken = new Set<number>();
-  const reusable: number[] = [];
-  for (const o of orders) {
-    const seqPart = o.orderNumber.slice(prefix.length + 1);
-    const seq = parseInt(seqPart, 10);
-    if (Number.isNaN(seq)) continue;
-    if (o.orderStatus === "cancelled") {
-      reusable.push(seq);
-    } else {
-      taken.add(seq);
-    }
-  }
-
-  // 优先填补未被占用的最小空号（来自已取消订单）
-  reusable.sort((a, b) => a - b);
-  for (const seq of reusable) {
-    if (!taken.has(seq)) {
-      return `${prefix}-${seq}`;
-    }
-  }
-
-  // 否则取最大已用序号 + 1
-  let maxSeq = 0;
-  for (const seq of taken) {
-    if (seq > maxSeq) maxSeq = seq;
-  }
-  return `${prefix}-${maxSeq + 1}`;
-}
+import { generateSalesOrderNumber } from "./mutations/create-shared";
 
 /** 暴露给前端展示用：获取下一个可用销售订单号 */
 export async function getNextSalesOrderNumber(): Promise<string> {
@@ -63,22 +16,20 @@ export async function getNextSalesOrderNumber(): Promise<string> {
 }
 
 export async function getOrders(customerId?: string): Promise<OrderWithItems[]> {
-  try {
-    const currentCustomerId = customerId || (await getCurrentUserId());
-    if (!currentCustomerId) return [];
+  const currentCustomerId = customerId || (await getCurrentUserId());
+  if (!currentCustomerId) return [];
 
-    const orders = await prisma.salesOrder.findMany({
+  // 瞬时连接错误重试一次；仍失败则抛错，由页面展示"暂时不可用"而不是空列表
+  const orders = await withDbRetry(() =>
+    prisma.salesOrder.findMany({
       // 只要客户在 Order Summary 提交（Submit）过的订单均显示（Self / Manual 均可见）
       where: { customerId: currentCustomerId, submittedAt: { not: null } },
       include: { items: { include: { modelPrice: true } } },
       orderBy: { createdAt: "desc" },
-    });
+    })
+  );
 
-    return serializeDecimals(orders) as OrderWithItems[];
-  } catch (error) {
-    console.error("Get orders error:", error);
-    return [];
-  }
+  return serializeDecimals(orders) as OrderWithItems[];
 }
 
 /** 获取购物车页展示用的未支付订单（soStatus=ordered 且未从购物车隐藏） */
@@ -104,27 +55,39 @@ export async function getUnpaidOrdersForCart(): Promise<OrderWithItems[]> {
   }
 }
 
-export async function getOrderById(orderId: string): Promise<OrderWithItems | null> {
+/** 订单查询结果：区分"确实不存在"与"数据库暂时不可用" */
+export type OrderLookup =
+  | { status: "ok"; order: OrderWithItems }
+  | { status: "not_found" }
+  | { status: "unavailable" };
+
+/**
+ * 按 ID 查询当前客户的订单。
+ * 网络/中继抖动时重试一次；仍失败返回 unavailable，页面据此提示重试而非"订单不存在"。
+ */
+export async function lookupOrder(orderId: string): Promise<OrderLookup> {
+  const customerId = await getCurrentUserId();
+  if (!customerId) return { status: "not_found" };
+
+  if (!/^[a-zA-Z0-9_-]+$/.test(orderId) || orderId.length > 255) {
+    return { status: "not_found" };
+  }
+
   try {
-    const customerId = await getCurrentUserId();
-    if (!customerId) return null;
-
-    if (!/^[a-zA-Z0-9_-]+$/.test(orderId) || orderId.length > 255) {
-      return null;
-    }
-
-    const order = await prisma.salesOrder.findUnique({
-      where: { orderId },
-      include: { items: { include: { modelPrice: true } } },
-    }) as OrderWithItems | null;
+    const order = (await withDbRetry(() =>
+      prisma.salesOrder.findUnique({
+        where: { orderId },
+        include: { items: { include: { modelPrice: true } } },
+      })
+    )) as OrderWithItems | null;
 
     if (!order || order.customerId !== customerId) {
-      return null;
+      return { status: "not_found" };
     }
 
-    return serializeDecimals(order) as OrderWithItems;
+    return { status: "ok", order: serializeDecimals(order) as OrderWithItems };
   } catch (error) {
-    console.error("Get order by id error:", error);
-    return null;
+    console.error("Lookup order error:", error);
+    return { status: "unavailable" };
   }
 }

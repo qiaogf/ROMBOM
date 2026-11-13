@@ -5,4 +5,5 @@
 export * from "./create-from-cart";
 export * from "./create-full";
 export * from "./payment";
+export * from "./terms";
 export * from "./lifecycle";

@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { getOrders } from "@/app/actions/orderActions";
 import { getCurrentUserId } from "@/lib/auth";
+import { ServiceUnavailable } from "@/components/ServiceUnavailable";
 import { OrdersContent } from "./OrdersContent";
 import { Package } from "lucide-react";
 
@@ -12,7 +13,6 @@ export const dynamic = "force-dynamic";
  */
 export default async function OrdersPage() {
   const userId = await getCurrentUserId();
-  const orders = userId ? await getOrders() : [];
 
   if (!userId) {
     return (
@@ -42,6 +42,20 @@ export default async function OrdersPage() {
           </div>
         </div>
       </div>
+    );
+  }
+
+  let orders;
+  try {
+    orders = await getOrders();
+  } catch (error) {
+    // 数据库暂时不可用：显示重试入口，而不是让用户误以为订单全没了
+    console.error("Load orders page error:", error);
+    return (
+      <ServiceUnavailable
+        retryHref="/orders"
+        message="We couldn't load your orders just now. Your orders are safe — please try again in a moment."
+      />
     );
   }
 

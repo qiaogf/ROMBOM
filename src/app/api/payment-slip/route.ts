@@ -15,8 +15,8 @@ function env(name: string): string | undefined {
 }
 
 /**
- * POST /api/payment-slip — 上传转账水单并邮件转发到收款邮箱。
- * 文件不落库：邮件发送成功后仅在订单 adminNote 追加一行上传记录。
+ * POST /api/payment-slip — 购买者上传转账水单，邮件附件发送到管理者邮箱。
+ * 邮件发送成功后落盘存档，并在订单 adminNote 追加一行上传记录。
  */
 export async function POST(request: Request) {
   try {
@@ -75,7 +75,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ success: false, message: "Invalid SMTP port configuration." }, { status: 500 });
     }
 
-    const toEmail = env("PAYMENT_SLIP_TO_EMAIL") ?? "qiaogf1@gmail.com";
+    const toEmail = env("PAYMENT_SLIP_TO_EMAIL") ?? "457655279@qq.com";
     const fromEmail = env("INQUIRY_FROM_EMAIL") ?? user;
     const safeName =
       (file.name || "payment-slip").replace(/[^\w.\-]+/g, "_").slice(0, 120) || "payment-slip";
@@ -103,7 +103,7 @@ export async function POST(request: Request) {
       attachments: [{ filename: safeName, content: buffer }],
     });
 
-    // 落盘存档，供管理员在 Admin Panel → Sales → Documents 下载
+    // 落盘存档，作为管理者核对与后续审计的付款凭证
     await saveOrderFile(orderId, "slip", file);
 
     const noteLine = `[Bank slip uploaded] ${safeName} @ ${uploadedAt.toISOString()}`;

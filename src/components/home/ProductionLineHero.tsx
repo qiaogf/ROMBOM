@@ -82,7 +82,7 @@ const RIGHT_PART_X = 2014;
 const BAND_TOP = IMG_Y + 8;
 const BAND_BOTTOM = IMG_Y + IMG_H - 8;
 
-const IMG_SRC = "/images/line/hero-line-v17.webp";
+const IMG_SRC = "/images/line/hero-line-v22.webp";
 
 const CALLOUTS: Callout[] = [
   /* ---------------- left column ---------------- */
@@ -205,17 +205,17 @@ const CALLOUTS: Callout[] = [
   },
   {
     id: "unloading",
-    name: "Unloading Conveyor",
-    href: "/category/mechanical",
+    name: "3D Printing",
+    href: "/category/cnc-robot",
     accent: "orange",
     side: "right",
-    dot: [1822, 386],
-    box: [1826, 416],
-    radius: 92,
-    outline: "1746,347 1901,341 1912,358 1905,392 1899,483 1883,487 1880,408 1791,424 1787,491 1771,490 1769,420 1743,400 1739,365",
+    dot: [1803, 534],
+    box: [1803, 581],
+    radius: 60,
+    outline: "1743,528 1863,528 1863,634 1743,634",
     parts: [
-      { label: "Belt · Roller · Motor", href: "/category/mechanical" },
-      { label: "Guide Rail · Stopper", href: "/category/mechanical" },
+      { label: "FDM · SLA · SLS · SLM", href: "/category/cnc-robot" },
+      { label: "Filament · Resin · Powder", href: "/category/cnc-robot" },
     ],
   },
   {

@@ -1,8 +1,9 @@
-// 游客（未登录）购物车 — localStorage 本地持久化 + 服务端伪条目形态
+// 游客（未登录）购物车 — sessionStorage 会话内临时存储 + 服务端伪条目形态
 //
 // 设计：游客加购时由 server action（cart/guest.ts）返回真实价格行，本地构造与
 // CartItemRelationsInput 鸭子兼容的伪条目。CartItemsPanel / CartSpecsPanel /
 // computeCartTotals / toCartItemDisplay 全部零改动复用。
+// 游客购物车只保留在当前标签页会话中，关闭标签/浏览器后不保留。
 // 登录成功后 mergeGuestCart server action 把本地行合并进数据库购物车并清空本地。
 
 import type { CartItemRelationsInput } from "@/lib/cart-display";
@@ -33,7 +34,7 @@ export function guestItemId(): string {
 export function loadGuestItems(): GuestCartItem[] {
   if (!isBrowser()) return [];
   try {
-    const raw = window.localStorage.getItem(STORAGE_KEY);
+    const raw = window.sessionStorage.getItem(STORAGE_KEY);
     if (!raw) return [];
     const parsed = JSON.parse(raw) as unknown;
     if (!Array.isArray(parsed)) return [];
@@ -54,7 +55,7 @@ export function loadGuestItems(): GuestCartItem[] {
 export function saveGuestItems(items: GuestCartItem[]): void {
   if (!isBrowser()) return;
   try {
-    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(items.slice(0, MAX_GUEST_ITEMS)));
+    window.sessionStorage.setItem(STORAGE_KEY, JSON.stringify(items.slice(0, MAX_GUEST_ITEMS)));
   } catch {
     // 存储满/隐私模式：静默失败，购物车仍在当前会话内存中可用
   }
@@ -63,7 +64,7 @@ export function saveGuestItems(items: GuestCartItem[]): void {
 export function clearGuestStorage(): void {
   if (!isBrowser()) return;
   try {
-    window.localStorage.removeItem(STORAGE_KEY);
+    window.sessionStorage.removeItem(STORAGE_KEY);
   } catch {
     // ignore
   }

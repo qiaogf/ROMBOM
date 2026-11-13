@@ -9,9 +9,11 @@
 import { useTransition } from "react";
 import { Check, X, Trash2, Loader2, Send, Undo2 } from "lucide-react";
 import { useRouter } from "next/navigation";
+import { canAdminApproveOrReject, canAdminCancel } from "@/app/actions/order/status-machine";
 import {
   approveSalesOrder,
   rejectSalesOrder,
+  cancelSalesOrder,
   approvePurchaseOrder,
   withdrawPurchaseOrder,
   submitPurchaseOrder,
@@ -25,9 +27,19 @@ interface AuditActionButtonsProps {
   kind: "sales" | "purchase";
   label: string;
   poStatus?: string; // purchase 专用：draft 时显示 Submit（提交审批）按钮
+  submittedAt?: string | null; // sales 专用：未提交的 Draft 不允许 Approve / Reject
+  cancelRequestedAt?: string | null; // sales 专用：客户已提交取消申请的时间
 }
 
-export function AuditActionButtons({ auditId, auditStatus, kind, label, poStatus }: AuditActionButtonsProps) {
+export function AuditActionButtons({
+  auditId,
+  auditStatus,
+  kind,
+  label,
+  poStatus,
+  submittedAt,
+  cancelRequestedAt,
+}: AuditActionButtonsProps) {
   const [pending, startTransition] = useTransition();
   const router = useRouter();
 
@@ -144,55 +156,70 @@ export function AuditActionButtons({ auditId, auditStatus, kind, label, poStatus
     );
   }
 
-  // sales：Approved / Rejected 切换 + Delete（客户 Submit 后需人工确认时为 pending）
+  // sales：Approve / Reject（仅 Pending 可用）/ Cancel（Approved 且有取消申请）/ Delete（始终可用）
   const current = auditStatus === "rejected" ? "rejected" : auditStatus === "pending" ? "pending" : "approved";
-  const switchTo = (next: "approved" | "rejected") => {
-    if (next === current) return;
-    run(next === "approved" ? approveSalesOrder : rejectSalesOrder);
-  };
+  const canApproveOrReject = canAdminApproveOrReject({ submittedAt: submittedAt ?? null, auditStatus });
+  const canCancel = canAdminCancel(auditStatus, cancelRequestedAt);
 
   return (
     <div className="flex items-center gap-1">
-      {current === "pending" && (
-        <span className="inline-flex items-center px-1 py-0.5 text-[9px] font-semibold rounded bg-amber-500 text-white">
-          Pending
-        </span>
-      )}
       <button
         type="button"
-        onClick={() => switchTo("approved")}
-        disabled={pending}
-        title={`Approve ${label}`}
+        onClick={() => canApproveOrReject && run(approveSalesOrder)}
+        disabled={pending || !canApproveOrReject}
+        title={canApproveOrReject ? `Approve ${label}` : "Only pending orders can be approved"}
         className={
           current === "approved"
-            ? `${base} text-white bg-emerald-600 hover:bg-emerald-700`
+            ? `${base} text-white bg-emerald-600`
             : `${base} text-emerald-700 border border-emerald-200 hover:bg-emerald-50`
         }
       >
-        {pending && current === "rejected" ? (
+        {pending && canApproveOrReject ? (
           <Loader2 className="w-3 h-3 animate-spin" />
         ) : (
           <Check className="w-3 h-3" />
         )}
-        Approved
+        Approve
       </button>
       <button
         type="button"
-        onClick={() => switchTo("rejected")}
-        disabled={pending}
-        title={`Reject ${label}`}
+        onClick={() => canApproveOrReject && run(rejectSalesOrder)}
+        disabled={pending || !canApproveOrReject}
+        title={canApproveOrReject ? `Reject ${label}` : "Only pending orders can be rejected"}
         className={
           current === "rejected"
-            ? `${base} text-white bg-rose-600 hover:bg-rose-700`
+            ? `${base} text-white bg-rose-600`
             : `${base} text-rose-600 border border-rose-200 hover:bg-rose-50`
         }
       >
-        {pending && current === "approved" ? (
+        {pending && canApproveOrReject ? (
           <Loader2 className="w-3 h-3 animate-spin" />
         ) : (
           <X className="w-3 h-3" />
         )}
-        Rejected
+        Reject
+      </button>
+      <button
+        type="button"
+        onClick={() => canCancel && run(cancelSalesOrder)}
+        disabled={pending || !canCancel}
+        title={
+          canCancel
+            ? `Approve the customer's cancellation request for ${label}`
+            : "Cancel is available only for approved orders with a customer cancellation request"
+        }
+        className={
+          canCancel
+            ? `${base} text-white bg-slate-600 hover:bg-slate-700`
+            : `${base} text-slate-500 border border-slate-200`
+        }
+      >
+        {pending && canCancel ? (
+          <Loader2 className="w-3 h-3 animate-spin" />
+        ) : (
+          <Undo2 className="w-3 h-3" />
+        )}
+        Cancel
       </button>
       {deleteButton}
     </div>
