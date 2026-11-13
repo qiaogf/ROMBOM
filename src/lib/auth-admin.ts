@@ -1,6 +1,12 @@
 import { cookies } from "next/headers";
 import { prisma } from "./prisma";
 import { isHttpsRequest } from "./auth";
+import {
+  hashPassword,
+  verifyPasswordLegacyCompatible,
+  signSessionToken,
+  verifySessionToken,
+} from "./security";
 
 /**
  * 管理员 / 供应商认证模块
@@ -36,18 +42,23 @@ export async function adminLogin(email: string, password: string) {
   const admin = await prisma.adminUser.findUnique({ where: { email } });
   if (!admin || !admin.isActive) return null;
 
-  // 简单密码校验 (生产环境应用 bcrypt/argon2)
-  const crypto = await import("crypto");
-  const hash = crypto.createHash("sha256").update(password).digest("hex");
-  if (hash !== admin.passwordHash) return null;
+  // 密码验证：兼容旧 SHA-256，成功后自动升级为 scrypt+salt
+  const { valid, needsUpgrade } = verifyPasswordLegacyCompatible(password, admin.passwordHash);
+  if (!valid) return null;
+  if (needsUpgrade) {
+    await prisma.adminUser.update({
+      where: { adminId: admin.adminId },
+      data: { passwordHash: hashPassword(password) },
+    });
+  }
 
-  // 设置 cookie — 存 adminId 以便精准识别当前登录管理员
+  // Session cookie 用 HMAC 签名 token，防止伪造 adminId
   const cookieStore = await cookies();
   const secureCookie = await isHttpsRequest();
 
   cookieStore.set({
     name: ADMIN_COOKIE,
-    value: admin.adminId,
+    value: signSessionToken(admin.adminId),
     httpOnly: true,
     secure: secureCookie,
     sameSite: "strict" as const,
@@ -74,10 +85,14 @@ export async function adminLogin(email: string, password: string) {
 
 export async function getAdminSession() {
   const cookieStore = await cookies();
-  const adminId = cookieStore.get(ADMIN_COOKIE)?.value;
+  const adminToken = cookieStore.get(ADMIN_COOKIE)?.value;
   const role = cookieStore.get(ROLE_COOKIE)?.value;
 
-  if (!adminId || role !== "admin") return null;
+  if (!adminToken || role !== "admin") return null;
+
+  // 验证签名 token，防止伪造
+  const adminId = verifySessionToken(adminToken);
+  if (!adminId) return null;
 
   const admin = await prisma.adminUser.findUnique({
     where: { adminId },
@@ -106,16 +121,22 @@ export async function supplierLogin(email: string, password: string) {
   });
   if (!supplier || !supplier.isActive) return null;
 
-  const crypto = await import("crypto");
-  const hash = crypto.createHash("sha256").update(password).digest("hex");
-  if (hash !== supplier.passwordHash) return null;
+  // 密码验证：兼容旧 SHA-256，成功后自动升级为 scrypt+salt
+  const { valid, needsUpgrade } = verifyPasswordLegacyCompatible(password, supplier.passwordHash);
+  if (!valid) return null;
+  if (needsUpgrade) {
+    await prisma.supplier.update({
+      where: { supplierId: supplier.supplierId },
+      data: { passwordHash: hashPassword(password) },
+    });
+  }
 
   const cookieStore = await cookies();
   const secureCookie = await isHttpsRequest();
 
   cookieStore.set({
     name: SUPPLIER_COOKIE,
-    value: supplier.supplierId,
+    value: signSessionToken(supplier.supplierId),
     httpOnly: true,
     secure: secureCookie,
     sameSite: "strict" as const,
@@ -148,10 +169,14 @@ export async function supplierLogin(email: string, password: string) {
 
 export async function getSupplierSession() {
   const cookieStore = await cookies();
-  const supplierId = cookieStore.get(SUPPLIER_COOKIE)?.value;
+  const supplierToken = cookieStore.get(SUPPLIER_COOKIE)?.value;
   const role = cookieStore.get(ROLE_COOKIE)?.value;
 
-  if (!supplierId || role !== "supplier") return null;
+  if (!supplierToken || role !== "supplier") return null;
+
+  // 验证签名 token，防止伪造
+  const supplierId = verifySessionToken(supplierToken);
+  if (!supplierId) return null;
 
   const supplier = await prisma.supplier.findUnique({
     where: { supplierId },

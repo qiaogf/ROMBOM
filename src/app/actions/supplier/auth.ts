@@ -6,6 +6,11 @@
 import { prisma } from "@/lib/prisma";
 import { cookies } from "next/headers";
 import { isHttpsRequest } from "@/lib/auth";
+import {
+  hashPassword,
+  verifyPasswordLegacyCompatible,
+  signSessionToken,
+} from "@/lib/security";
 
 const SUPPLIER_COOKIE = "supplier_session";
 const ROLE_COOKIE = "user_role";
@@ -50,18 +55,23 @@ export async function supplierLoginAction(formData: FormData): Promise<SupplierL
     };
   }
 
-  // SHA-256 校验（与 auth-admin.ts 中 supplierLogin 保持一致）
-  const crypto = await import("crypto");
-  const hash = crypto.createHash("sha256").update(rawPassword).digest("hex");
-  if (hash !== supplier.passwordHash) {
+  // 密码验证：兼容旧 SHA-256，成功后自动升级为 scrypt+salt
+  const { valid, needsUpgrade } = verifyPasswordLegacyCompatible(rawPassword, supplier.passwordHash);
+  if (!valid) {
     return { success: false, message: "Invalid email or password." };
+  }
+  if (needsUpgrade) {
+    await prisma.supplier.update({
+      where: { supplierId: supplier.supplierId },
+      data: { passwordHash: hashPassword(rawPassword) },
+    });
   }
 
   const cookieStore = await cookies();
   const secureCookie = await isHttpsRequest();
   cookieStore.set({
     name: SUPPLIER_COOKIE,
-    value: supplier.supplierId,
+    value: signSessionToken(supplier.supplierId),
     httpOnly: true,
     secure: secureCookie,
     sameSite: "strict" as const,
@@ -114,8 +124,7 @@ export async function supplierRegister(formData: FormData): Promise<SupplierRegi
     return { success: false, message: "Password must be at least 8 characters." };
   }
 
-  const crypto = await import("crypto");
-  const passwordHash = crypto.createHash("sha256").update(password).digest("hex");
+  const passwordHash = hashPassword(password);
 
   // 邮箱唯一（三表联合校验，并行查询）
   const [usedByAdmin, usedByCustomer, usedBySupplier] = await Promise.all([

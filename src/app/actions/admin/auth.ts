@@ -3,6 +3,11 @@
 import { prisma } from "@/lib/prisma";
 import { cookies } from "next/headers";
 import { isHttpsRequest } from "@/lib/auth";
+import {
+  hashPassword,
+  verifyPasswordLegacyCompatible,
+  signSessionToken,
+} from "@/lib/security";
 
 const ADMIN_COOKIE = "admin_session";
 const ROLE_COOKIE = "user_role";
@@ -43,17 +48,23 @@ export async function adminLoginAction(formData: FormData): Promise<AdminLoginRe
     };
   }
 
-  const crypto = await import("crypto");
-  const hash = crypto.createHash("sha256").update(rawPassword).digest("hex");
-  if (hash !== admin.passwordHash) {
+  // 密码验证：兼容旧 SHA-256，成功后自动升级为 scrypt+salt
+  const { valid, needsUpgrade } = verifyPasswordLegacyCompatible(rawPassword, admin.passwordHash);
+  if (!valid) {
     return { success: false, message: "Invalid email or password." };
+  }
+  if (needsUpgrade) {
+    await prisma.adminUser.update({
+      where: { adminId: admin.adminId },
+      data: { passwordHash: hashPassword(rawPassword) },
+    });
   }
 
   const cookieStore = await cookies();
   const secureCookie = await isHttpsRequest();
   cookieStore.set({
     name: ADMIN_COOKIE,
-    value: admin.adminId,
+    value: signSessionToken(admin.adminId),
     httpOnly: true,
     secure: secureCookie,
     sameSite: "strict" as const,
@@ -100,8 +111,7 @@ export async function adminRegister(formData: FormData): Promise<{ success: bool
     return { success: false, message: "Password must be at least 8 characters." };
   }
 
-  const crypto = await import("crypto");
-  const passwordHash = crypto.createHash("sha256").update(password).digest("hex");
+  const passwordHash = hashPassword(password);
 
   // 邮箱唯一（三表联合校验，并行查询）
   const [existing, usedByCustomer, usedBySupplier] = await Promise.all([

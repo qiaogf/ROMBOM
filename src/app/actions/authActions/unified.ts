@@ -2,17 +2,19 @@
 
 // 统一登录 / 注册（customer / supplier / admin 共用同一弹窗）。
 
-import crypto from "crypto";
 import { cookies, headers } from "next/headers";
 import { prisma } from "@/lib/prisma";
 import { generateSession, isHttpsRequest } from "@/lib/auth";
 import {
   validateEmailFormat,
   verifyPassword,
+  verifyPasswordLegacyCompatible,
   checkLoginRateLimit,
   recordLoginAttempt,
   getClientIP,
   sanitizeEmail,
+  hashPassword,
+  signSessionToken,
 } from "@/lib/security";
 import { supplierRegister } from "@/app/actions/supplier/auth";
 import { adminRegister } from "@/app/actions/admin/auth";
@@ -28,9 +30,6 @@ const SUPPLIER_COOKIE = "supplier_session";
 const ADMIN_COOKIE = "admin_session";
 const ROLE_COOKIE = "user_role";
 const ROLE_SESSION_MAX_AGE = 60 * 60 * 24 * 7;
-
-const sha256Hex = (value: string): string =>
-  crypto.createHash("sha256").update(value).digest("hex");
 
 /**
  * 按邮箱自动识别角色：customer（scrypt）/ supplier、admin（SHA-256）
@@ -115,37 +114,46 @@ export async function loginUnified(data: LoginData): Promise<UnifiedLoginResult>
           : "Account is not active. Please contact support.",
       };
     }
-    if (supplier && supplier.isActive && sha256Hex(rawPassword) === supplier.passwordHash) {
-      cookieStore.set({
-        name: SUPPLIER_COOKIE,
-        value: supplier.supplierId,
-        httpOnly: true,
-        secure: secureCookie,
-        sameSite: "strict" as const,
-        maxAge: ROLE_SESSION_MAX_AGE,
-        path: "/",
-      });
-      cookieStore.set({
-        name: ROLE_COOKIE,
-        value: "supplier",
-        httpOnly: true,
-        secure: secureCookie,
-        sameSite: "strict" as const,
-        maxAge: ROLE_SESSION_MAX_AGE,
-        path: "/",
-      });
+    if (supplier && supplier.isActive) {
+      const { valid, needsUpgrade } = verifyPasswordLegacyCompatible(rawPassword, supplier.passwordHash);
+      if (valid) {
+        if (needsUpgrade) {
+          await prisma.supplier.update({
+            where: { supplierId: supplier.supplierId },
+            data: { passwordHash: hashPassword(rawPassword) },
+          });
+        }
+        cookieStore.set({
+          name: SUPPLIER_COOKIE,
+          value: signSessionToken(supplier.supplierId),
+          httpOnly: true,
+          secure: secureCookie,
+          sameSite: "strict" as const,
+          maxAge: ROLE_SESSION_MAX_AGE,
+          path: "/",
+        });
+        cookieStore.set({
+          name: ROLE_COOKIE,
+          value: "supplier",
+          httpOnly: true,
+          secure: secureCookie,
+          sameSite: "strict" as const,
+          maxAge: ROLE_SESSION_MAX_AGE,
+          path: "/",
+        });
 
-      await prisma.supplier.update({
-        where: { supplierId: supplier.supplierId },
-        data: { lastLoginAt: new Date() },
-      });
+        await prisma.supplier.update({
+          where: { supplierId: supplier.supplierId },
+          data: { lastLoginAt: new Date() },
+        });
 
-      return {
-        success: true,
-        message: "Login successful",
-        role: "supplier",
-        userId: supplier.supplierId,
-      };
+        return {
+          success: true,
+          message: "Login successful",
+          role: "supplier",
+          userId: supplier.supplierId,
+        };
+      }
     }
 
     // ── Admin ──
@@ -156,37 +164,46 @@ export async function loginUnified(data: LoginData): Promise<UnifiedLoginResult>
         message: "Account is not active. It is either pending super-admin approval or has been deactivated.",
       };
     }
-    if (admin && admin.isActive && sha256Hex(rawPassword) === admin.passwordHash) {
-      cookieStore.set({
-        name: ADMIN_COOKIE,
-        value: admin.adminId,
-        httpOnly: true,
-        secure: secureCookie,
-        sameSite: "strict" as const,
-        maxAge: ROLE_SESSION_MAX_AGE,
-        path: "/",
-      });
-      cookieStore.set({
-        name: ROLE_COOKIE,
-        value: "admin",
-        httpOnly: true,
-        secure: secureCookie,
-        sameSite: "strict" as const,
-        maxAge: ROLE_SESSION_MAX_AGE,
-        path: "/",
-      });
+    if (admin && admin.isActive) {
+      const { valid, needsUpgrade } = verifyPasswordLegacyCompatible(rawPassword, admin.passwordHash);
+      if (valid) {
+        if (needsUpgrade) {
+          await prisma.adminUser.update({
+            where: { adminId: admin.adminId },
+            data: { passwordHash: hashPassword(rawPassword) },
+          });
+        }
+        cookieStore.set({
+          name: ADMIN_COOKIE,
+          value: signSessionToken(admin.adminId),
+          httpOnly: true,
+          secure: secureCookie,
+          sameSite: "strict" as const,
+          maxAge: ROLE_SESSION_MAX_AGE,
+          path: "/",
+        });
+        cookieStore.set({
+          name: ROLE_COOKIE,
+          value: "admin",
+          httpOnly: true,
+          secure: secureCookie,
+          sameSite: "strict" as const,
+          maxAge: ROLE_SESSION_MAX_AGE,
+          path: "/",
+        });
 
-      await prisma.adminUser.update({
-        where: { adminId: admin.adminId },
-        data: { role: "admin" },
-      });
+        await prisma.adminUser.update({
+          where: { adminId: admin.adminId },
+          data: { role: "admin" },
+        });
 
-      return {
-        success: true,
-        message: "Login successful",
-        role: "admin",
-        userId: admin.adminId,
-      };
+        return {
+          success: true,
+          message: "Login successful",
+          role: "admin",
+          userId: admin.adminId,
+        };
+      }
     }
 
     return { success: false, message: "Invalid email or password" };

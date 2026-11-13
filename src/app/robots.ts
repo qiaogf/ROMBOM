@@ -8,7 +8,23 @@ export default function robots(): MetadataRoute.Robots {
       {
         userAgent: "*",
         allow: "/",
-        disallow: ["/checkout", "/cart", "/orders", "/account"],
+        disallow: [
+          // 后台与敏感路径不允许索引
+          "/admin",
+          "/supplier",
+          "/customer",
+          "/auth",
+          "/api",
+          "/checkout",
+          "/cart",
+          "/orders",
+          "/account",
+        ],
+      },
+      // 阻止常见爬虫 UA（反爬辅助，非硬性防护）
+      {
+        userAgent: ["GPTBot", "CCBot", "ChatGPT-User", "Google-Extended", "anthropic-ai", "Claude-Web"],
+        disallow: ["/"],
       },
     ],
     sitemap: `${siteUrl}/sitemap.xml`,
