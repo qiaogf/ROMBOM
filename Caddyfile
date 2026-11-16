@@ -1,22 +1,21 @@
 # Caddy 反向代理（Cloudflare CDN 回源模式）
 # DOMAIN / ACME_EMAIL 由 docker-compose.yml 从 .env.production 注入
 #
-# 说明：域名走 Cloudflare 橙云代理，源站不再申请 Let's Encrypt（http-01 无法到达源站）。
-# - 443：自签内部证书，对应 Cloudflare SSL 模式 Full（或 Full strict 时换成 Origin Certificate）
-# - 80 ：明文回源，对应 Cloudflare SSL 模式 Flexible
-# 若需 Full (strict)，把 443 块的 `tls internal` 换成
-# `tls /certs/origin.crt /certs/origin.key`，并在 compose 中挂载 ./certs:/certs:ro
+# 说明：域名走 Cloudflare 橙云代理，源站不申请 Let's Encrypt（http-01 无法到达源站）。
+# - 443：Cloudflare Origin Certificate，对应 SSL 模式 Full (strict)
+# - 80 ：明文回源，对应 SSL 模式 Flexible（建议仅作兜底）
+# 证书文件放在 ./certs（origin.crt / origin.key），已在 .gitignore 中排除。
 
 {
 	email {$ACME_EMAIL}
-	# 保留证书管理（tls internal 需要），仅关闭 80→443 自动跳转，
+	# 保留证书管理，仅关闭 80→443 自动跳转，
 	# 以便 Cloudflare Flexible 模式下 80 明文回源不被重定向
 	auto_https disable_redirects
 }
 
-# ---- 443：HTTPS 回源（Cloudflare Full） ----
+# ---- 443：HTTPS 回源（Cloudflare Full strict） ----
 {$DOMAIN} {
-	tls internal
+	tls /certs/origin.crt /certs/origin.key
 
 	encode zstd gzip
 

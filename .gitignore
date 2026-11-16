@@ -45,6 +45,11 @@ prisma/generated/
 !.env.example
 
 # ========================
+# TLS 证书（Cloudflare Origin Certificate 私钥）
+# ========================
+certs/
+
+# ========================
 # Logs
 # ========================
 logs/

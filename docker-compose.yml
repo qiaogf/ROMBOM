@@ -53,6 +53,8 @@ services:
       ACME_EMAIL: ${ACME_EMAIL}
     volumes:
       - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      # Cloudflare Origin Certificate（origin.crt / origin.key），需 chmod 600
+      - ./certs:/certs:ro
       - caddy_data:/data
       - caddy_config:/config
 
