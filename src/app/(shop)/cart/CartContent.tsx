@@ -77,10 +77,6 @@ export function CartContent({ cart, isLoggedIn }: CartContentProps) {
       <div className="px-1.5 sm:px-2 pt-1.5 pb-3">
         <div className="mb-1.5 flex flex-wrap items-center gap-2">
           <h1 className="text-sm font-bold text-slate-900">Shopping Cart</h1>
-          <span className="flex-1 text-center text-[11px] text-slate-500">
-            <span className="inline-block w-2 h-2 rounded-full bg-green-300 border border-green-400 align-middle mr-1" />
-            Light-green: self-checkout. Others require manual confirmation.
-          </span>
         </div>
 
         {error && (
@@ -97,7 +93,7 @@ export function CartContent({ cart, isLoggedIn }: CartContentProps) {
           <CartItemsPanel items={items} isLoggedIn={isLoggedIn} actions={actions} />
 
           {/* ===== 右侧：规格参数表 ===== */}
-          <div className="lg:col-span-1">
+          <div className="lg:col-span-1 min-w-0">
             <CartSpecsPanel items={items} />
           </div>
         </div>

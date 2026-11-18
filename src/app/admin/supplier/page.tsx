@@ -26,7 +26,7 @@ function SupplierTable({ rows }: { rows: SupplierRow[] }) {
   return (
     <div className="bg-white border border-slate-200 rounded-lg overflow-hidden">
       <div className="overflow-x-auto">
-        <table className="w-full table-fixed text-xs">
+        <table className="w-full min-w-[680px] table-fixed text-xs">
           <thead className="bg-slate-50 text-slate-500 text-[10px] uppercase tracking-wide">
             <tr>
               <th className="w-[90px] px-1 py-1 text-left whitespace-nowrap">Supplier ID</th>
@@ -115,14 +115,14 @@ export default async function SupplierListPage() {
 
   return (
     <div className="h-full">
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 h-full">
+      <div className="grid grid-cols-1 grid-rows-2 lg:grid-cols-2 lg:grid-rows-1 gap-3 h-full">
         <div className="min-w-0 flex flex-col min-h-0">
-          <div className="min-h-0 flex-1 overflow-y-auto">
+          <div className="min-h-0 flex-1 overflow-auto">
             <SupplierTable rows={leftRows} />
           </div>
         </div>
         <div className="min-w-0 flex flex-col min-h-0">
-          <div className="min-h-0 flex-1 overflow-y-auto pr-1">
+          <div className="min-h-0 flex-1 overflow-auto pr-1">
             <SupplierTable rows={rightRows} />
           </div>
         </div>

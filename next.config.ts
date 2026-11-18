@@ -29,6 +29,8 @@ const nextConfig: NextConfig = {
     contentSecurityPolicy: "default-src 'self'; script-src 'none'; sandbox;",
   },
   transpilePackages: [],
+  // 允许手机等局域网设备访问开发服务器资源（默认仅允许 localhost，跨源 dev 资源会被拦截）
+  allowedDevOrigins: ["192.168.3.155"],
   // exceljs 依赖链 exceljs→unzipper→fstream→rimraf 含动态 require，
   // Turbopack 打包时会将 rimraf 外部化为带哈希的模块名导致运行时找不到；
   // 标记为服务端外部包，由 Node 原生 require 解析

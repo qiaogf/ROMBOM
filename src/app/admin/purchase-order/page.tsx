@@ -8,6 +8,10 @@ import {
 } from "./_data/purchase-order-data";
 import { PurchaseItemsTable } from "./_components/PurchaseItemsTable";
 import { StatusBadge } from "@/app/admin/_components/StatusBadge";
+import {
+  STATUS_META,
+  resolveOrderLifecycle,
+} from "@/app/actions/order/status-machine";
 
 export const dynamic = "force-dynamic";
 
@@ -36,10 +40,10 @@ export default async function PurchaseOrderListPage({
   const selected = selectedId ? await getPurchaseOrderDetail(selectedId) : null;
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 h-[calc(100vh-3rem-1px)]">
+    <div className="grid grid-cols-1 grid-rows-2 lg:grid-cols-2 lg:grid-rows-1 gap-3 h-[calc(100vh-3rem-1px)]">
       {/* 左半：采购订单列表 */}
       <div className="min-w-0 flex flex-col min-h-0">
-        <div className="min-h-0 flex-1 overflow-y-auto">
+        <div className="min-h-0 flex-1 overflow-auto">
           <div className="bg-white border border-slate-200 rounded-lg overflow-hidden">
             <div className="overflow-x-auto">
               <table className="w-full table-fixed text-xs min-w-[660px]">
@@ -118,8 +122,20 @@ export default async function PurchaseOrderListPage({
                           <td className="px-1.5 py-0.5 text-slate-700 tabular-nums">
                             {formatUSDSafe(po.totalAmount)}
                           </td>
-                          <td className="px-1.5 py-0.5">
-                            <StatusBadge status={po.poStatus} />
+                          <td className="px-1.5 py-0.5 align-middle">
+                            {/* 优先显示关联 Sales Order 的生命周期徽章（与 Sales 页同态同色）；无关联 SO 则回退 PO 自身 poStatus */}
+                            {po.salesOrder ? (
+                              <span
+                                className="inline-flex items-center px-1.5 py-0.5 text-[10px] font-semibold rounded text-white"
+                                style={{
+                                  backgroundColor: STATUS_META[resolveOrderLifecycle(po.salesOrder)].color,
+                                }}
+                              >
+                                {STATUS_META[resolveOrderLifecycle(po.salesOrder)].label}
+                              </span>
+                            ) : (
+                              <StatusBadge status={po.poStatus} />
+                            )}
                           </td>
                           <td className="px-1.5 py-0.5">
                             <AuditActionButtons
@@ -145,7 +161,7 @@ export default async function PurchaseOrderListPage({
           ?sales= → 该销售订单对应的所有采购订单明细（每 PO 一块，各带合计）；
           ?id=    → 仅该采购订单明细 */}
       <div className="min-w-0 flex flex-col min-h-0">
-        <div className="min-h-0 flex-1 overflow-y-auto">
+        <div className="min-h-0 flex-1 overflow-auto">
           {salesOrderPOs ? (
             salesOrderPOs.length === 0 ? (
               <div className="py-6 text-left text-sm text-slate-400">

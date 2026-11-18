@@ -16,10 +16,11 @@ interface Props {
   actions: CartPageActions;
 }
 
-// 列序（2026-10-30）：Model（弹性）/ Price / Qty / Subtotal / Condition / Leadtime / Self / 删除
-// 列宽总和严格控制：固定列 478px + gaps 7px + padding 16px ≈ 501px，Model 列弹性填充剩余空间
+// 列序（2026-11-18）：Model（弹性）/ Price / Qty / Amount / Condition / Leadtime / 删除
+// 列宽：固定列 488px + gaps 24px + padding 16px ≈ 528px，Model 下限 160px，
+// 表格最小宽度 700px（手机端同样保持表格形态），容器更窄时由外层 overflow-auto 产生左右滑条
 const gridCols =
-  "grid-cols-1 sm:grid-cols-[minmax(0,1.5fr)_80px_68px_80px_80px_90px_52px_28px]";
+  "grid-cols-[minmax(160px,1.2fr)_80px_68px_84px_88px_88px_80px]";
 
 export function CartItemsPanel({ items, isLoggedIn, actions }: Props) {
   const {
@@ -27,7 +28,6 @@ export function CartItemsPanel({ items, isLoggedIn, actions }: Props) {
     qtyInputs,
     setQtyInputs,
     isSubmitting,
-    setShowLogin,
     totalItems,
     totalAmount,
     handleUpdateQuantity,
@@ -38,17 +38,16 @@ export function CartItemsPanel({ items, isLoggedIn, actions }: Props) {
   } = actions;
 
   return (
-    <div className="lg:col-span-1">
-      <div className="border border-slate-200 rounded bg-white overflow-hidden">
-        {/* 表头（桌面端显示）— 列序与行单元格严格一一对应 */}
-        <div className={`hidden sm:grid ${gridCols} gap-1 items-center px-2 py-1 bg-slate-50 border-b border-slate-200 text-[10px] font-bold uppercase tracking-wider text-slate-500`}>
+    <div className="lg:col-span-1 min-w-0 overflow-auto max-h-[70dvh]">
+      <div className="border border-slate-200 rounded bg-white overflow-hidden min-w-[700px]">
+        {/* 表头 — 列序与行单元格严格一一对应（手机端同样按表格展示） */}
+        <div className={`grid ${gridCols} gap-1 items-center px-2 py-1 bg-slate-50 border-b border-slate-200 text-[10px] font-bold uppercase tracking-wider text-slate-500 text-center`}>
           <span>Model</span>
           <span>Price</span>
           <span>Qty</span>
           <span>Amount</span>
           <span>Condition</span>
           <span>Leadtime</span>
-          <span className="text-center">Self</span>
           <span aria-hidden></span>
         </div>
 
@@ -67,8 +66,7 @@ export function CartItemsPanel({ items, isLoggedIn, actions }: Props) {
               className={`grid ${gridCols} gap-1 items-center px-2 py-1 border-b border-slate-100 last:border-b-0`}
             >
               {/* Model（首列，链接到产品详情；无引用时仅展示文字） */}
-              <div className="min-w-0 flex items-center justify-between sm:block">
-                <span className="sm:hidden text-[10px] font-bold uppercase text-slate-400">Model</span>
+              <div className="min-w-0">
                 {detailId ? (
                   <Link
                     href={`/products/${detailId}`}
@@ -87,14 +85,12 @@ export function CartItemsPanel({ items, isLoggedIn, actions }: Props) {
               </div>
 
               {/* Price */}
-              <div className="flex items-center justify-between sm:justify-start">
-                <span className="sm:hidden text-[10px] font-bold uppercase text-slate-400">Price</span>
+              <div className="flex items-center justify-center">
                 <span className="text-[12px] text-slate-700 tabular-nums">{formatUSD(unitPrice)}</span>
               </div>
 
               {/* Qty — 窄输入框 + 小字号左右加减 */}
-              <div className="flex items-center sm:justify-start">
-                <span className="sm:hidden text-[10px] font-bold uppercase text-slate-400 mr-1">Qty</span>
+              <div className="flex items-center justify-center">
                 <button
                   type="button"
                   onClick={() => void handleUpdateQuantity(item.itemId, item.quantity - 1)}
@@ -127,23 +123,20 @@ export function CartItemsPanel({ items, isLoggedIn, actions }: Props) {
               </div>
 
               {/* Subtotal */}
-              <div className="flex items-center justify-between sm:justify-start">
-                <span className="sm:hidden text-[10px] font-bold uppercase text-slate-400">Amount</span>
+              <div className="flex items-center justify-center">
                 <span className="text-[12px] text-slate-700 tabular-nums">{formatUSD(itemTotal)}</span>
               </div>
 
               {/* Condition */}
-              <div className="min-w-0 flex items-center justify-between sm:block">
-                <span className="sm:hidden text-[10px] font-bold uppercase text-slate-400">Condition</span>
-                <span className="block text-[12px] text-slate-700 truncate">
+              <div className="min-w-0">
+                <span className="block text-[12px] text-slate-700 truncate text-center">
                   {display.condition ?? <span className="text-slate-400">-</span>}
                 </span>
               </div>
 
               {/* Leadtime */}
-              <div className="min-w-0 flex items-center justify-between sm:block">
-                <span className="sm:hidden text-[10px] font-bold uppercase text-slate-400">Leadtime</span>
-                <span className={`block text-[12px] truncate ${
+              <div className="min-w-0">
+                <span className={`block text-[12px] truncate text-center ${
                   (display.leadTime ?? "").toLowerCase().includes("out of stock") ? "text-rose-600"
                   : (display.leadTime ?? "").toLowerCase().includes("in stock") ? "text-green-700"
                   : "text-amber-700"
@@ -152,21 +145,8 @@ export function CartItemsPanel({ items, isLoggedIn, actions }: Props) {
                 </span>
               </div>
 
-              {/* Self — 淡绿 = 客户可自助下单；灰色（不显示）需人工确认 */}
-              <div className="flex items-center gap-1 sm:justify-center">
-                <span className="sm:hidden text-[10px] font-bold uppercase text-slate-400 mr-1">Self</span>
-                {display.selfOrder && (
-                  <span
-                    className="inline-block px-1 py-[1px] rounded bg-green-100 border border-green-300 text-[9px] font-medium text-green-700 whitespace-nowrap"
-                    title="Self-checkout available"
-                  >
-                    Self
-                  </span>
-                )}
-              </div>
-
               {/* 删除 */}
-              <div className="flex sm:justify-end">
+              <div className="flex items-center justify-center">
                 <button
                   type="button"
                   onClick={() => void handleRemoveItem(item.itemId)}
@@ -180,46 +160,50 @@ export function CartItemsPanel({ items, isLoggedIn, actions }: Props) {
             </div>
           );
         })}
-      </div>
 
-      {/* 底部：总金额汇总 */}
-      <div className="mt-1.5 flex flex-col sm:flex-row sm:items-center justify-between gap-1.5">
-        <div className="text-[12px] text-slate-600">
-          Items ({totalItems}):{" "}
-          <span className="text-[13px] font-bold text-slate-900 ml-0.5">{formatUSD(totalAmount)}</span>
+      {/* 底部：汇总与操作按钮 — 与表格同属一个表格（滚动条位于 Items 行下方），列对齐：Items→Qty、金额→Amount、Submit→Condition、Delete→Self */}
+      <div className={`grid ${gridCols} gap-1 items-center border-t border-slate-200 px-2 py-1`}>
+        <span className="col-start-3 text-[12px] text-slate-600 whitespace-nowrap">
+          Items ({totalItems}):
+        </span>
+        <span className="col-start-4 text-[13px] font-bold text-slate-900 tabular-nums whitespace-nowrap">
+          {formatUSD(totalAmount)}
+        </span>
+
+        <div className="col-start-5 col-span-2">
+          {isLoggedIn ? (
+            <button
+              type="button"
+              onClick={() => void handleSubmitOrder()}
+              disabled={isSubmitting}
+              className="w-full py-2 rounded bg-[#336633] text-white text-[12px] font-bold tracking-wide hover:bg-[#2d5a2d] transition-colors inline-flex items-center justify-center gap-1 disabled:opacity-50"
+            >
+              {isSubmitting ? "Submitting..." : "Submit Order"}
+              {!isSubmitting && <ArrowRight className="w-3.5 h-3.5" />}
+            </button>
+          ) : (
+            <button
+              type="button"
+              onClick={() => actions.startSubmitFlow()}
+              className="w-full py-2 rounded bg-[#336633] text-white text-[12px] font-bold tracking-wide hover:bg-[#2d5a2d] transition-colors inline-flex items-center justify-center gap-1"
+            >
+              Submit Order
+              <ArrowRight className="w-3.5 h-3.5" />
+            </button>
+          )}
+        </div>
+
+        <div className="col-start-7">
+          <button
+            type="button"
+            onClick={() => void handleClearCart()}
+            className="w-full px-2 py-2 rounded bg-slate-50 border border-slate-200 text-slate-700 text-[12px] font-bold hover:bg-slate-100 transition-colors inline-flex items-center justify-center gap-1"
+          >
+            <Trash2 className="w-3.5 h-3.5" />
+            Delete
+          </button>
         </div>
       </div>
-
-      {/* Submit Order 按钮 */}
-      <div className="mt-1.5 flex gap-1">
-        {isLoggedIn ? (
-          <button
-            type="button"
-            onClick={() => void handleSubmitOrder()}
-            disabled={isSubmitting}
-            className="flex-1 py-2 rounded bg-[#336633] text-white text-[12px] font-bold tracking-wide hover:bg-[#2d5a2d] transition-colors inline-flex items-center justify-center gap-1 disabled:opacity-50"
-          >
-            {isSubmitting ? "Submitting..." : "Submit Order"}
-            {!isSubmitting && <ArrowRight className="w-3.5 h-3.5" />}
-          </button>
-        ) : (
-          <button
-            type="button"
-            onClick={() => actions.startSubmitFlow()}
-            className="flex-1 py-2 rounded bg-[#336633] text-white text-[12px] font-bold tracking-wide hover:bg-[#2d5a2d] transition-colors inline-flex items-center justify-center gap-1"
-          >
-            Submit Order
-            <ArrowRight className="w-3.5 h-3.5" />
-          </button>
-        )}
-        <button
-          type="button"
-          onClick={() => void handleClearCart()}
-          className="px-4 py-2 rounded bg-slate-50 border border-slate-200 text-slate-700 text-[12px] font-bold hover:bg-slate-100 transition-colors inline-flex items-center justify-center gap-1"
-        >
-          <Trash2 className="w-3.5 h-3.5" />
-          Delete
-        </button>
       </div>
     </div>
   );

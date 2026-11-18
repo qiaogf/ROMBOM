@@ -27,23 +27,23 @@ export function ApiAccountTable({
       <div className="overflow-x-auto">
         <table className="w-full min-w-[680px] table-fixed text-[11px]">
           <colgroup>
-            <col style={{ width: "14%" }} />
+            <col style={{ width: "12.2%" }} />
             <col style={{ width: "13%" }} />
-            <col style={{ width: "28%" }} />
-            <col style={{ width: "14%" }} />
-            <col style={{ width: "6%" }} />
-            <col style={{ width: "7%" }} />
-            <col style={{ width: "18%" }} />
+            <col style={{ width: "24.4%" }} />
+            <col style={{ width: "15.8%" }} />
+            <col style={{ width: "10.2%" }} />
+            <col style={{ width: "8.2%" }} />
+            <col style={{ width: "16.2%" }} />
           </colgroup>
           <thead className="bg-slate-50 text-slate-500 text-[10px] uppercase tracking-wide">
             <tr>
-              <th className="px-1.5 py-1 text-left">Customer Name</th>
-              <th className="px-1.5 py-1 text-left">Email</th>
-              <th className="px-1.5 py-1 text-left">Brand Series</th>
-              <th className="px-1.5 py-1 text-left whitespace-nowrap">API Keys</th>
-              <th className="px-1.5 py-1 text-left whitespace-nowrap">Markup %</th>
-              <th className="px-1.5 py-1 text-left whitespace-nowrap">Quota/min</th>
-              <th className="px-1.5 py-1 text-left whitespace-nowrap">Action</th>
+              <th className="px-1 py-1 text-center whitespace-nowrap">Customer</th>
+              <th className="px-1 py-1 text-center whitespace-nowrap">Email</th>
+              <th className="px-1 py-1 text-center whitespace-nowrap">Brand Series</th>
+              <th className="px-1 py-1 text-center whitespace-nowrap">API Keys</th>
+              <th className="px-1 py-1 text-center whitespace-nowrap">Markup%</th>
+              <th className="px-1 py-1 text-center whitespace-nowrap">Quota/min</th>
+              <th className="px-1 py-1 text-center whitespace-nowrap">Action</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100">

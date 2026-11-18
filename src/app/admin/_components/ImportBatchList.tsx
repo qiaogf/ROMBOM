@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { FileText, Hash } from "lucide-react";
 import { BatchActionButtons } from "./BatchActionButtons";
+import { formatDateYYMMDD } from "@/lib/format";
 
 export interface BatchListItem {
   importBatchId: string;
@@ -25,15 +26,13 @@ interface ImportBatchListProps {
   emptyHint?: string;
 }
 
-// DD/MM/YY 格式，如 18/09/26
+// YYMMDD 格式，如 261118
 function formatDate(d: Date): string {
-  const day = String(d.getDate()).padStart(2, "0");
-  const month = String(d.getMonth() + 1).padStart(2, "0");
-  const year = String(d.getFullYear()).slice(-2);
-  return `${day}/${month}/${year}`;
+  return formatDateYYMMDD(d);
 }
 
 // 2026-11-01 起 Product 导航按需求独立调整：Series 单行不换行、Imported→Import 去图标、Act 紧凑、table-fixed 消除横向滑条；
+// 2026-11-18 移除 Status 列，Act 仅保留 Delete 按钮，并重排列宽
 // 与 Price 导航 PriceBatchList 不再保持完全一致
 export function ImportBatchList({ batches, detailHref, emptyHint }: ImportBatchListProps) {
   if (batches.length === 0) {
@@ -47,22 +46,20 @@ export function ImportBatchList({ batches, detailHref, emptyHint }: ImportBatchL
   return (
     <div className="bg-white border border-slate-200 rounded-lg overflow-hidden">
       <div className="overflow-x-auto">
-        <table className="w-full min-w-[620px] table-fixed text-xs">
+        <table className="w-full min-w-[640px] table-fixed text-xs">
           <colgroup>
-            <col className="w-[23%]" />
-            <col className="w-[15%]" />
-            <col className="w-[21%]" />
-            <col className="w-[9%]" />
+            <col className="w-[24%]" />
+            <col className="w-[20%]" />
+            <col className="w-[26%]" />
+            <col className="w-[11%]" />
             <col className="w-[8%]" />
-            <col className="w-[6%]" />
-            <col className="w-[18%]" />
+            <col className="w-[11%]" />
           </colgroup>
           <thead className="bg-slate-50 text-slate-500 text-[10px] uppercase tracking-wide">
             <tr>
               <th className="px-1.5 py-1 text-left">File</th>
               <th className="px-1.5 py-1 text-left">By</th>
               <th className="px-1.5 py-1 text-left">Series</th>
-              <th className="px-1.5 py-1 text-left">Status</th>
               <th className="px-1.5 py-1 text-left">Import</th>
               <th className="px-1.5 py-1 text-right">Rec</th>
               <th className="px-1.5 py-1 text-left">Act</th>
@@ -71,7 +68,6 @@ export function ImportBatchList({ batches, detailHref, emptyHint }: ImportBatchL
           <tbody className="divide-y divide-slate-100">
             {batches.map((b) => {
               const status = b.approvalStatus as "pending" | "approved";
-              const isPending = status === "pending";
               return (
                 <tr key={b.importBatchId} className="hover:bg-slate-50">
                   <td className="px-1.5 py-1">
@@ -123,17 +119,6 @@ export function ImportBatchList({ batches, detailHref, emptyHint }: ImportBatchL
                       </div>
                     )}
                   </td>
-                  <td className="px-1.5 py-1">
-                    <span
-                      className={`inline-flex items-center px-1.5 py-0.5 text-[10px] rounded capitalize ${
-                        isPending
-                          ? "bg-amber-50 text-amber-700"
-                          : "bg-emerald-50 text-emerald-700"
-                      }`}
-                    >
-                      {isPending ? "Pending" : "Approved"}
-                    </span>
-                  </td>
                   <td className="px-1.5 py-1 text-slate-600 whitespace-nowrap text-[11px]">
                     {formatDate(b.importedAt)}
                   </td>
@@ -149,6 +134,7 @@ export function ImportBatchList({ batches, detailHref, emptyHint }: ImportBatchL
                       fileName={b.fileName}
                       approvalStatus={status}
                       compact
+                      deleteOnly
                     />
                   </td>
                 </tr>

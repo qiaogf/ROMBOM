@@ -84,7 +84,7 @@ export function ApiAccountNewRow({ customers, brandSeriesOptions }: Props) {
       <td className="px-1 py-0.5">
         <span className="text-[10px] text-slate-300">—</span>
       </td>
-      <td className="px-1 py-0.5">
+      <td className="pl-1 pr-0 py-0.5">
         <input
           type="number"
           step="0.1"
@@ -93,7 +93,7 @@ export function ApiAccountNewRow({ customers, brandSeriesOptions }: Props) {
           className={numCls}
         />
       </td>
-      <td className="px-1 py-0.5">
+      <td className="pl-1 pr-0 py-0.5">
         <input
           type="number"
           value={newRow.quotaPerMinute}
@@ -103,7 +103,7 @@ export function ApiAccountNewRow({ customers, brandSeriesOptions }: Props) {
           className={numCls}
         />
       </td>
-      <td className="px-1 py-0.5">
+      <td className="pl-[22px] pr-0 py-0.5">
         <button
           type="button"
           onClick={handleAdd}

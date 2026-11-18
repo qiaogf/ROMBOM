@@ -5,10 +5,18 @@ import { prisma } from "@/lib/prisma";
 
 export async function getPurchaseOrderList() {
   return prisma.purchaseOrder.findMany({
+    // 仅显示关联 Sales Order 已 Approved 的 PO，或无关联 SO 的手动 PO
+    where: {
+      OR: [
+        { salesOrder: { auditStatus: "approved" } },
+        { salesOrderId: null },
+      ],
+    },
     orderBy: { orderTime: "desc" },
     include: {
       supplier: { select: { email: true } },
-      salesOrder: { select: { orderNumber: true } },
+      // 带完整 salesOrder 数据（用于 resolveOrderLifecycle 显示生命周期徽章）
+      salesOrder: true,
       _count: { select: { items: true } },
     },
   });

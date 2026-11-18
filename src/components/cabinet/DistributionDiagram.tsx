@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { layoutLabels, Led, Screw, type LabelLayoutConfig } from "./cabinet-shared";
+import { layoutLabels, Screw, type LabelLayoutConfig } from "./cabinet-shared";
 
 type Kind =
   | "busbar"
@@ -79,13 +79,6 @@ const LABEL_CFG: LabelLayoutConfig = {
   labelGapBottom: LABEL_GAP_BOTTOM,
 };
 
-interface LabelSlot {
-  label: LabelItem;
-  part: Part;
-  x: number;
-  y: number;
-  above: boolean;
-}
 
 const HEADER_TINT: Record<string, string> = {
   "#0f766e": "#ccfbf1",

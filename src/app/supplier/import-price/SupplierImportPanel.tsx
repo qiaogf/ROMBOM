@@ -85,11 +85,11 @@ export function SupplierImportPanel({ batches, emptyHint }: SupplierImportPanelP
       </div>
 
       {/* 独立滚动区域：上传后的文件直接列在下方，随数量伸缩，右侧滑条 */}
-      <div className="flex-1 min-h-0 overflow-y-auto">
+      <div className="flex-1 min-h-0 overflow-auto">
         {batches.length === 0 ? (
           <div className="py-8 text-center text-[11px] text-slate-400">{emptyHint ?? "No files yet."}</div>
         ) : (
-          <table className="min-w-full text-xs">
+          <table className="w-full min-w-[680px] text-xs">
             <colgroup>
               <col className="w-[27%]" />
               <col className="w-[16%]" />

@@ -1,169 +1,258 @@
 "use client";
 
 /**
- * 供应商 Purchase Order 面板 — 右侧区域（标题固定，表格独立滚动）
+ * 供应商 Purchase Order 面板 — 右侧区域
  *
- * 数据源：Admin Purchase 页 Approve 后发给本供应商的真实采购单（含管理者调整后的价格/数量）
- * 列：Model / Condition / Leadtime / Price / Qty / Amount / Order Status
- * Price / Qty 只读；底部 Total（sticky）
+ * 单个表格：表头只在顶部显示一次，多个 PO 的明细按顺序排列
+ * Accept：绿色 YES / 灰色 NO 切换按钮（对应管理员端 Accept 状态）
+ * 每个 PO 后带 "Items(N): 合计" 小计行，label 与 Leadtime 列对齐
  */
-import { useState } from "react";
-import { ShoppingCart } from "lucide-react";
+import { Fragment, useState, useTransition } from "react";
+import { ShoppingCart, Check, X, Loader2 } from "lucide-react";
+import { useRouter } from "next/navigation";
 import { formatLeadtime } from "@/lib/cart-display";
 import { formatUSD } from "@/lib/price";
-
-export interface PurchaseItem {
-  cartItemId: string;
-  model: string;
-  productName: string;
-  quantity: number;
-  unitPrice: string;
-  condition: string | null;
-  leadTime: string | null;
-}
+import { togglePurchaseOrderItemAccept, setPurchaseOrderAllItemsAccept } from "@/app/actions/supplier/purchase";
+import type { SupplierPurchaseOrder } from "./_data/supplier-import-data";
 
 interface PurchaseOrderPanelProps {
-  items: PurchaseItem[];
+  purchaseOrders: SupplierPurchaseOrder[];
 }
 
-type SupplierOrderStatus = "ordered" | "paid" | "shipped" | "delivered";
-
-const ORDER_STATUS_FLOW: SupplierOrderStatus[] = ["ordered", "paid", "shipped", "delivered"];
-
-const ORDER_STATUS_LABEL: Record<SupplierOrderStatus, string> = {
-  ordered: "Ordered",
-  paid: "Paid",
-  shipped: "Shipped",
-  delivered: "Delivered",
-};
-
-const ORDER_STATUS_STYLE: Record<SupplierOrderStatus, string> = {
-  ordered: "bg-amber-50 text-amber-800 border-amber-300 hover:bg-amber-100",
-  paid: "bg-blue-50 text-blue-800 border-blue-300 hover:bg-blue-100",
-  shipped: "bg-purple-50 text-purple-800 border-purple-300 hover:bg-purple-100",
-  delivered: "bg-emerald-50 text-emerald-800 border-emerald-300 hover:bg-emerald-100",
-};
-
-export function PurchaseOrderPanel({ items }: PurchaseOrderPanelProps) {
-  // 每行的 Order Status（本地维护，不入库；后续如需持久化需加 schema 字段）
-  const [statusMap, setStatusMap] = useState<Record<string, SupplierOrderStatus>>(() => {
-    const init: Record<string, SupplierOrderStatus> = {};
-    for (const it of items) {
-      init[it.cartItemId] = "ordered";
+export function PurchaseOrderPanel({ purchaseOrders }: PurchaseOrderPanelProps) {
+  const router = useRouter();
+  const [pending, startTransition] = useTransition();
+  // pending PO id（整单接受/拒绝时显示loading）
+  const [pendingPoId, setPendingPoId] = useState<string | null>(null);
+  const [acceptMap, setAcceptMap] = useState<Record<string, boolean>>(() => {
+    const init: Record<string, boolean> = {};
+    for (const po of purchaseOrders) {
+      for (const it of po.items) {
+        init[it.itemId] = it.accept;
+      }
     }
     return init;
   });
 
-  const total = items.reduce(
-    (sum, it) => sum + it.quantity * parseFloat(it.unitPrice),
-    0
-  );
-
-  const cycleStatus = (cartItemId: string) => {
-    setStatusMap((prev) => {
-      const current = prev[cartItemId] ?? "ordered";
-      const idx = ORDER_STATUS_FLOW.indexOf(current);
-      const next = ORDER_STATUS_FLOW[(idx + 1) % ORDER_STATUS_FLOW.length];
-      return { ...prev, [cartItemId]: next };
+  // 单行切换
+  const toggleAccept = (itemId: string, currentAccept: boolean) => {
+    if (pending) return;
+    const nextAccept = !currentAccept;
+    setAcceptMap((prev) => ({ ...prev, [itemId]: nextAccept }));
+    startTransition(async () => {
+      const res = await togglePurchaseOrderItemAccept(itemId, nextAccept);
+      if (!res.success) {
+        setAcceptMap((prev) => ({ ...prev, [itemId]: currentAccept }));
+      } else {
+        router.refresh();
+      }
     });
   };
 
+  // 整单一键切换
+  const togglePoAllAccept = (poId: string, itemIds: string[], allCurrentlyAccepted: boolean) => {
+    if (pending) return;
+    const nextAccept = !allCurrentlyAccepted;
+    setPendingPoId(poId);
+    // 乐观更新：所有 item 一起改
+    setAcceptMap((prev) => {
+      const next = { ...prev };
+      for (const id of itemIds) next[id] = nextAccept;
+      return next;
+    });
+    startTransition(async () => {
+      const res = await setPurchaseOrderAllItemsAccept(poId, nextAccept);
+      if (!res.success) {
+        // 失败回滚
+        setAcceptMap((prev) => {
+          const next = { ...prev };
+          for (const id of itemIds) next[id] = allCurrentlyAccepted;
+          return next;
+        });
+      } else {
+        router.refresh();
+      }
+      setPendingPoId(null);
+    });
+  };
+
+  if (purchaseOrders.length === 0) {
+    return (
+      <div className="flex-1 min-h-0 flex flex-col p-2.5">
+        <div className="shrink-0 mb-1">
+          <h1 className="text-[13px] font-semibold text-slate-800 leading-tight flex items-center gap-1.5">
+            <ShoppingCart className="w-3.5 h-3.5 text-green-700" /> Purchase Order
+          </h1>
+        </div>
+        <div className="flex-1 flex items-center justify-center bg-white border border-slate-200 rounded-md">
+          <div className="py-8 text-center text-[11px] text-slate-400">No purchase orders yet.</div>
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <div className="flex-1 min-h-0 flex flex-col p-2.5">
-      {/* 固定标题 */}
+    <div className="flex-1 min-h-0 flex flex-col p-2.5 gap-2 overflow-auto">
+      {/* 顶部标题（仅图标+文字，无说明） */}
       <div className="shrink-0">
         <h1 className="text-[13px] font-semibold text-slate-800 leading-tight flex items-center gap-1.5">
           <ShoppingCart className="w-3.5 h-3.5 text-green-700" /> Purchase Order
         </h1>
-        <p className="text-[10px] text-slate-500 mb-1.5 leading-tight">
-          Orders approved and sent by the admin.
-        </p>
       </div>
 
-      {/* 独立滚动区域：订单行随数量伸缩，右侧滑条 */}
-      <div className="flex-1 min-h-0 overflow-y-auto bg-white border border-slate-200 rounded-md">
-        {items.length === 0 ? (
-          <div className="py-8 text-center text-[11px] text-slate-400">No purchase orders yet.</div>
-        ) : (
-          <table className="min-w-full text-xs">
-            <colgroup>
-              <col className="w-[20ch]" />
-              <col className="w-[13%]" />
-              <col className="w-[11%]" />
-              <col className="w-[13%]" />
-              <col className="w-[8%]" />
-              <col className="w-[15%]" />
-              <col className="w-[18%]" />
-            </colgroup>
-            <thead className="bg-slate-50 text-slate-500 text-[10px] uppercase tracking-wide sticky top-0 z-10">
-              <tr>
-                <th className="px-1.5 py-1 text-left">Model</th>
-                <th className="px-1.5 py-1 text-left">Cond.</th>
-                <th className="px-1.5 py-1 text-left">Leadtime</th>
-                <th className="px-1.5 py-1 text-right">Price</th>
-                <th className="px-1.5 py-1 text-right">Qty</th>
-                <th className="px-1.5 py-1 text-right">Amount</th>
-                <th className="px-1.5 py-1 text-center">Status</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100">
-              {items.map((it) => {
-                const unitPrice = parseFloat(it.unitPrice);
-                const amount = it.quantity * unitPrice;
-                const status = statusMap[it.cartItemId] ?? "ordered";
-                return (
-                  <tr key={it.cartItemId} className="hover:bg-slate-50">
-                    <td className="px-1.5 py-1 font-medium text-slate-800" title={`${it.productName} · ${it.model}`}>
-                      <span className="block truncate">{it.model}</span>
+      {/* 统一大表格：所有 PO 的明细 + 小计行 */}
+      <div className="bg-white border border-slate-200 rounded-md overflow-hidden">
+        <table className="w-full min-w-[720px] text-[11px]">
+          <colgroup>
+            <col className="w-[14%]" />
+            <col className="w-[22%]" />
+            <col className="w-[11%]" />
+            <col className="w-[7%]" />
+            <col className="w-[13%]" />
+            <col className="w-[12%]" />
+            <col className="w-[12%]" />
+            <col className="w-[9%]" />
+          </colgroup>
+
+          {/* 表头：只出现一次 */}
+          <thead className="bg-slate-50 text-slate-500 text-[10px] uppercase tracking-wide sticky top-0 z-10">
+            <tr>
+              <th className="px-1.5 py-1 text-left">PurOrder</th>
+              <th className="px-1.5 py-1 text-left">Model</th>
+              <th className="px-1.5 py-1 text-right">PurPrice</th>
+              <th className="px-1.5 py-1 text-right">Qty</th>
+              <th className="px-1.5 py-1 text-left">Condition</th>
+              <th className="px-1.5 py-1 text-left">Leadtime</th>
+              <th className="px-1.5 py-1 text-right">Amount</th>
+              <th className="px-1.5 py-1 text-center">Accept</th>
+            </tr>
+          </thead>
+
+          <tbody className="divide-y divide-slate-100">
+            {purchaseOrders.map((po) => {
+              const totalAmount = po.items.reduce(
+                (sum, it) => sum + Number(it.purPrice) * it.quantity,
+                0
+              );
+              // 整单所有 item 是否全部 accept（乐观本地状态为准）
+              const itemIds = po.items.map((it) => it.itemId);
+              const allAccepted = itemIds.every((id) => acceptMap[id] ?? false);
+              const isPendingThisPo = pendingPoId === po.poId;
+              return (
+                <Fragment key={po.poId}>
+                  {/* PO 的所有明细行 */}
+                  {po.items.map((it) => {
+                    const purPrice = parseFloat(it.purPrice);
+                    const amount = purPrice * it.quantity;
+                    const accept = acceptMap[it.itemId] ?? it.accept;
+                    return (
+                      <tr key={it.itemId} className="hover:bg-slate-50">
+                        {/* PurOrder */}
+                        <td className="px-1.5 py-1 text-blue-700 truncate">
+                          {po.poNumber}
+                        </td>
+                        {/* Model */}
+                        <td className="px-1.5 py-1 text-slate-700 break-all leading-tight" title={`${it.productName} · ${it.model}`}>
+                          {it.model}
+                        </td>
+                        {/* PurPrice */}
+                        <td className="px-1.5 py-1 text-right text-slate-700 tabular-nums whitespace-nowrap">
+                          {formatUSD(purPrice)}
+                        </td>
+                        {/* Qty */}
+                        <td className="px-1.5 py-1 text-right text-slate-700 tabular-nums">
+                          {it.quantity}
+                        </td>
+                        {/* Condition */}
+                        <td className="px-1.5 py-1 text-slate-600">
+                          {it.condition ? (
+                            <span className="block truncate" title={it.condition}>{it.condition}</span>
+                          ) : (
+                            <span className="text-slate-400 italic">-</span>
+                          )}
+                        </td>
+                        {/* Leadtime：缺货红 / 现货绿 / 交期琥珀 */}
+                        <td className="px-1.5 py-1 whitespace-nowrap">
+                          <span className={
+                            (it.leadTime ?? "").toLowerCase().includes("out of stock") ? "text-rose-600"
+                            : (it.leadTime ?? "").toLowerCase().includes("in stock") ? "text-green-700"
+                            : "text-amber-700"
+                          }>
+                            {formatLeadtime(it.leadTime)}
+                          </span>
+                        </td>
+                        {/* Amount */}
+                        <td className="px-1.5 py-1 text-right text-slate-800 font-medium tabular-nums whitespace-nowrap">
+                          {formatUSD(amount)}
+                        </td>
+                        {/* Accept：单行绿色 YES / 灰色 NO 切换按钮 */}
+                        <td className="px-1.5 py-1 text-center">
+                          <button
+                            type="button"
+                            onClick={() => toggleAccept(it.itemId, accept)}
+                            disabled={pending}
+                            title={accept ? "Click to reject this item" : "Click to accept this item"}
+                            className={`inline-flex items-center justify-center gap-0.5 w-[52px] h-5 px-1 py-0 rounded-full border text-[10px] font-semibold leading-none transition-colors disabled:opacity-50 ${
+                              accept
+                                ? "bg-emerald-500 border-emerald-600 text-white hover:bg-emerald-600"
+                                : "bg-slate-100 border-slate-300 text-slate-500 hover:bg-slate-200"
+                            }`}
+                          >
+                            {pending ? (
+                              <Loader2 className="w-2.5 h-2.5 animate-spin" />
+                            ) : accept ? (
+                              <Check className="w-2.5 h-2.5" />
+                            ) : (
+                              <X className="w-2.5 h-2.5" />
+                            )}
+                            {accept ? "YES" : "NO"}
+                          </button>
+                        </td>
+                      </tr>
+                    );
+                  })}
+
+                  {/* 小计行：Items(N) label 与 Leadtime 列对齐，Accept 列放整单一键按钮 */}
+                  <tr className="bg-slate-50/70">
+                    {/* PurOrder / Model / PurPrice / Qty / Condition 五列合并 */}
+                    <td colSpan={5} className="px-1.5 py-1"></td>
+                    {/* Leadtime 列 → "Items (N):" label */}
+                    <td className="px-1.5 py-1 text-left text-[11px] font-semibold text-slate-700">
+                      Items ({po.items.length}):
                     </td>
-                    <td className="px-1.5 py-1 text-slate-600">
-                      {it.condition ? <span className="block truncate" title={it.condition}>{it.condition}</span> : <span className="text-slate-400 italic">-</span>}
+                    {/* Amount 列 → 合计金额 */}
+                    <td className="px-1.5 py-1 text-right text-[12px] font-bold text-green-700 tabular-nums whitespace-nowrap">
+                      {formatUSD(totalAmount)}
                     </td>
-                    <td className="px-1.5 py-1 whitespace-nowrap">
-                      {/* Leadtime 统一文本：缺货红 / 现货绿 / 交期琥珀 */}
-                      <span className={`whitespace-nowrap ${
-                        (it.leadTime ?? "").toLowerCase().includes("out of stock") ? "text-rose-600"
-                        : (it.leadTime ?? "").toLowerCase().includes("in stock") ? "text-green-700"
-                        : "text-amber-700"
-                      }`}>
-                        {formatLeadtime(it.leadTime)}
-                      </span>
-                    </td>
-                    <td className="px-1.5 py-1 text-right text-slate-700 tabular-nums whitespace-nowrap">
-                      {formatUSD(unitPrice)}
-                    </td>
-                    <td className="px-1.5 py-1 text-right text-slate-700 tabular-nums">
-                      {it.quantity}
-                    </td>
-                    <td className="px-1.5 py-1 text-right text-slate-800 font-medium tabular-nums whitespace-nowrap">{formatUSD(amount)}</td>
+                    {/* Accept 列 → 整单一键 YES/NO 按钮（全部 item 一起切换） */}
                     <td className="px-1.5 py-1 text-center">
                       <button
                         type="button"
-                        onClick={() => cycleStatus(it.cartItemId)}
-                        title="Click to cycle to next status"
-                        className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full border text-[11px] font-semibold leading-tight transition-colors ${ORDER_STATUS_STYLE[status]}`}
+                        onClick={() => togglePoAllAccept(po.poId, itemIds, allAccepted)}
+                        disabled={pending}
+                        title={allAccepted ? "Click to reject all items in this PO" : "Click to accept all items in this PO"}
+                        className={`inline-flex items-center justify-center gap-0.5 w-[52px] h-5 px-1 py-0 rounded-full border text-[10px] font-semibold leading-none transition-colors disabled:opacity-50 ${
+                          allAccepted
+                            ? "bg-emerald-500 border-emerald-600 text-white hover:bg-emerald-600"
+                            : "bg-slate-100 border-slate-300 text-slate-500 hover:bg-slate-200"
+                        }`}
                       >
-                        <span className="w-1.5 h-1.5 rounded-full bg-current opacity-70" />
-                        {ORDER_STATUS_LABEL[status]}
+                        {isPendingThisPo ? (
+                          <Loader2 className="w-2.5 h-2.5 animate-spin" />
+                        ) : allAccepted ? (
+                          <Check className="w-2.5 h-2.5" />
+                        ) : (
+                          <X className="w-2.5 h-2.5" />
+                        )}
+                        {allAccepted ? "YES" : "NO"}
                       </button>
                     </td>
                   </tr>
-                );
-              })}
-            </tbody>
-            <tfoot className="bg-slate-50 sticky bottom-0 z-10">
-              <tr>
-                <td colSpan={5} className="px-1.5 py-1 text-right text-[11px] font-semibold text-slate-700">
-                  Total
-                </td>
-                <td className="px-1.5 py-1 text-right text-[13px] font-bold text-green-700 tabular-nums whitespace-nowrap">
-                  {formatUSD(total)}
-                </td>
-                <td className="px-1.5 py-1"></td>
-              </tr>
-            </tfoot>
-          </table>
-        )}
+                </Fragment>
+              );
+            })}
+          </tbody>
+        </table>
       </div>
     </div>
   );

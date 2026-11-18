@@ -3,6 +3,7 @@ import { lookupOrder } from "@/app/actions/orderActions";
 import { getCurrentUserId } from "@/lib/auth";
 import { ServiceUnavailable } from "@/components/ServiceUnavailable";
 import { formatUSD, formatUSDWithoutSymbol, decimalToNumber } from "@/lib/price";
+import { formatDateYYMMDD } from "@/lib/format";
 import { 
   Package, 
   ChevronLeft, 
@@ -137,15 +138,7 @@ export default async function OrderDetailPage({ params }: { params: { id: string
     }
   };
 
-  const formatDate = (date: Date) => {
-    return date.toLocaleDateString("en-US", {
-      month: "long",
-      day: "numeric",
-      year: "numeric",
-      hour: "2-digit",
-      minute: "2-digit",
-    });
-  };
+  const formatDate = (date: Date) => formatDateYYMMDD(date);
 
   const getCountryName = (countryCode: string | null) => {
     if (!countryCode) return "-";

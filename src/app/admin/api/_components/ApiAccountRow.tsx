@@ -169,7 +169,7 @@ export function ApiAccountRow({ acc, editsApi, brandSeriesOptions }: Props) {
           <span className="text-[10px] text-slate-300">—</span>
         )}
       </td>
-      <td className="px-1 py-0.5">
+      <td className="pl-1 pr-0 py-0.5">
         <input
           type="number"
           step="0.1"
@@ -179,7 +179,7 @@ export function ApiAccountRow({ acc, editsApi, brandSeriesOptions }: Props) {
           className={numCls}
         />
       </td>
-      <td className="px-1 py-0.5">
+      <td className="pl-1 pr-0 py-0.5">
         <input
           type="number"
           value={getEdit(id, "quotaPerMinute", String(acc.quotaPerMinute))}
@@ -188,7 +188,7 @@ export function ApiAccountRow({ acc, editsApi, brandSeriesOptions }: Props) {
           className={numCls}
         />
       </td>
-      <td className="px-1 py-0.5">
+      <td className="pl-[22px] pr-0 py-0.5">
         <div className="flex flex-wrap items-center gap-0.5">
           <button
             type="button"

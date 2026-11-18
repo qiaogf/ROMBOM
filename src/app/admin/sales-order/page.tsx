@@ -2,7 +2,6 @@ import Link from "next/link";
 import { AuditActionButtons } from "../_components/AuditActionButtons";
 import { OrderItemPriceInput } from "../_components/OrderItemPriceInput";
 import { OrderItemQtyInput } from "../_components/OrderItemQtyInput";
-import { SalesOrderStatusSelect } from "./_components/SalesOrderStatusSelect";
 import { AddSalesItemRow } from "./_components/AddSalesItemRow";
 import { DeleteSalesItemButton } from "./_components/DeleteSalesItemButton";
 import { AllChargesInput } from "./_components/AllChargesInput";
@@ -17,6 +16,10 @@ import {
 } from "@/lib/order-terms";
 import { formatUSDSafe } from "@/lib/format";
 import { getSalesOrderList, getSalesOrderDetail } from "./_data/sales-order-data";
+import {
+  STATUS_META,
+  resolveOrderLifecycle,
+} from "@/app/actions/order/status-machine";
 
 export const dynamic = "force-dynamic";
 
@@ -68,10 +71,10 @@ export default async function SalesOrderListPage({
     : "";
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 h-[calc(100vh-3rem-1px)]">
+    <div className="grid grid-cols-1 grid-rows-2 lg:grid-cols-2 lg:grid-rows-1 gap-3 h-[calc(100vh-3rem-1px)]">
       {/* 左半：销售订单列表 */}
       <div className="min-w-0 flex flex-col min-h-0">
-        <div className="min-h-0 flex-1 overflow-y-auto">
+        <div className="min-h-0 flex-1 overflow-auto">
           <div className="bg-white border border-slate-200 rounded-lg overflow-hidden">
             <div className="overflow-x-auto">
               <table className="w-full table-fixed text-xs min-w-[674px]">
@@ -87,9 +90,9 @@ export default async function SalesOrderListPage({
                 <thead className="bg-slate-50 text-slate-500 text-[10px] uppercase tracking-wide">
                   <tr>
                     <th className="px-1.5 py-0.5 text-left">Customer</th>
-                    <th className="px-1.5 py-0.5 text-left">SalesOrder</th>
-                    <th className="px-1.5 py-0.5 text-left">Total</th>
-                    <th className="px-1.5 py-0.5 text-left">Status</th>
+                    <th className="px-1.5 py-0.5">SalesOrder</th>
+                    <th className="px-1.5 py-0.5">Total</th>
+                    <th className="px-1.5 py-0.5">Status</th>
                     <th className="px-1.5 py-0.5 text-center">Pay</th>
                     <th className="px-1.5 py-0.5 text-center">Mode</th>
                     <th className="px-1.5 py-0.5 text-left">Audit</th>
@@ -116,10 +119,10 @@ export default async function SalesOrderListPage({
                           <td className="px-1.5 py-0.5 text-slate-700 truncate">
                             {customerLabel(so.customer)}
                           </td>
-                          <td className="px-1.5 py-0.5">
+                          <td className="pl-0 pr-1.5 py-0.5">
                             <Link
                               href={`?id=${so.orderId}`}
-                              className={`block truncate hover:underline ${
+                              className={`relative -left-3 block truncate hover:underline ${
                                 isSelected
                                   ? "text-green-800 font-medium"
                                   : "text-green-700"
@@ -129,14 +132,19 @@ export default async function SalesOrderListPage({
                               {so.orderNumber}
                             </Link>
                           </td>
-                          <td className="px-1.5 py-0.5 text-slate-700 tabular-nums">
+                          <td className="pl-0 pr-1.5 py-0.5 text-slate-700 tabular-nums">
                             {formatUSDSafe(so.totalAmount)}
                           </td>
-                          <td className="px-1 py-0.5">
-                            <SalesOrderStatusSelect
-                              orderId={so.orderId}
-                              value={so.soStatus}
-                            />
+                          <td className="pl-4 pr-0 py-0.5 align-middle">
+                            {/* 与客户 Order Summary / My Orders 同态同色：Draft / Pending / Rejected / Approved / Handover / Cancelled */}
+                            <span
+                              className="inline-flex items-center px-1.5 py-0.5 text-[10px] font-semibold rounded text-white"
+                              style={{
+                                backgroundColor: STATUS_META[resolveOrderLifecycle(so)].color,
+                              }}
+                            >
+                              {STATUS_META[resolveOrderLifecycle(so)].label}
+                            </span>
                           </td>
                           <td className="px-1 py-0.5 align-middle">
                             {/* 与客户 Order Summary / My Orders 同色：未点深黄，已点淡绿 */}
@@ -175,6 +183,7 @@ export default async function SalesOrderListPage({
                               auditStatus={so.auditStatus}
                               kind="sales"
                               label={so.orderNumber}
+                              orderStatus={so.orderStatus}
                               submittedAt={so.submittedAt ? so.submittedAt.toISOString() : null}
                               cancelRequestedAt={so.cancelRequestedAt ? so.cancelRequestedAt.toISOString() : null}
                             />
@@ -192,11 +201,11 @@ export default async function SalesOrderListPage({
 
       {/* 右半：选中销售订单的明细行 */}
       <div className="min-w-0 flex flex-col min-h-0">
-        <div className="min-h-0 flex-1 overflow-y-auto">
+        <div className="min-h-0 flex-1 overflow-auto">
           {selected ? (
             <div className="bg-white border border-slate-200 rounded-lg overflow-hidden">
-              <div className="overflow-x-hidden">
-                <table className="w-full table-fixed text-[11px]">
+              <div className="overflow-x-auto">
+                <table className="w-full min-w-[760px] table-fixed text-[11px]">
                   <colgroup>
                     <col style={{ width: "13%" }} />
                     <col style={{ width: "20%" }} />

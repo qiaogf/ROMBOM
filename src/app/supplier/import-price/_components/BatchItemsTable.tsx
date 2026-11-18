@@ -31,7 +31,7 @@ export function BatchItemsTable({ stagedItems, itemSeriesMap }: BatchItemsTableP
   return (
     <div className="bg-white border border-slate-200 rounded-md overflow-hidden">
       <div className="overflow-x-auto">
-        <table className="min-w-full text-xs">
+        <table className="w-full min-w-[640px] text-xs">
           <colgroup>
             <col className="w-[16%]" />
             <col className="w-[26%]" />

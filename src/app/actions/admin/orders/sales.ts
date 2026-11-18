@@ -7,6 +7,7 @@ import { getAdminSession } from "@/lib/auth-admin";
 import { canAdminApproveOrReject, canAdminCancel } from "@/app/actions/order/status-machine";
 import { isValidOrderTerm, type OrderTermField } from "@/lib/order-terms";
 import { round4 } from "./shared";
+import { generatePurchaseOrders } from "@/app/actions/order/mutations/create-full-helpers";
 
 // ============ 订单审核 ============
 
@@ -17,13 +18,34 @@ export async function approveSalesOrder(formData: FormData): Promise<{ success: 
   const session = await getAdminSession();
   if (!session) return { success: false, message: "Unauthorized. Admin login required." };
   try {
-    const order = await prisma.salesOrder.findUnique({ where: { orderId } });
-    if (!order) return { success: false, message: "Sales order not found." };
-    if (!canAdminApproveOrReject(order)) {
-      return { success: false, message: "Only pending orders can be approved." };
-    }
-    await prisma.salesOrder.update({ where: { orderId }, data: { auditStatus: "approved" } });
-    return { success: true, message: "Sales order approved." };
+    return await prisma.$transaction(async (tx) => {
+      const order = await tx.salesOrder.findUnique({
+        where: { orderId },
+        include: { items: true, purchaseOrders: { select: { poId: true } } },
+      });
+      if (!order) return { success: false, message: "Sales order not found." };
+      if (!canAdminApproveOrReject(order)) {
+        return { success: false, message: "Only pending orders can be approved." };
+      }
+      await tx.salesOrder.update({ where: { orderId }, data: { auditStatus: "approved" } });
+
+      // 审批通过时必须存在关联采购订单：历史订单/异常订单可能缺失，这里按明细补生成（幂等，已有 PO 不重复建）
+      if (order.purchaseOrders.length === 0 && order.items.length > 0) {
+        await generatePurchaseOrders(
+          tx,
+          { orderId: order.orderId, orderNumber: order.orderNumber },
+          order.items.map((item) => ({
+            productName: item.productName,
+            model: item.model,
+            quantity: item.quantity,
+            productId: item.productId,
+            leadTime: item.leadTime,
+          }))
+        );
+        return { success: true, message: "Sales order approved. Purchase orders generated." };
+      }
+      return { success: true, message: "Sales order approved." };
+    });
   } catch (err) {
     const msg = err instanceof Error ? err.message : "Unknown error";
     return { success: false, message: `Failed to approve: ${msg}` };
@@ -65,7 +87,14 @@ export async function cancelSalesOrder(formData: FormData): Promise<{ success: b
       if (order.orderStatus === "cancelled") {
         return { success: false, message: "This order is already cancelled." };
       }
-      if (!canAdminCancel(order.auditStatus, order.cancelRequestedAt)) {
+      if (
+        !canAdminCancel({
+          orderStatus: order.orderStatus,
+          auditStatus: order.auditStatus,
+          submittedAt: order.submittedAt,
+          cancelRequestedAt: order.cancelRequestedAt,
+        })
+      ) {
         return {
           success: false,
           message:
@@ -86,27 +115,6 @@ export async function cancelSalesOrder(formData: FormData): Promise<{ success: b
   } catch (err) {
     const msg = err instanceof Error ? err.message : "Unknown error";
     return { success: false, message: `Failed to cancel: ${msg}` };
-  }
-}
-
-// 销售订单状态：ordered（默认）→ paid（客户已付全款）→ received（客户已收货）
-const SO_STATUS_VALUES = ["ordered", "paid", "received"] as const;
-
-export async function updateSalesOrderStatus(formData: FormData): Promise<{ success: boolean; message: string }> {
-  const orderId = (formData.get("orderId") as string)?.trim();
-  if (!orderId) return { success: false, message: "Order ID is required." };
-  const session = await getAdminSession();
-  if (!session) return { success: false, message: "Unauthorized. Admin login required." };
-  const status = (formData.get("status") as string)?.trim() ?? "ordered";
-  if (!(SO_STATUS_VALUES as readonly string[]).includes(status)) {
-    return { success: false, message: "Invalid status." };
-  }
-  try {
-    await prisma.salesOrder.update({ where: { orderId }, data: { soStatus: status } });
-    return { success: true, message: "Sales order status updated." };
-  } catch (err) {
-    const msg = err instanceof Error ? err.message : "Unknown error";
-    return { success: false, message: `Failed to update status: ${msg}` };
   }
 }
 

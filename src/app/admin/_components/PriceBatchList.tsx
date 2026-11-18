@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { FileText, Hash } from "lucide-react";
 import { BatchActionButtons } from "./BatchActionButtons";
+import { formatDateYYMMDD } from "@/lib/format";
 
 export interface PriceBatchListItem {
   importBatchId: string;
@@ -23,12 +24,9 @@ interface PriceBatchListProps {
   emptyHint?: string;
 }
 
-// DD/MM/YY 格式，如 26/09/28
+// YYMMDD 格式，如 261118
 function formatDate(d: Date): string {
-  const day = String(d.getDate()).padStart(2, "0");
-  const month = String(d.getMonth() + 1).padStart(2, "0");
-  const year = String(d.getFullYear()).slice(-2);
-  return `${day}/${month}/${year}`;
+  return formatDateYYMMDD(d);
 }
 
 export function PriceBatchList({ batches, detailPathPrefix, emptyHint }: PriceBatchListProps) {
@@ -48,10 +46,10 @@ export function PriceBatchList({ batches, detailPathPrefix, emptyHint }: PriceBa
             <col className="w-[23%]" />
             <col className="w-[15%]" />
             <col className="w-[21%]" />
-            <col className="w-[9%]" />
-            <col className="w-[8%]" />
-            <col className="w-[6%]" />
-            <col className="w-[18%]" />
+            <col className="w-[10.2%]" />
+            <col className="w-[9.2%]" />
+            <col className="w-[7.2%]" />
+            <col className="w-[14.4%]" />
           </colgroup>
           <thead className="bg-slate-50 text-slate-500 text-[10px] uppercase tracking-wide">
             <tr>

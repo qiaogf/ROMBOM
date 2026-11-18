@@ -115,14 +115,14 @@ export default async function AdminUserListPage() {
 
   return (
     <div className="h-full">
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 h-full">
+      <div className="grid grid-cols-1 grid-rows-2 lg:grid-cols-2 lg:grid-rows-1 gap-3 h-full">
         <div className="min-w-0 flex flex-col min-h-0">
-          <div className="min-h-0 flex-1 overflow-y-auto">
+          <div className="min-h-0 flex-1 overflow-auto">
             <AdminTable rows={leftRows} currentAdminId={session?.adminId} />
           </div>
         </div>
         <div className="min-w-0 flex flex-col min-h-0">
-          <div className="min-h-0 flex-1 overflow-y-auto pr-1">
+          <div className="min-h-0 flex-1 overflow-auto pr-1">
             <AdminTable rows={rightRows} currentAdminId={session?.adminId} />
           </div>
         </div>

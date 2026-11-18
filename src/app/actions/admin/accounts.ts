@@ -190,42 +190,6 @@ export async function rejectSupplier(formData: FormData): Promise<{ success: boo
   }
 }
 
-// 更新供应商资质等级 (0-5)
-export async function updateSupplierQualificationLevel(formData: FormData): Promise<{ success: boolean; message: string }> {
-  const denied = await denyNonSuperAdmin();
-  if (denied) return { success: false, message: denied };
-  const supplierId = (formData.get("supplierId") as string)?.trim();
-  const levelStr = (formData.get("level") as string)?.trim();
-  if (!supplierId) return { success: false, message: "Supplier ID is required." };
-  const level = Number(levelStr);
-  if (isNaN(level) || level < 0 || level > 5) return { success: false, message: "Level must be 0-5." };
-  try {
-    await prisma.supplier.update({ where: { supplierId }, data: { qualificationLevel: level } });
-    return { success: true, message: `Qualification level set to ${level}.` };
-  } catch (err) {
-    const msg = err instanceof Error ? err.message : "Unknown error";
-    return { success: false, message: `Failed to update level: ${msg}` };
-  }
-}
-
-// 更新客户评级 (0-5)
-export async function updateCustomerLevel(formData: FormData): Promise<{ success: boolean; message: string }> {
-  const denied = await denyNonSuperAdmin();
-  if (denied) return { success: false, message: denied };
-  const customerId = (formData.get("customerId") as string)?.trim();
-  const levelStr = (formData.get("level") as string)?.trim();
-  if (!customerId) return { success: false, message: "Customer ID is required." };
-  const level = Number(levelStr);
-  if (isNaN(level) || level < 0 || level > 5) return { success: false, message: "Level must be 0-5." };
-  try {
-    await prisma.customer.update({ where: { customerId }, data: { level } });
-    return { success: true, message: `Customer level set to ${level}.` };
-  } catch (err) {
-    const msg = err instanceof Error ? err.message : "Unknown error";
-    return { success: false, message: `Failed to update level: ${msg}` };
-  }
-}
-
 // 更新供应商 Supplier ID（工号）：由超级管理员在 Supplier 列表内直接维护
 export async function updateSupplierWorkId(formData: FormData): Promise<{ success: boolean; message: string }> {
   const denied = await denyNonSuperAdmin();

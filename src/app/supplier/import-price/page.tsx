@@ -7,6 +7,7 @@ import { PurchaseOrderPanel } from "./PurchaseOrderPanel";
 import { BatchItemsTable } from "./_components/BatchItemsTable";
 import { getBatchDetailViewData, getListData } from "./_data/supplier-import-data";
 import { toStr } from "@/lib/search-params";
+import { formatDateYYMMDD } from "@/lib/format";
 
 export const dynamic = "force-dynamic";
 
@@ -25,12 +26,12 @@ export default async function SupplierImportPricePage({
   if (batchId) {
     const detail = await getBatchDetailViewData(batchId, session.supplierId);
     if (!detail) redirect("/supplier/import-price");
-    const { batch, stagedItems, itemSeriesMap, purchaseItems } = detail;
+    const { batch, stagedItems, itemSeriesMap, purchaseOrders } = detail;
 
     return (
       <>
         {/* 左侧：批次详情 (1/2)，内容超长时该区域独立滚动 */}
-        <section className="w-1/2 min-w-0 min-h-0 flex flex-col border-r border-slate-200 bg-white overflow-y-auto">
+        <section className="h-1/2 w-full lg:h-auto lg:w-1/2 min-w-0 min-h-0 flex flex-col border-b lg:border-b-0 lg:border-r border-slate-200 bg-white overflow-auto">
           <div className="p-2.5">
             <Link
               href="/supplier/import-price"
@@ -41,7 +42,7 @@ export default async function SupplierImportPricePage({
 
             <h1 className="text-[13px] font-semibold text-slate-800 leading-tight break-words">{batch.fileName}</h1>
             <div className="flex flex-wrap items-center gap-x-1.5 gap-y-0.5 text-[10px] text-slate-500 mb-2 leading-tight">
-              <span>{batch.importedAt.toLocaleString()}</span>
+              <span>{formatDateYYMMDD(batch.importedAt)}</span>
               <span className="text-slate-300">|</span>
               <span className={`px-1 py-0.5 rounded text-[9px] font-medium capitalize ${
                 batch.approvalStatus === "pending"
@@ -53,7 +54,7 @@ export default async function SupplierImportPricePage({
               {batch.approvedAt && (
                 <>
                   <span className="text-slate-300">|</span>
-                  <span>Live since {batch.approvedAt.toLocaleString()}</span>
+                  <span>Live since {formatDateYYMMDD(batch.approvedAt)}</span>
                 </>
               )}
               <span className="text-slate-300">|</span>
@@ -71,20 +72,20 @@ export default async function SupplierImportPricePage({
         </section>
 
         {/* 右侧：Purchase Order (1/2)，内部独立滚动 */}
-        <section className="w-1/2 min-w-0 min-h-0 flex flex-col bg-slate-50">
-          <PurchaseOrderPanel items={purchaseItems} />
+        <section className="h-1/2 w-full lg:h-auto lg:w-1/2 min-w-0 min-h-0 flex flex-col overflow-auto bg-slate-50">
+          <PurchaseOrderPanel purchaseOrders={purchaseOrders} />
         </section>
       </>
     );
   }
 
   // 列表视图
-  const { myBatches, purchaseItems } = await getListData(session.supplierId);
+  const { myBatches, purchaseOrders } = await getListData(session.supplierId);
 
   return (
     <>
       {/* 左侧：Import Price (1/2)，文件列表内部独立滚动 */}
-      <section className="w-1/2 min-w-0 min-h-0 flex flex-col border-r border-slate-200 bg-white">
+      <section className="h-1/2 w-full lg:h-auto lg:w-1/2 min-w-0 min-h-0 flex flex-col border-b lg:border-b-0 lg:border-r border-slate-200 bg-white overflow-auto">
         <SupplierImportPanel
           batches={myBatches.map((b) => ({
             importBatchId: b.importBatchId,
@@ -101,8 +102,8 @@ export default async function SupplierImportPricePage({
       </section>
 
       {/* 右侧：Purchase Order (1/2)，订单列表内部独立滚动 */}
-      <section className="w-1/2 min-w-0 min-h-0 flex flex-col bg-slate-50">
-        <PurchaseOrderPanel items={purchaseItems} />
+      <section className="h-1/2 w-full lg:h-auto lg:w-1/2 min-w-0 min-h-0 flex flex-col overflow-auto bg-slate-50">
+        <PurchaseOrderPanel purchaseOrders={purchaseOrders} />
       </section>
     </>
   );

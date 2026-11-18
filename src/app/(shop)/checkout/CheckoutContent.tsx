@@ -105,6 +105,8 @@ export function CheckoutContent({ order, defaultName, savedShipping }: CheckoutC
   const canSubmitNow = canSubmitFor(order);
   const canCancelRequest = lifecycle === "approved";
   const cancelRequested = isCancelPending(order);
+  // Documents / Slip：Approved 与 Handover 可用，其余状态停用
+  const docsAvailable = lifecycle === "approved" || lifecycle === "confirmed";
 
   /**
    * 最终生效的收货信息：输入框留空时回落到客户最近一次记录
@@ -425,10 +427,11 @@ export function CheckoutContent({ order, defaultName, savedShipping }: CheckoutC
         )}
 
         <form onSubmit={handleSubmit} className="grid grid-cols-1 lg:grid-cols-2 gap-2 lg:gap-3">
-          {/* ===== 左侧：Shipping Address + Payment Method ===== */}
-          <div className="lg:col-span-1 space-y-2">
+          {/* ===== 左侧：整体一张表格（Shipping + Payment 分区行） ===== */}
+          <div className="lg:col-span-1 min-w-0 overflow-auto max-h-[70dvh]">
+            <div className="border border-slate-200 rounded bg-white min-w-[720px]">
             {/* Shipping Address */}
-            <div className="border border-slate-200 rounded bg-white p-2">
+            <div className="p-2 border-b border-slate-200">
               <h2 className="text-[12px] font-bold text-slate-900 mb-1 flex items-center gap-1.5">
                 <svg className="w-3.5 h-3.5 text-[#336633]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
@@ -436,7 +439,7 @@ export function CheckoutContent({ order, defaultName, savedShipping }: CheckoutC
                 </svg>
                 Shipping Address
               </h2>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-2 gap-y-0.5">
+              <div className="grid grid-cols-2 gap-x-2 gap-y-0.5">
                 <div>
                   <label className={labelClass}>Full Name <span className="text-rose-500">*</span></label>
                   <input type="text" value={formData.shippingName} onChange={(e) => setFormData({ ...formData, shippingName: e.target.value })} className={inputClass(!!savedShipping?.contactName)} placeholder={savedShipping?.contactName || "John Doe"} />
@@ -457,7 +460,7 @@ export function CheckoutContent({ order, defaultName, savedShipping }: CheckoutC
                   <label className={labelClass}>City <span className="text-rose-500">*</span></label>
                   <input type="text" value={formData.shippingCity} onChange={(e) => setFormData({ ...formData, shippingCity: e.target.value })} className={inputClass(!!savedShipping?.city)} placeholder={savedShipping?.city || "New York"} />
                 </div>
-                <div className="sm:col-span-2">
+                <div className="col-span-2">
                   <label className={labelClass}>Address <span className="text-rose-500">*</span></label>
                   <input type="text" value={formData.shippingAddress} onChange={(e) => setFormData({ ...formData, shippingAddress: e.target.value })} className={inputClass(!!savedShipping?.address)} placeholder={savedShipping?.address || "123 Main Street"} />
                 </div>
@@ -473,7 +476,7 @@ export function CheckoutContent({ order, defaultName, savedShipping }: CheckoutC
             </div>
 
             {/* Payment Method */}
-            <div className={cardClass}>
+            <div className="p-2">
               <h2 className="text-[12px] font-bold text-slate-900 mb-2 flex items-center gap-1">
                 <Wallet className="w-3.5 h-3.5 text-[#336633]" />
                 Payment &amp; Delivery
@@ -583,11 +586,12 @@ export function CheckoutContent({ order, defaultName, savedShipping }: CheckoutC
                 </div>
               </div>
             </div>
+            </div>
           </div>
 
-          {/* ===== 右侧：Order Summary ===== */}
-          <div className="lg:col-span-1">
-            <div className={`${cardClass} lg:sticky lg:top-1`}>
+          {/* ===== 右侧：Order Summary（整体一张表格） ===== */}
+          <div className="lg:col-span-1 min-w-0">
+            <div className={`${cardClass} lg:sticky lg:top-1 overflow-auto max-h-[70dvh]`}>
               <div className="flex items-center justify-between mb-2">
                 <h3 className="text-sm font-bold text-slate-900">Order Summary</h3>
                 <span className="text-[13px] font-bold text-slate-800">
@@ -596,7 +600,7 @@ export function CheckoutContent({ order, defaultName, savedShipping }: CheckoutC
                 </span>
               </div>
 
-              <div className="mb-2 max-h-56 overflow-y-auto pr-1">
+              <div className="min-w-[680px] @container">
                 <table className="w-full table-fixed text-[12px]">
                   <colgroup>
                     <col className="w-[27%]" />
@@ -641,21 +645,8 @@ export function CheckoutContent({ order, defaultName, savedShipping }: CheckoutC
                       );
                     })}
                   </tbody>
-                </table>
-              </div>
-
-              {/* 费用行 — 与上方明细表列宽对齐 */}
-              <table className="w-full table-fixed text-[12px] border-t border-slate-100">
-                <colgroup>
-                  <col className="w-[27%]" />
-                  <col className="w-[13%]" />
-                  <col className="w-[10%]" />
-                  <col className="w-[14%]" />
-                  <col className="w-[10%]" />
-                  <col className="w-[13%]" />
-                  <col className="w-[13%]" />
-                </colgroup>
-                <tbody>
+                  {/* 费用行 — 与上方明细表同属一张表格 */}
+                  <tbody className="divide-y divide-slate-100 border-t-2 border-slate-200">
                   <tr>
                     <td className="px-1.5 py-1" />
                     <td colSpan={2} className="px-1.5 py-1 text-left align-middle text-[14px] font-normal whitespace-nowrap text-black">Goods Subtotal</td>
@@ -667,7 +658,7 @@ export function CheckoutContent({ order, defaultName, savedShipping }: CheckoutC
                         type="button"
                         onClick={() => handleToggleComponent("subtotal")}
                         title={paidLocal.subtotal ? "Click to undo" : "Mark as paid"}
-                        className={`px-2 py-0.5 text-[11px] font-bold rounded transition-colors ${
+                        className={`w-full px-2 py-0.5 text-[11px] font-bold rounded transition-colors ${
                           paidLocal.subtotal
                             ? "bg-emerald-300 text-white hover:bg-emerald-400"
                             : "bg-amber-600 text-white hover:bg-amber-700"
@@ -680,10 +671,10 @@ export function CheckoutContent({ order, defaultName, savedShipping }: CheckoutC
                     <td className="px-1.5 py-1" />
                   </tr>
                   <tr>
-                    <td className="px-1.5 py-1 text-left align-middle">
+                    <td className="pl-0 pr-1.5 py-1 text-left align-middle">
                       {/* 订单状态框：Draft / Pending / Rejected / Approved / Cancelled */}
                       <span
-                        className="inline-flex items-center justify-center px-3 py-1 text-[14px] font-bold text-white rounded shadow-sm whitespace-nowrap"
+                        className="inline-flex items-center justify-center w-[calc((100cqw-20px)/6)] h-[29px] px-1 text-[14px] font-bold text-white rounded shadow-sm whitespace-nowrap"
                         style={{ backgroundColor: STATUS_META[lifecycle].color }}
                         title={`Order status: ${STATUS_META[lifecycle].label}`}
                       >
@@ -701,7 +692,7 @@ export function CheckoutContent({ order, defaultName, savedShipping }: CheckoutC
                         type="button"
                         onClick={() => handleToggleComponent("shipping")}
                         title={paidLocal.shipping ? "Click to undo" : "Mark as paid"}
-                        className={`px-2 py-0.5 text-[11px] font-bold rounded transition-colors ${
+                        className={`w-full px-2 py-0.5 text-[11px] font-bold rounded transition-colors ${
                           paidLocal.shipping
                             ? "bg-emerald-300 text-white hover:bg-emerald-400"
                             : "bg-amber-600 text-white hover:bg-amber-700"
@@ -723,16 +714,16 @@ export function CheckoutContent({ order, defaultName, savedShipping }: CheckoutC
                     <td className="px-1.5 py-1" />
                     <td className="px-1.5 py-1" />
                   </tr>
-                </tbody>
-              </table>
+                  </tbody>
+                </table>
 
-              {/* 六个等宽按钮框：同一行排满 */}
+              {/* 等宽按钮框：保持每个按钮现有宽度（1/6），高度与 Total 行一致 */}
               <div className="mt-2 grid grid-cols-6 gap-1">
                 <button
                   type="button"
                   onClick={handleSubmitOrder}
                   disabled={submitLoading || isLoading || !canSubmitNow}
-                  className="w-full min-w-0 py-2 bg-[#336633] text-white text-[12px] font-semibold rounded hover:bg-[#2d5a2d] disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex flex-col items-center justify-center gap-0.5 leading-tight text-center"
+                  className="w-full min-w-0 h-[29px] px-1 bg-[#336633] text-white text-[10px] font-semibold rounded hover:bg-[#2d5a2d] disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-0.5 whitespace-nowrap text-center"
                   title={order.auditStatus === "rejected" ? "Resubmit order for approval" : "Submit order for approval"}
                 >
                   {submitLoading ? (
@@ -741,16 +732,16 @@ export function CheckoutContent({ order, defaultName, savedShipping }: CheckoutC
                       <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                     </svg>
                   ) : (
-                    <Send className="w-4 h-4" />
+                    <Send className="w-3.5 h-3.5" />
                   )}
                   Submit
                 </button>
                 <button
                   type="button"
                   onClick={handleDownloadDocuments}
-                  disabled={isLoading || slipLoading || docsLoading}
-                  className="w-full min-w-0 py-2 bg-sky-50 border border-sky-200 text-sky-700 text-[12px] font-semibold rounded hover:bg-sky-100 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex flex-col items-center justify-center gap-0.5 leading-tight text-center"
-                  title="Download customs documents"
+                  disabled={isLoading || slipLoading || docsLoading || !docsAvailable}
+                  className="w-full min-w-0 h-[29px] px-1 bg-sky-50 border border-sky-200 text-sky-700 text-[10px] font-semibold rounded hover:bg-sky-100 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-0.5 whitespace-nowrap text-center"
+                  title={docsAvailable ? "Download customs documents" : "Available after the order is approved"}
                 >
                   {docsLoading ? (
                     <svg className="animate-spin h-3.5 w-3.5 text-sky-700" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
@@ -758,16 +749,16 @@ export function CheckoutContent({ order, defaultName, savedShipping }: CheckoutC
                       <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                     </svg>
                   ) : (
-                    <FileDown className="w-4 h-4" />
+                    <FileDown className="w-3.5 h-3.5" />
                   )}
                   Documents
                 </button>
                 <button
                   type="button"
                   onClick={() => slipInputRef.current?.click()}
-                  disabled={isLoading || slipLoading || allPaid || !hasAnySelection}
-                  className="w-full min-w-0 py-2 bg-emerald-50 border border-emerald-200 text-emerald-700 text-[12px] font-semibold rounded hover:bg-emerald-100 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex flex-col items-center justify-center gap-0.5 leading-tight text-center"
-                  title="Upload bank transfer slip"
+                  disabled={isLoading || slipLoading || allPaid || !hasAnySelection || !docsAvailable}
+                  className="w-full min-w-0 h-[29px] px-1 bg-emerald-50 border border-emerald-200 text-emerald-700 text-[10px] font-semibold rounded hover:bg-emerald-100 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-0.5 whitespace-nowrap text-center"
+                  title={docsAvailable ? "Upload bank transfer slip" : "Available after the order is approved"}
                 >
                   {slipLoading ? (
                     <svg className="animate-spin h-3.5 w-3.5 text-emerald-700" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
@@ -775,18 +766,18 @@ export function CheckoutContent({ order, defaultName, savedShipping }: CheckoutC
                       <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                     </svg>
                   ) : (
-                    <Upload className="w-4 h-4" />
+                    <Upload className="w-3.5 h-3.5" />
                   )}
                   Slip
                 </button>
                 <button
                   type="button"
                   onClick={handleConfirmReceipt}
-                  disabled={isLoading || slipLoading || order.orderStatus === "completed" || order.orderStatus === "cancelled" || !!order.deliveredAt}
-                  className="w-full min-w-0 py-2 bg-[#336633] text-white text-[12px] font-semibold rounded hover:bg-[#2d5a2d] disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex flex-col items-center justify-center gap-0.5 leading-tight text-center"
-                  title={order.deliveredAt ? "Handover already confirmed" : "Confirm handover"}
+                  disabled={isLoading || slipLoading || lifecycle !== "approved" || order.orderStatus === "completed" || order.orderStatus === "cancelled" || !!order.deliveredAt}
+                  className="w-full min-w-0 h-[29px] px-1 bg-[#336633] text-white text-[10px] font-semibold rounded hover:bg-[#2d5a2d] disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-0.5 whitespace-nowrap text-center"
+                  title={order.deliveredAt ? "Handover already confirmed" : lifecycle === "approved" ? "Confirm handover" : "Available after the order is approved"}
                 >
-                  <Check className="w-4 h-4" />
+                  <Check className="w-3.5 h-3.5" />
                   Confirm Handover
                 </button>
                 {canWithdraw && (
@@ -794,10 +785,10 @@ export function CheckoutContent({ order, defaultName, savedShipping }: CheckoutC
                     type="button"
                     onClick={handleWithdraw}
                     disabled={isLoading || allPaid}
-                    className="w-full min-w-0 py-2 bg-amber-50 border border-amber-200 text-amber-700 text-[12px] font-semibold rounded hover:bg-amber-100 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex flex-col items-center justify-center gap-0.5 leading-tight text-center"
+                    className="w-full min-w-0 h-[29px] px-1 bg-amber-50 border border-amber-200 text-amber-700 text-[10px] font-semibold rounded hover:bg-amber-100 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-0.5 whitespace-nowrap text-center"
                     title="Withdraw this order and return items to cart"
                   >
-                    <Undo2 className="w-4 h-4" />
+                    <Undo2 className="w-3.5 h-3.5" />
                     Withdraw
                   </button>
                 )}
@@ -806,14 +797,14 @@ export function CheckoutContent({ order, defaultName, savedShipping }: CheckoutC
                     type="button"
                     onClick={handleCancelRequest}
                     disabled={isLoading || cancelRequested}
-                    className="w-full min-w-0 py-2 bg-rose-50 border border-rose-200 text-rose-700 text-[12px] font-semibold rounded hover:bg-rose-100 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex flex-col items-center justify-center gap-0.5 leading-tight text-center"
+                    className="w-full min-w-0 h-[29px] px-1 bg-rose-50 border border-rose-200 text-rose-700 text-[10px] font-semibold rounded hover:bg-rose-100 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-0.5 whitespace-nowrap text-center"
                     title={
                       cancelRequested
                         ? "Cancellation requested — waiting for admin approval"
                         : "Request order cancellation"
                     }
                   >
-                    <XCircle className="w-4 h-4" />
+                    <XCircle className="w-3.5 h-3.5" />
                     {cancelRequested ? "Cancel Requested" : "Cancel Request"}
                   </button>
                 )}
@@ -824,6 +815,7 @@ export function CheckoutContent({ order, defaultName, savedShipping }: CheckoutC
                   className="hidden"
                   onChange={handleSlipFile}
                 />
+              </div>
               </div>
             </div>
           </div>

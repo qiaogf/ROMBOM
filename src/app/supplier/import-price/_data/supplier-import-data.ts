@@ -3,17 +3,34 @@
 // The purchase-items assembly is shared by both views (previously duplicated).
 
 import { prisma } from "@/lib/prisma";
-import type { PurchaseItem } from "../PurchaseOrderPanel";
 import { loadSeriesMapByIds } from "@/lib/import-batch-rows";
 
 // ============ 采购单（两个视图共享） ============
 
 /**
- * 采购单：管理者在 Admin Purchase 页 Approve 后发给当前供应商的真实采购单。
- * 显示管理者调整后的实际采购价（purPrice ?? unitPrice）与数量；
- * Condition 经该供应商 ModelPrice（按 model 匹配）补充，无匹配显示 null。
+ * 供应商端采购订单（按 PO 分组，每组带明细）
+ * 管理者在 Admin Purchase 页 Approve 后发给当前供应商的真实采购单。
  */
-export async function getPurchaseItems(supplierId: string): Promise<PurchaseItem[]> {
+export interface SupplierPurchaseOrder {
+  poId: string;
+  poNumber: string;
+  items: Array<{
+    itemId: string;
+    model: string;
+    productName: string;
+    quantity: number;
+    purPrice: string;      // 实际采购价（管理者可调整后的值）
+    accept: boolean;       // 供应商接受状态
+    condition: string | null;
+    leadTime: string | null;
+  }>;
+}
+
+/**
+ * 采购单：管理者在 Admin Purchase 页 Approve 后发给当前供应商的真实采购单。
+ * 按 PO 分组返回，每组带明细；Condition 经该供应商 ModelPrice（按 model 匹配）补充，无匹配显示 null。
+ */
+export async function getSupplierPurchaseOrders(supplierId: string): Promise<SupplierPurchaseOrder[]> {
   const pos = await prisma.purchaseOrder.findMany({
     where: { supplierId, auditStatus: "approved" },
     orderBy: { orderTime: "desc" },
@@ -33,17 +50,20 @@ export async function getPurchaseItems(supplierId: string): Promise<PurchaseItem
     : [];
   const conditionByModel = new Map(modelPrices.map((mp) => [mp.model, mp.condition]));
 
-  return pos.flatMap((po) =>
-    po.items.map((it) => ({
-      cartItemId: it.itemId,
+  return pos.map((po) => ({
+    poId: po.poId,
+    poNumber: po.poNumber,
+    items: po.items.map((it) => ({
+      itemId: it.itemId,
       model: it.model ?? "—",
       productName: it.productName,
       quantity: it.quantity,
-      unitPrice: (it.purPrice ?? it.unitPrice).toString(),
+      purPrice: (it.purPrice ?? it.unitPrice).toString(),
+      accept: it.accept,
       condition: it.condition ?? (it.model ? conditionByModel.get(it.model) : null) ?? null,
       leadTime: it.leadTime ?? null,
-    }))
-  );
+    })),
+  }));
 }
 
 // ============ 批次详情视图 ============
@@ -79,9 +99,9 @@ export async function getBatchDetailViewData(batchId: string, supplierId: string
   // ImportBatchItem 无 series 关联，按行上的 seriesId 批量取系列+品牌后拼装
   const itemSeriesMap = await loadSeriesMapByIds(stagedItems.map((it) => it.seriesId));
 
-  const purchaseItems = await getPurchaseItems(supplierId);
+  const purchaseOrders = await getSupplierPurchaseOrders(supplierId);
 
-  return { batch, stagedItems, itemSeriesMap, purchaseItems };
+  return { batch, stagedItems, itemSeriesMap, purchaseOrders };
 }
 
 // ============ 列表视图 ============
@@ -110,7 +130,7 @@ export async function getListData(supplierId: string) {
     return true;
   });
 
-  const purchaseItems = await getPurchaseItems(supplierId);
+  const purchaseOrders = await getSupplierPurchaseOrders(supplierId);
 
-  return { myBatches, purchaseItems };
+  return { myBatches, purchaseOrders };
 }

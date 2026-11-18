@@ -39,7 +39,7 @@ export default async function SupplierLayout({ children }: { children: ReactNode
       </header>
 
       {/* Two-panel content: left Import Price, right Purchase Order */}
-      <main className="flex-1 min-h-0 flex">{children}</main>
+      <main className="flex-1 min-h-0 flex flex-col lg:flex-row">{children}</main>
     </div>
   );
 }

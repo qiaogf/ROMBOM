@@ -578,6 +578,7 @@ model PurchaseOrderItem {
   condition     String?           // Product Condition（增购行手动填写，可空）
   leadTime      String?           // Leadtime（统一字段：In Stock / Out of Stock / 交期文本）
   itemStatus    String           @default("ordered")  // ordered | paid | shipped | received
+  accept        Boolean          @default(false)       // 供应商接受该明细行：false=待确认，true=已接受
   createdAt     DateTime         @default(now())
   purchaseOrder PurchaseOrder    @relation(fields: [poId], references: [poId], onDelete: Cascade)
 

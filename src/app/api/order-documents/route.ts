@@ -3,7 +3,6 @@ import { prisma } from "@/lib/prisma";
 import { getCurrentUserId } from "@/lib/auth";
 import { getAdminSession } from "@/lib/auth-admin";
 import { generateOrderDocuments, type DocumentOrder } from "@/lib/order-documents";
-import { generateOrderDocumentsExcel } from "@/lib/order-documents-excel";
 
 export const dynamic = "force-dynamic";
 
@@ -105,9 +104,15 @@ export async function GET(request: Request) {
     };
 
     const isExcel = format === "xlsx";
-    const bytes = isExcel
-      ? await generateOrderDocumentsExcel(payload)
-      : Buffer.from(await generateOrderDocuments(payload));
+    // exceljs 只在导出 Excel 时才加载：避免 PDF 下载（客户主路径）被 exceljs
+    // 在 Turbopack 下的外部模块解析问题连带拖垮（本地 dev 曾整体 500）
+    let bytes: Buffer;
+    if (isExcel) {
+      const { generateOrderDocumentsExcel } = await import("@/lib/order-documents-excel");
+      bytes = await generateOrderDocumentsExcel(payload);
+    } else {
+      bytes = Buffer.from(await generateOrderDocuments(payload));
+    }
     const filename = `${order.orderNumber}-Documents.${isExcel ? "xlsx" : "pdf"}`;
 
     return new NextResponse(Uint8Array.from(bytes), {

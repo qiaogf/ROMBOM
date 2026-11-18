@@ -53,13 +53,13 @@ export async function getAllCategoriesWithSlug() {
   return cached();
 }
 
-// 获取所有品牌（带 slug），供侧边栏导航使用。（Data Cache 同上）
+// 获取所有品牌（带 slug），供侧边栏导航使用。按 sortOrder 从小到大排列。（Data Cache 同上）
 export async function getAllBrandsWithSlug() {
   const cached = unstable_cache(
     async () =>
       prisma.brand.findMany({
         where: { isActive: true },
-        orderBy: { brandName: "asc" },
+        orderBy: { sortOrder: "asc" },
       }),
     ["sidebar-brands"],
     { tags: ["catalog"], revalidate: 3600 }

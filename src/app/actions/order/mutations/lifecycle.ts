@@ -203,11 +203,11 @@ export async function withdrawOrderToCart(orderId: string): Promise<OrderActionR
       if (!order || order.customerId !== customerId) {
         return { success: false, message: "Order not found or unauthorized" };
       }
-      // 仅 Draft（未提交）与 Pending（已提交待审核）允许撤回
+      // 仅 Draft（未提交）、Pending（已提交待审核）与 Rejected（管理员驳回）允许撤回
       if (!canWithdraw(order)) {
         return {
           success: false,
-          message: "Only draft or pending orders can be withdrawn. Use Cancel Request once approved.",
+          message: "Only draft, pending, or rejected orders can be withdrawn. Use Cancel Request once approved.",
         };
       }
 

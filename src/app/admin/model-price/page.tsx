@@ -44,9 +44,9 @@ export default async function ModelPriceListPage({
   return (
     <div className="h-full">
       {/* 左右两栏 1:1：左 = 上传+已导入文件（常驻）；右 = 选中文件详情 / 标准价格表。宽屏下各自独立滚动 */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 h-full">
+      <div className="grid grid-cols-1 grid-rows-2 lg:grid-cols-2 lg:grid-rows-1 gap-3 h-full">
         {/* 左半（同 Product 导航交互：点击文件名后左栏保持不动） */}
-        <div className="min-w-0 flex flex-col gap-3 min-h-0">
+        <div className="min-w-0 flex flex-col gap-3 min-h-0 overflow-auto">
           {/* 上传区域（固定） */}
           <div className="shrink-0 bg-white border border-slate-200 rounded-lg p-3">
             <ImportFormBase
@@ -72,7 +72,7 @@ export default async function ModelPriceListPage({
 
           {/* 文件列表（独立滚动） */}
           <div className="min-h-0 flex-1 flex flex-col">
-            <div className="min-h-0 flex-1 overflow-y-auto">
+            <div className="min-h-0 flex-1 overflow-auto">
               <PriceBatchList
                 batches={listBatches}
                 detailPathPrefix="/admin/model-price?batch="
@@ -85,7 +85,7 @@ export default async function ModelPriceListPage({
         {/* 右半：选中文件 → 显示文件详细内容（含 Confirm/Reject/Delete）；未选 → 留白 */}
         <div className="min-w-0 flex flex-col min-h-0">
           {detail ? (
-            <div className="min-h-0 flex-1 overflow-y-auto pr-1">
+            <div className="min-h-0 flex-1 overflow-auto pr-1">
               <PriceBatchDetail
                 batch={{
                   ...detail.batch,

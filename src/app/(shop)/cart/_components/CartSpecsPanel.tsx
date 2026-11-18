@@ -16,7 +16,7 @@ export function CartSpecsPanel({ items }: Props) {
       <div className="px-2 py-1.5 bg-slate-50 border-b border-slate-200">
         <h3 className="text-[12px] font-bold text-slate-900">Specifications</h3>
       </div>
-      <div className="overflow-x-auto">
+      <div className="overflow-auto max-h-[65dvh]">
         <table className="w-full text-[11px] whitespace-nowrap">
           <thead className="bg-slate-50 text-slate-500 text-[10px] uppercase tracking-wide">
             <tr>
@@ -46,7 +46,7 @@ export function CartSpecsPanel({ items }: Props) {
                   <td className="px-1.5 py-1 text-slate-600">{d.certification || "—"}</td>
                   <td className="px-1.5 py-1">
                     {link ? (
-                      <a href={link} target="_blank" rel="noopener noreferrer" className="text-[#336633] hover:underline">
+                      <a href={link} target="_blank" rel="noopener noreferrer" className="text-[#336633] underline hover:text-[#2d5a2d]">
                         Link
                       </a>
                     ) : (

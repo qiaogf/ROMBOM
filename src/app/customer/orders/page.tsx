@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { getSession } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { Package, ArrowRight } from "lucide-react";
+import { formatDateYYMMDD } from "@/lib/format";
 
 export const dynamic = "force-dynamic";
 
@@ -32,12 +33,7 @@ function formatCurrency(value: unknown, currency = "USD"): string {
 }
 
 function formatDate(value: Date | string): string {
-  const d = value instanceof Date ? value : new Date(value);
-  return d.toLocaleDateString("en-US", {
-    year: "numeric",
-    month: "short",
-    day: "numeric",
-  });
+  return formatDateYYMMDD(value);
 }
 
 function formatStatus(status: string): string {

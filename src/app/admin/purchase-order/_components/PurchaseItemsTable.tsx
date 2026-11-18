@@ -20,6 +20,7 @@ export function PurchaseItemsTable({
     quantity: number;
     condition: string | null;
     leadTime: string | null;
+    accept: boolean;
   }>;
   poId: string;
   poNumber: string;
@@ -41,6 +42,7 @@ export function PurchaseItemsTable({
             <col style={{ width: "15%" }} />
             <col style={{ width: "13%" }} />
             <col style={{ width: "11%" }} />
+            <col style={{ width: "8%" }} />
             <col style={{ width: "24px" }} />
           </colgroup>
           <thead className="bg-slate-50 text-slate-500 text-[10px] uppercase tracking-wide">
@@ -52,13 +54,14 @@ export function PurchaseItemsTable({
               <th className="px-1 py-0.5 text-left">Condition</th>
               <th className="px-1 py-0.5 text-left">Leadtime</th>
               <th className="px-1 py-0.5 text-left">Amount</th>
+              <th className="px-1 py-0.5 text-left">Accept</th>
               <th className="px-0.5 py-0.5"></th>
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100">
             {items.length === 0 ? (
               <tr>
-                <td colSpan={8} className="px-3 py-6 text-left text-slate-400">
+                <td colSpan={9} className="px-3 py-6 text-left text-slate-400">
                   No items found for this purchase order.
                 </td>
               </tr>
@@ -108,6 +111,18 @@ export function PurchaseItemsTable({
                     <td className="px-1 py-0.5 text-slate-700 tabular-nums text-right">
                       {purPrice > 0 && item.quantity > 0 ? `$${(purPrice * item.quantity).toFixed(2)}` : "—"}
                     </td>
+                    {/* Accept：供应商接受状态。true=绿色YES徽章，false=灰色NO徽章 */}
+                    <td className="px-1 py-0.5">
+                      {item.accept ? (
+                        <span className="inline-flex items-center px-1.5 py-0.5 text-[10px] font-semibold rounded bg-emerald-100 text-emerald-700">
+                          YES
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center px-1.5 py-0.5 text-[10px] font-semibold rounded bg-slate-100 text-slate-500">
+                          NO
+                        </span>
+                      )}
+                    </td>
                     {/* 减行：删除该明细行并重算 PO 总额 */}
                     <td className="px-0.5 py-0.5 text-center">
                       <DeletePurchaseItemButton itemId={item.itemId} model={item.model} />
@@ -119,16 +134,24 @@ export function PurchaseItemsTable({
             {/* 手动增购行：Model / PurPrice / Qty 输入，Add 后重算 Items 合计 */}
             <AddPurchaseItemRow poId={poId} />
           </tbody>
+          {/* 汇总行：Items(N): label 对齐 Leadtime 列，金额对齐 Amount 列 */}
+          <tfoot className="bg-slate-50">
+            <tr>
+              {/* PurOrder / Model / PurPrice / Qty / Condition 五列合并 */}
+              <td colSpan={5} className="px-1 py-0.5"></td>
+              {/* Leadtime 列 → "Items (N):" label */}
+              <td className="px-1 py-0.5 text-[11px] font-semibold text-slate-700">
+                Items ({items.length}):
+              </td>
+              {/* Amount 列 → 合计金额（右对齐，和每行 Amount 一致） */}
+              <td className="px-1 py-0.5 text-right text-[12px] font-bold text-green-700 tabular-nums whitespace-nowrap">
+                ${totalAmount.toFixed(2)}
+              </td>
+              {/* Accept + 删除按钮 两列空 */}
+              <td colSpan={2} className="px-1 py-0.5"></td>
+            </tr>
+          </tfoot>
         </table>
-      </div>
-      {/* 底部汇总行（与 Sales 明细一致） */}
-      <div className="flex items-center justify-between gap-2 px-2 py-1.5 border-t border-slate-200 bg-slate-50">
-        <div className="text-[11px] text-slate-600">
-          Items ({items.length}):{" "}
-          <span className="text-[12px] font-bold text-slate-900 ml-0.5">
-            ${totalAmount.toFixed(2)}
-          </span>
-        </div>
       </div>
     </div>
   );

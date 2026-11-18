@@ -29,6 +29,7 @@ interface AuditActionButtonsProps {
   poStatus?: string; // purchase 专用：draft 时显示 Submit（提交审批）按钮
   submittedAt?: string | null; // sales 专用：未提交的 Draft 不允许 Approve / Reject
   cancelRequestedAt?: string | null; // sales 专用：客户已提交取消申请的时间
+  orderStatus?: string | null; // sales 专用：已在 orderStatus=cancelled 时停用 Cancel
 }
 
 export function AuditActionButtons({
@@ -39,6 +40,7 @@ export function AuditActionButtons({
   poStatus,
   submittedAt,
   cancelRequestedAt,
+  orderStatus,
 }: AuditActionButtonsProps) {
   const [pending, startTransition] = useTransition();
   const router = useRouter();
@@ -156,10 +158,17 @@ export function AuditActionButtons({
     );
   }
 
-  // sales：Approve / Reject（仅 Pending 可用）/ Cancel（Approved 且有取消申请）/ Delete（始终可用）
-  const current = auditStatus === "rejected" ? "rejected" : auditStatus === "pending" ? "pending" : "approved";
+  // sales：Approve / Reject（仅 Pending 激活）/ Cancel（仅客户提交取消申请后激活）/ Delete（始终激活）
+  // 按钮只有两种视觉状态：激活（彩色实心）与停用（灰色），不再用彩色表示"当前状态"
   const canApproveOrReject = canAdminApproveOrReject({ submittedAt: submittedAt ?? null, auditStatus });
-  const canCancel = canAdminCancel(auditStatus, cancelRequestedAt);
+  const canCancel = canAdminCancel({
+    orderStatus: orderStatus ?? "ordered",
+    auditStatus,
+    submittedAt: submittedAt ?? null,
+    cancelRequestedAt,
+  });
+
+  const idle = `${base} text-slate-400 bg-slate-100 border border-slate-200 cursor-not-allowed`;
 
   return (
     <div className="flex items-center gap-1">
@@ -167,11 +176,15 @@ export function AuditActionButtons({
         type="button"
         onClick={() => canApproveOrReject && run(approveSalesOrder)}
         disabled={pending || !canApproveOrReject}
-        title={canApproveOrReject ? `Approve ${label}` : "Only pending orders can be approved"}
+        title={
+          canApproveOrReject
+            ? `Approve ${label}`
+            : "Approve is available only after the customer submits a pending order"
+        }
         className={
-          current === "approved"
-            ? `${base} text-white bg-emerald-600`
-            : `${base} text-emerald-700 border border-emerald-200 hover:bg-emerald-50`
+          canApproveOrReject
+            ? `${base} text-white bg-emerald-600 hover:bg-emerald-700`
+            : idle
         }
       >
         {pending && canApproveOrReject ? (
@@ -185,11 +198,15 @@ export function AuditActionButtons({
         type="button"
         onClick={() => canApproveOrReject && run(rejectSalesOrder)}
         disabled={pending || !canApproveOrReject}
-        title={canApproveOrReject ? `Reject ${label}` : "Only pending orders can be rejected"}
+        title={
+          canApproveOrReject
+            ? `Reject ${label}`
+            : "Reject is available only after the customer submits a pending order"
+        }
         className={
-          current === "rejected"
-            ? `${base} text-white bg-rose-600`
-            : `${base} text-rose-600 border border-rose-200 hover:bg-rose-50`
+          canApproveOrReject
+            ? `${base} text-white bg-rose-600 hover:bg-rose-700`
+            : idle
         }
       >
         {pending && canApproveOrReject ? (
@@ -206,12 +223,12 @@ export function AuditActionButtons({
         title={
           canCancel
             ? `Approve the customer's cancellation request for ${label}`
-            : "Cancel is available only for approved orders with a customer cancellation request"
+            : "Cancel is available only after the customer requests cancellation"
         }
         className={
           canCancel
             ? `${base} text-white bg-slate-600 hover:bg-slate-700`
-            : `${base} text-slate-500 border border-slate-200`
+            : idle
         }
       >
         {pending && canCancel ? (

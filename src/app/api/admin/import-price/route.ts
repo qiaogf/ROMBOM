@@ -6,7 +6,6 @@ import {
   normalizeLeadtime,
   validateFieldLengths,
   GENERIC_BRAND_NAME,
-  OTHERS_SERIES_NAME,
   isSpecialCategoryName,
   buildBatchDedupeKey,
   leadTimeRank,

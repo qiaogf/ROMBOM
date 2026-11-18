@@ -24,7 +24,5 @@ Dockerfile
 .dockerignore
 docker-compose.yml
 Caddyfile
-README.md
 AGENTS.md
 CLAUDE.md
-BACKUP-LIST.md

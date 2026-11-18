@@ -75,8 +75,10 @@ export async function POST(request: Request) {
       return NextResponse.json({ success: false, message: "Invalid SMTP port configuration." }, { status: 500 });
     }
 
-    const toEmail = env("PAYMENT_SLIP_TO_EMAIL") ?? "457655279@qq.com";
-    const fromEmail = env("INQUIRY_FROM_EMAIL") ?? user;
+    // 水单通知统一发送到 870418695@qq.com；发件人显示名固定为 MROBOM Orders，
+    // 发件邮箱仍是 SMTP 登录账号（QQ SMTP 不允许冒充其他地址）
+    const toEmail = env("PAYMENT_SLIP_TO_EMAIL") ?? "870418695@qq.com";
+    const fromEmail = env("INQUIRY_FROM_EMAIL") ?? `MROBOM Orders <${user}>`;
     const safeName =
       (file.name || "payment-slip").replace(/[^\w.\-]+/g, "_").slice(0, 120) || "payment-slip";
 

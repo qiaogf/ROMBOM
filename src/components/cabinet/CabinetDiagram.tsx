@@ -79,13 +79,6 @@ const LABEL_CFG: LabelLayoutConfig = {
   labelGapBottom: LABEL_GAP_BOTTOM,
 };
 
-interface LabelSlot {
-  label: LabelItem;
-  part: Part;
-  x: number;
-  y: number;
-  above: boolean;
-}
 
 // 参考图风格：浅色标题带 + 深色标题字
 const HEADER_TINT: Record<string, string> = {
@@ -220,12 +213,12 @@ const CABINETS: CabinetSpec[] = [
       { part: "plc-mpcb", text: "Motor CB (MPCB)", href: "/category/electrical" },
       { part: "plc-cont", text: "AC Contactor", href: "/category/electrical" },
       { part: "plc-thermal", text: "Thermal Relay", href: "/category/electrical" },
-      { part: "plc-meter", text: "Energy Meter", href: "/category/instrument-tool" },
+      { part: "plc-meter", text: "Energy Meter", href: "/category/sensor-instrument" },
       { part: "plc-spd", text: "Power SPD", href: "/category/electrical" },
       { part: "plc-psu1", text: "24V Power Supply", href: "/category/electrical" },
       { part: "plc-cpu", text: "PLC CPU + Memory", href: "/category/control" },
       { part: "plc-di", text: "DI / DO Modules", href: "/category/control" },
-      { part: "plc-sensor1", text: "Prox / Photo Sensor", href: "/category/sensor" },
+      { part: "plc-sensor1", text: "Prox / Photo Sensor", href: "/category/sensor-instrument" },
       { part: "plc-ai", text: "AI / AO Modules", href: "/category/control" },
       { part: "plc-relay", text: "Relay + Socket", href: "/category/control" },
       { part: "plc-duct", text: "Duct / DIN Rail", href: "/category/electrical" },
@@ -317,10 +310,10 @@ const CABINETS: CabinetSpec[] = [
       { part: "drv-thermal", text: "Thermal Relay", href: "/category/electrical" },
       { part: "drv-mcb", text: "Miniature CB (MCB)", href: "/category/electrical" },
       { part: "drv-psu", text: "24V Power Supply", href: "/category/electrical" },
-      { part: "drv-vfd", text: "VFD", href: "/category/drive" },
-      { part: "drv-servo", text: "Servo Drive", href: "/category/drive" },
-      { part: "drv-motor", text: "Servo Motor", href: "/category/drive" },
-      { part: "drv-starter", text: "Soft Starter", href: "/category/drive" },
+      { part: "drv-vfd", text: "VFD", href: "/category/drive-fluid" },
+      { part: "drv-servo", text: "Servo Drive", href: "/category/drive-fluid" },
+      { part: "drv-motor", text: "Servo Motor", href: "/category/drive-fluid" },
+      { part: "drv-starter", text: "Soft Starter", href: "/category/drive-fluid" },
       { part: "drv-trafo", text: "Transformer", href: "/category/electrical" },
       { part: "drv-filter", text: "EMI Filter", href: "/category/electrical" },
       { part: "drv-socket", text: "DIN Rail Socket", href: "/category/electrical" },

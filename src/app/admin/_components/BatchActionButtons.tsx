@@ -25,9 +25,11 @@ interface BatchActionButtonsProps {
   selfOrderAll?: boolean;
   /** 紧凑模式：缩小间距/字号/内边距，保证三个按钮单行放下（Product 导航列表使用） */
   compact?: boolean;
+  /** 仅显示 Delete 按钮（Admin 导入列表使用） */
+  deleteOnly?: boolean;
 }
 
-export function BatchActionButtons({ importBatchId, fileName, approvalStatus, selfOrderAll, compact }: BatchActionButtonsProps) {
+export function BatchActionButtons({ importBatchId, fileName, approvalStatus, selfOrderAll, compact, deleteOnly }: BatchActionButtonsProps) {
   const [pending, startTransition] = useTransition();
   const [active, setActive] = useState<Action | null>(null);
   const [error, setError] = useState("");
@@ -98,7 +100,7 @@ export function BatchActionButtons({ importBatchId, fileName, approvalStatus, se
 
   return (
     <div className={`flex items-center ${compact ? "gap-0.5 whitespace-nowrap" : "gap-1"}`}>
-      {approvalStatus === "pending" && (
+      {!deleteOnly && approvalStatus === "pending" && (
         <>
           <button
             type="button"

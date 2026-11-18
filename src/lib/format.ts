@@ -1,6 +1,20 @@
 import { formatUSD, type DecimalLike } from "@/lib/price";
 
 /**
+ * 统一订单日期格式：YYMMDD（如 2026-11-18 → "261118"）。
+ * null / 无效日期 → "—"
+ */
+export function formatDateYYMMDD(date: Date | string | null | undefined): string {
+  if (!date) return "—";
+  const d = typeof date === "string" ? new Date(date) : date;
+  if (Number.isNaN(d.getTime())) return "—";
+  const year = String(d.getFullYear()).slice(-2);
+  const month = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${year}${month}${day}`;
+}
+
+/**
  * Format a possibly-null amount as USD currency.
  * - null / undefined → fallback (default "—")
  * - invalid (NaN) strings or numbers → "$0.00" (delegates to formatUSD normalization)

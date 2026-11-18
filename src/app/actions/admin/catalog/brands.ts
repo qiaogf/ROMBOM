@@ -4,6 +4,13 @@
 
 import { prisma } from "@/lib/prisma";
 import { slugify, ensureUniqueSlug } from "./shared";
+import { revalidatePath, updateTag } from "next/cache";
+
+// 品牌变更后让前台导航/品牌页立即读取新数据
+function refreshCatalogCache() {
+  updateTag("catalog");
+  revalidatePath("/", "layout");
+}
 
 // ── 创建 Brand ──
 export async function createBrand(formData: FormData): Promise<{ success: boolean; message: string; brandId?: string }> {
@@ -44,6 +51,7 @@ export async function updateBrand(formData: FormData): Promise<{ success: boolea
   const brandName = (formData.get("brandName") as string)?.trim();
   const supplierId = (formData.get("supplierId") as string)?.trim();
   const isActiveRaw = (formData.get("isActive") as string)?.trim();
+  const sortOrderRaw = (formData.get("sortOrder") as string)?.trim();
 
   if (!brandId) return { success: false, message: "Brand ID is required." };
 
@@ -56,6 +64,7 @@ export async function updateBrand(formData: FormData): Promise<{ success: boolea
       slug?: string;
       supplierId?: string;
       isActive?: boolean;
+      sortOrder?: number;
     } = {};
 
     // 名称
@@ -92,11 +101,21 @@ export async function updateBrand(formData: FormData): Promise<{ success: boolea
       data.isActive = isActiveRaw === "true";
     }
 
+    // 排序：整数，越小越靠前
+    if (sortOrderRaw !== undefined && sortOrderRaw !== "") {
+      const sortOrder = Number(sortOrderRaw);
+      if (!Number.isInteger(sortOrder)) {
+        return { success: false, message: "Sort Order must be an integer." };
+      }
+      data.sortOrder = sortOrder;
+    }
+
     if (Object.keys(data).length === 0) {
       return { success: true, message: "No changes." };
     }
 
     await prisma.brand.update({ where: { brandId }, data });
+    refreshCatalogCache();
     return { success: true, message: `Brand updated.` };
   } catch (err) {
     const msg = err instanceof Error ? err.message : "Unknown error";

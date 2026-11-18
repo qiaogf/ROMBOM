@@ -82,7 +82,7 @@ const RIGHT_PART_X = 2014;
 const BAND_TOP = IMG_Y + 8;
 const BAND_BOTTOM = IMG_Y + IMG_H - 8;
 
-const IMG_SRC = "/images/line/hero-line-v22.webp";
+const IMG_SRC = "/images/line/hero-line-v23.webp";
 
 const CALLOUTS: Callout[] = [
   /* ---------------- left column ---------------- */
@@ -111,7 +111,7 @@ const CALLOUTS: Callout[] = [
     outline: "673,270 705,262 728,274 736,310 752,321 748,345 734,389 714,395 677,393 665,349 667,310",
     parts: [
       { label: "6-Axis · Cobot · Reducer", href: "/category/cnc-robot" },
-      { label: "Servo · Encoder · Gripper", href: "/category/drive" },
+      { label: "Servo · Encoder · Gripper", href: "/category/drive-fluid" },
     ],
   },
   {
@@ -124,7 +124,7 @@ const CALLOUTS: Callout[] = [
     radius: 80,
     outline: "892,423 919,411 939,431 963,415 993,407 1014,427 1010,482 1018,526 1006,560 888,560 876,502 880,455",
     parts: [
-      { label: "Robot Assembly Cell", href: "/category/custom-service" },
+      { label: "Robot Assembly Cell", href: "/category/custom-repair" },
       { label: "Dispenser · Screwdriver", href: "/category/mechanical" },
     ],
   },
@@ -139,7 +139,7 @@ const CALLOUTS: Callout[] = [
     outline: "674,502 705,494 737,498 749,518 741,557 759,561 762,613 749,623 666,623 656,565 672,557 667,522",
     parts: [
       { label: "SCARA · Linear Module", href: "/category/mechanical" },
-      { label: "Vacuum · Pneumatic Gripper", href: "/category/fluid" },
+      { label: "Vacuum · Pneumatic Gripper", href: "/category/drive-fluid" },
     ],
   },
   {
@@ -154,7 +154,7 @@ const CALLOUTS: Callout[] = [
     outline: "439,648 614,623 629,640 626,670 618,835 598,835 597,686 508,714 505,824 486,822 484,725 444,710",
     parts: [
       { label: "Belt · Roller · Guide Rail", href: "/category/mechanical" },
-      { label: "Buffer · Stopper · Sensor", href: "/category/sensor" },
+      { label: "Buffer · Stopper · Sensor", href: "/category/sensor-instrument" },
     ],
   },
   {
@@ -168,7 +168,7 @@ const CALLOUTS: Callout[] = [
     outline: "1047,801 1106,793 1178,801 1187,841 1184,876 1166,892 1059,894 1042,868 1039,829",
     parts: [
       { label: "AGV · AMR Chassis", href: "/category/mechanical" },
-      { label: "LiDAR · Battery · Drive", href: "/category/drive" },
+      { label: "LiDAR · Battery · Drive", href: "/category/drive-fluid" },
     ],
   },
 
@@ -185,7 +185,7 @@ const CALLOUTS: Callout[] = [
     outline: "1606,189 1785,189 1788,211 1767,215 1769,427 1750,428 1748,230 1702,223 1734,302 1718,317 1695,270 1671,310 1639,310 1655,246 1617,223 1615,420 1598,418 1600,211",
     parts: [
       { label: "Delta · Spider Robot", href: "/category/cnc-robot" },
-      { label: "Vacuum Gripper · Tracking", href: "/category/sensor" },
+      { label: "Vacuum Gripper · Tracking", href: "/category/sensor-instrument" },
     ],
   },
   {
@@ -200,7 +200,7 @@ const CALLOUTS: Callout[] = [
     outline: "1319,246 1473,226 1595,222 1598,250 1596,308 1473,293 1323,309 1315,277",
     parts: [
       { label: "Oval Loop · Roller · Pallet", href: "/category/mechanical" },
-      { label: "Drive Motor · Reducer", href: "/category/drive" },
+      { label: "Drive Motor · Reducer", href: "/category/drive-fluid" },
     ],
   },
   {
@@ -221,7 +221,7 @@ const CALLOUTS: Callout[] = [
   {
     id: "vision",
     name: "Vision Inspection",
-    href: "/category/sensor",
+    href: "/category/sensor-instrument",
     accent: "cyan",
     side: "right",
     dot: [1282, 392],
@@ -229,14 +229,14 @@ const CALLOUTS: Callout[] = [
     radius: 62,
     outline: "1260,368 1302,362 1311,379 1305,398 1291,400 1297,429 1330,435 1335,457 1319,465 1274,460 1270,433 1280,400 1256,390",
     parts: [
-      { label: "Camera · Lens · Ring Light", href: "/category/sensor" },
+      { label: "Camera · Lens · Ring Light", href: "/category/sensor-instrument" },
       { label: "AI Inspection Software", href: "/category/control" },
     ],
   },
   {
     id: "fluid",
     name: "Pneumatic & Hydraulic",
-    href: "/category/fluid",
+    href: "/category/drive-fluid",
     accent: "rose",
     side: "right",
     dot: [1544, 692],
@@ -244,7 +244,7 @@ const CALLOUTS: Callout[] = [
     outline: "1455,608 1495,610 1498,671 1517,656 1599,652 1636,668 1637,741 1621,757 1519,758 1498,744 1495,776 1459,776 1452,719 1451,652",
     parts: [
       { label: "Compressor · Tank · FRL", href: "/category/mechanical" },
-      { label: "Valve · Cylinder · HPU", href: "/category/fluid" },
+      { label: "Valve · Cylinder · HPU", href: "/category/drive-fluid" },
     ],
   },
   {
@@ -424,22 +424,8 @@ export default function ProductionLineHero() {
         strokeWidth="1.5"
       />
 
-      <defs>
-        {/* 提亮产品本体像素：亮度/饱和度提升 + 柔白光晕，配径向渐变蒙版做柔和过渡，无几何边界 */}
-        <filter id="hero-pop" x="-12%" y="-12%" width="124%" height="124%">
-          <feComponentTransfer result="bright">
-            <feFuncR type="linear" slope="1.38" intercept="0.09" />
-            <feFuncG type="linear" slope="1.38" intercept="0.09" />
-            <feFuncB type="linear" slope="1.38" intercept="0.09" />
-          </feComponentTransfer>
-          <feColorMatrix in="bright" type="saturate" values="1.4" result="sat" />
-          <feDropShadow in="sat" dx="0" dy="0" stdDeviation="7" floodColor="#ffffff" floodOpacity="0.85" />
-        </filter>
-        {/* 轮廓蒙版边缘柔化 */}
-        <filter id="hero-mask-blur" x="-30%" y="-30%" width="160%" height="160%">
-          <feGaussianBlur stdDeviation="7" />
-        </filter>
-      </defs>
+      {/* 高亮不再使用 SVG 滤镜（feComponentTransfer / feColorMatrix / feDropShadow / GaussianBlur），
+          改为半透明同色填充 + 描边：避免 hover 时重复绘制整张图片，移动端明显更流畅 */}
 
       {/* ---------- leader lines ---------- */}
       {columns.map(({ callout: c, top }) => {
@@ -481,29 +467,13 @@ export default function ProductionLineHero() {
         );
       })}
 
-      {/* ---------- product self highlight: 本体像素提亮 + 与引线同色的圆角边框 ---------- */}
-      {columns.map(({ callout: c }) =>
-        isOn(c.id) ? (
+      {/* ---------- hover 高亮：引线 + 圆角外框即可，不再描产品轮廓 ---------- */}
+      {columns.map(({ callout: c }) => {
+        if (!isOn(c.id)) return null;
+        const pal = PALETTE[c.accent];
+        return (
           <g key={`pop-${c.id}`} pointerEvents="none">
-            <mask id={`hero-mask-${c.id}`}>
-              <polygon points={c.outline} fill="#ffffff" filter="url(#hero-mask-blur)" />
-            </mask>
-            <image
-              href={IMG_SRC}
-              x={IMG_X}
-              y={IMG_Y}
-              width={IMG_W}
-              height={IMG_H}
-              preserveAspectRatio="xMidYMid slice"
-              filter="url(#hero-pop)"
-              mask={`url(#hero-mask-${c.id})`}
-              style={{
-                transformBox: "view-box",
-                transformOrigin: `${boxCenter(c)[0]}px ${boxCenter(c)[1]}px`,
-                transform: "scale(1.05)",
-              }}
-            />
-            {/* 产品圆角边框：颜色与引线一致 */}
+            {/* 圆角外框：白色描边 + 彩色描边，与引线同色 */}
             <rect
               x={boxCenter(c)[0] - c.radius}
               y={boxCenter(c)[1] - c.radius}
@@ -522,12 +492,12 @@ export default function ProductionLineHero() {
               height={c.radius * 2}
               rx={c.radius * 0.32}
               fill="none"
-              stroke={PALETTE[c.accent].line}
+              stroke={pal.line}
               strokeWidth={2.8}
             />
           </g>
-        ) : null
-      )}
+        );
+      })}
 
       {/* ---------- device hover / click hotspots（与高亮区域同范围，整块可点） ---------- */}
       {columns.map(({ callout: c }) => (

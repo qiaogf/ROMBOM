@@ -1,6 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
+import { useState } from "react";
 import { Plus, Pencil, Check, X } from "lucide-react";
 import { createBrand, updateBrand, deleteBrand } from "@/app/actions/adminActions";
 import { DeleteButton } from "@/app/admin/DeleteButton";
@@ -33,8 +34,13 @@ export function BrandContent({ brands }: BrandContentProps) {
   } = useInlineEditTable();
   const router = useRouter();
 
-  const startEdit = (brand: BrandItem) =>
+  // Sort Order 行内编辑（整数，越小越靠前）
+  const [editSortOrder, setEditSortOrder] = useState("0");
+
+  const startEdit = (brand: BrandItem) => {
     beginEdit({ id: brand.brandId, name: brand.brandName, isActive: brand.isActive });
+    setEditSortOrder(String(brand.sortOrder));
+  };
 
   const handleSave = (brandId: string) => {
     if (!editName.trim()) {
@@ -46,6 +52,7 @@ export function BrandContent({ brands }: BrandContentProps) {
     fd.set("brandId", brandId);
     fd.set("brandName", editName.trim());
     fd.set("isActive", editActive ? "true" : "false");
+    fd.set("sortOrder", editSortOrder.trim());
 
     startTransition(async () => {
       const res = await updateBrand(fd);
@@ -85,11 +92,11 @@ export function BrandContent({ brands }: BrandContentProps) {
 
   const colgroup = (
     <colgroup>
-      <col className="w-[28%]" />
-      <col className="w-[26%]" />
-      <col className="w-[9%]" />
+      <col className="w-[22%]" />
+      <col className="w-[20%]" />
+      <col className="w-[15%]" />
       <col className="w-[12%]" />
-      <col className="w-[25%]" />
+      <col className="w-[31%]" />
     </colgroup>
   );
 
@@ -124,7 +131,19 @@ export function BrandContent({ brands }: BrandContentProps) {
             />
           </td>
           <td className="px-1.5 py-0.5 text-slate-400 text-[11px] italic">auto</td>
-          <td className="px-1.5 py-0.5 text-left text-slate-600">{brand.sortOrder}</td>
+          <td className="px-1.5 py-0.5">
+            <input
+              type="number"
+              step={1}
+              value={editSortOrder}
+              onChange={(e) => setEditSortOrder(e.target.value)}
+              className={inputClass}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") handleSave(brand.brandId);
+                if (e.key === "Escape") cancelEdit();
+              }}
+            />
+          </td>
           <td className="px-1.5 py-0.5">
             <select
               value={editActive ? "true" : "false"}

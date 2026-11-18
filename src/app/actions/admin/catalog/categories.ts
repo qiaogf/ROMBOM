@@ -4,6 +4,13 @@
 
 import { prisma } from "@/lib/prisma";
 import { slugify, ensureUniqueSlug } from "./shared";
+import { revalidatePath, updateTag } from "next/cache";
+
+// 类目变更后让前台导航/类目页立即读取新数据（Next 16：updateTag 立即过期，不用 stale-while-revalidate）
+function refreshCatalogCache() {
+  updateTag("catalog");
+  revalidatePath("/", "layout");
+}
 
 // ── 创建 Category ──
 export async function createCategory(formData: FormData): Promise<{ success: boolean; message: string; categoryId?: string }> {
@@ -31,6 +38,7 @@ export async function createCategory(formData: FormData): Promise<{ success: boo
     const cat = await prisma.category.create({
       data: { categoryName, slug, parentId, level, briefDesc, isActive },
     });
+    refreshCatalogCache();
     return { success: true, message: `Category "${categoryName}" created.`, categoryId: cat.categoryId };
   } catch (err) {
     const msg = err instanceof Error ? err.message : "Unknown error";
@@ -67,6 +75,7 @@ export async function deleteCategory(formData: FormData): Promise<{ success: boo
       }
       await tx.category.delete({ where: { categoryId } });
     });
+    refreshCatalogCache();
     return { success: true, message: "Category deleted." };
   } catch (err) {
     const msg = err instanceof Error ? err.message : "Unknown error";
@@ -80,6 +89,7 @@ export async function updateCategory(formData: FormData): Promise<{ success: boo
   const categoryName = (formData.get("categoryName") as string)?.trim();
   const parentIdRaw = (formData.get("parentId") as string)?.trim();
   const isActiveRaw = (formData.get("isActive") as string)?.trim();
+  const sortOrderRaw = (formData.get("sortOrder") as string)?.trim();
 
   if (!categoryId) return { success: false, message: "Category ID is required." };
 
@@ -93,6 +103,7 @@ export async function updateCategory(formData: FormData): Promise<{ success: boo
       parentId?: string;
       level?: number;
       isActive?: boolean;
+      sortOrder?: number;
     } = {};
 
     // 名称 + slug
@@ -151,11 +162,21 @@ export async function updateCategory(formData: FormData): Promise<{ success: boo
       data.isActive = isActiveRaw === "true";
     }
 
+    // 排序：整数，越小越靠前
+    if (sortOrderRaw !== undefined && sortOrderRaw !== "") {
+      const sortOrder = Number(sortOrderRaw);
+      if (!Number.isInteger(sortOrder)) {
+        return { success: false, message: "Sort Order must be an integer." };
+      }
+      data.sortOrder = sortOrder;
+    }
+
     if (Object.keys(data).length === 0) {
       return { success: true, message: "No changes." };
     }
 
     await prisma.category.update({ where: { categoryId }, data });
+    refreshCatalogCache();
     return { success: true, message: "Category updated." };
   } catch (err) {
     const msg = err instanceof Error ? err.message : "Unknown error";

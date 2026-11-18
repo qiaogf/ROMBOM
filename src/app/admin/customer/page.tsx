@@ -76,13 +76,13 @@ export default async function CustomerListPage({
 
   return (
     <div className="h-full">
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 h-full">
+      <div className="grid grid-cols-1 grid-rows-2 lg:grid-cols-2 lg:grid-rows-1 gap-3 h-full">
         {/* 左半：客户列表（独立滚动） */}
         <div className="min-w-0 flex flex-col min-h-0">
-          <div className="min-h-0 flex-1 overflow-y-auto">
+          <div className="min-h-0 flex-1 overflow-auto">
             <div className="bg-white border border-slate-200 rounded-lg overflow-hidden">
               <div className="overflow-x-auto">
-                <table className="w-full text-xs table-fixed">
+                <table className="w-full min-w-[640px] text-xs table-fixed">
                   <thead className="bg-slate-50 text-slate-500 text-[10px] uppercase tracking-wide">
                     <tr>
                       <th className="w-[100px] px-1.5 py-1 text-left whitespace-nowrap">Buyer ID</th>
@@ -155,7 +155,7 @@ export default async function CustomerListPage({
         {/* 右半：账号详情（独立滚动）；未选账号时显示占位 */}
         <div className="min-w-0 flex flex-col min-h-0">
           {detail ? (
-            <div className="min-h-0 flex-1 overflow-y-auto pr-1 space-y-3">
+            <div className="min-h-0 flex-1 overflow-auto pr-1 space-y-3">
               <Link
                 href="/admin/customer"
                 className="inline-flex items-center gap-1 text-[11px] font-medium text-slate-500 hover:text-slate-700"

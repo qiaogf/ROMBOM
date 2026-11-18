@@ -20,10 +20,10 @@ export async function getOrders(customerId?: string): Promise<OrderWithItems[]> 
   if (!currentCustomerId) return [];
 
   // 瞬时连接错误重试一次；仍失败则抛错，由页面展示"暂时不可用"而不是空列表
+  // 不按 submittedAt 过滤：Draft / Pending / Approved / Rejected / Cancelled 全量返回，与管理端订单列表对齐
   const orders = await withDbRetry(() =>
     prisma.salesOrder.findMany({
-      // 只要客户在 Order Summary 提交（Submit）过的订单均显示（Self / Manual 均可见）
-      where: { customerId: currentCustomerId, submittedAt: { not: null } },
+      where: { customerId: currentCustomerId },
       include: { items: { include: { modelPrice: true } } },
       orderBy: { createdAt: "desc" },
     })

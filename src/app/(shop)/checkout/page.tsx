@@ -90,18 +90,21 @@ export default async function CheckoutPage({
     notes: string | null;
   } | null = null;
   try {
-    const [customer, latestPort] = await Promise.all([
+    const [customer, recentPorts] = await Promise.all([
       prisma.customer.findUnique({
         where: { customerId: user.id },
         select: { contactName: true, phone: true, country: true, city: true, address: true, zip: true },
       }),
-      prisma.salesOrder.findFirst({
+      // 只取最近若干单再挑非空值：空字符串会盖住更早填写过的目的港
+      prisma.salesOrder.findMany({
         where: { customerId: user.id, customerNote: { not: null } },
         orderBy: { updatedAt: "desc" },
+        take: 20,
         select: { customerNote: true },
       }),
     ]);
-    savedShipping = customer ? { ...customer, notes: latestPort?.customerNote ?? null } : null;
+    const lastPort = recentPorts.find((p) => (p.customerNote ?? "").trim().length > 0);
+    savedShipping = customer ? { ...customer, notes: lastPort?.customerNote?.trim() ?? null } : null;
   } catch (error) {
     console.error("Load saved shipping error:", error);
   }
