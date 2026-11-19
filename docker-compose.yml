@@ -21,6 +21,9 @@ services:
         DATABASE_URL: ${DATABASE_URL}
         NEXT_PUBLIC_APP_URL: ${NEXT_PUBLIC_APP_URL}
     restart: unless-stopped
+    # === 资源硬限制：防 Next.js build / OOM 吃爆整机 ===
+    mem_limit: 1g
+    cpus: "1.0"
     env_file:
       - .env.production
     volumes:
@@ -42,6 +45,8 @@ services:
   caddy:
     image: caddy:2-alpine
     restart: unless-stopped
+    mem_limit: 64m
+    cpus: "0.3"
     depends_on:
       - app
     ports:
