@@ -23,15 +23,20 @@ jobs:
           DEPLOY_PASSWORD: ${{ secrets.DEPLOY_PASSWORD }}
           PUBKEY: ${{ inputs.pubkey }}
         run: |
-          set -uo pipefail
+          set +e
           HOST="${DEPLOY_HOST:?DEPLOY_HOST missing}"
           USER="${DEPLOY_USER:-root}"
-          sudo apt-get install -y -qq sshpass >/dev/null
+          echo "HOST=$HOST USER=$USER"
+          sudo apt-get update -qq >/dev/null 2>&1
+          sudo apt-get install -y -qq sshpass >/dev/null 2>&1
+          command -v sshpass >/dev/null || { echo "::error title=sshpass 安装失败::runner 无法安装 sshpass"; exit 1; }
+          mkdir -p ~/.ssh && chmod 700 ~/.ssh
           ssh-keyscan -H "$HOST" >> ~/.ssh/known_hosts 2>/dev/null || true
+          [ -n "$PUBKEY" ] || { echo "::error::pubkey 为空"; exit 1; }
 
-          echo "===== 连接 $USER@$HOST ====="
           OUT=$(sshpass -p "$DEPLOY_PASSWORD" ssh -o StrictHostKeyChecking=no -o ConnectTimeout=20 \
-                -o NumberOfPasswordPrompts=1 "$USER@$HOST" "bash -s" <<REMOTE 2>&1
+                -o ServerAliveInterval=10 -o ServerAliveCountMax=6 \
+                -o NumberOfPasswordPrompts=1 "$USER@$HOST" bash -s <<REMOTE 2>&1
           set -e
           echo "WHOAMI=\$(whoami)"
           mkdir -p /root/.ssh && chmod 700 /root/.ssh
@@ -44,16 +49,18 @@ jobs:
           chmod 600 /root/.ssh/authorized_keys
           echo "AUTH_KEYS_LINES=\$(wc -l < /root/.ssh/authorized_keys)"
           echo "KEY_COMMENTS=\$(awk '{print \$3}' /root/.ssh/authorized_keys | tr '\n' ',')"
-          echo "SSHD_PUBKEY=\$(grep -Ei '^PubkeyAuthentication' /etc/ssh/sshd_config || echo 'default(on)')"
+          echo "SSHD_PUBKEY=\$(grep -Ei '^PubkeyAuthentication' /etc/ssh/sshd_config || echo default-on)"
           REMOTE
           )
-
+          RC=$?
+          echo "RC=$RC"
+          echo "---- OUTPUT ----"
           echo "$OUT"
-          if echo "$OUT" | grep -q 'KEY_APPENDED\|KEY_ALREADY_PRESENT'; then
-            MSG=$(echo "$OUT" | tr '\n' ' ' | sed 's/%/%25/g' | cut -c1-1500)
-            echo "::notice title=SSH 公钥已就绪::$MSG"
+          MSG=$(echo "$OUT" | sed 's/%/%25/g' | awk '{printf "%s%%0A", $0}' | cut -c1-3000)
+          if [ "$RC" -eq 0 ] && echo "$OUT" | grep -q 'KEY_APPENDED\|KEY_ALREADY_PRESENT'; then
+            echo "::notice title=SSH 公钥已就绪 (RC=$RC)::$MSG"
+            exit 0
           else
-            MSG=$(echo "$OUT" | sed 's/%/%25/g' | awk '{printf "%s%%0A", $0}' | cut -c1-3000)
-            echo "::error title=公钥写入失败::$MSG"
+            echo "::error title=公钥写入失败 (RC=$RC)::$MSG"
             exit 1
           fi
