@@ -1,0 +1,45 @@
+# Auto-deploy to production server on push to main
+# Required GitHub repo secrets:
+#   DEPLOY_HOST    e.g. 207.148.121.105
+#   DEPLOY_USER    e.g. root
+#   DEPLOY_KEY     SSH private key (id_ed25519) matching ~/.ssh/authorized_keys on server
+# Optional: DEPLOY_PATH (default /app)
+name: Deploy to production
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup SSH
+        run: |
+          mkdir -p ~/.ssh
+          chmod 700 ~/.ssh
+          printf '%s\n' "${{ secrets.DEPLOY_KEY }}" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+          ssh-keyscan -H "${{ secrets.DEPLOY_HOST }}" >> ~/.ssh/known_hosts 2>/dev/null
+
+      - name: Pull & rebuild on server
+        env:
+          DEPLOY_PATH: ${{ secrets.DEPLOY_PATH || '/app' }}
+        run: |
+          ssh -i ~/.ssh/id_ed25519 -o StrictHostKeyChecking=no "${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }}" \
+            "cd ${DEPLOY_PATH} && git pull --no-edit && docker compose --env-file .env.production up -d --build"
+
+      - name: Verify HTTP 200
+        run: |
+          for i in 1 2 3 4 5 6 7 8 9 10 11 12; do
+            code=$(curl -s -o /dev/null -w '%{http_code}' --max-time 5 "http://${{ secrets.DEPLOY_HOST }}/" || echo "000")
+            echo "attempt $i: HTTP $code"
+            if [ "$code" = "200" ]; then exit 0; fi
+            sleep 5
+          done
+          echo "Site did not return 200 after 60s"
+          exit 1
