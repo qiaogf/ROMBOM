@@ -1,0 +1,59 @@
+name: Grant SSH access
+
+# 用途：在无法登录服务器控制台时，复用部署凭据（DEPLOY_USER/DEPLOY_PASSWORD）
+# 把指定公钥追加到服务器 root 的 authorized_keys，从而恢复直接 SSH 访问。
+# 触发：GitHub 页面 Actions → Grant SSH access → Run workflow
+on:
+  workflow_dispatch:
+    inputs:
+      pubkey:
+        description: "要授权的公钥（留默认值即可）"
+        required: false
+        default: "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIHwNmy3pq9AnNF70OL3+41eOLTgvwoM6OAUpSDJ1vY9a mrobom"
+
+jobs:
+  grant:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Authorize key on server
+        env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+          DEPLOY_PASSWORD: ${{ secrets.DEPLOY_PASSWORD }}
+          PUBKEY: ${{ inputs.pubkey }}
+        run: |
+          set -uo pipefail
+          HOST="${DEPLOY_HOST:?DEPLOY_HOST missing}"
+          USER="${DEPLOY_USER:-root}"
+          sudo apt-get install -y -qq sshpass >/dev/null
+          ssh-keyscan -H "$HOST" >> ~/.ssh/known_hosts 2>/dev/null || true
+
+          echo "===== 连接 $USER@$HOST ====="
+          OUT=$(sshpass -p "$DEPLOY_PASSWORD" ssh -o StrictHostKeyChecking=no -o ConnectTimeout=20 \
+                -o NumberOfPasswordPrompts=1 "$USER@$HOST" "bash -s" <<REMOTE 2>&1
+          set -e
+          echo "WHOAMI=\$(whoami)"
+          mkdir -p /root/.ssh && chmod 700 /root/.ssh
+          if grep -qxF '$PUBKEY' /root/.ssh/authorized_keys 2>/dev/null; then
+            echo "KEY_ALREADY_PRESENT"
+          else
+            echo '$PUBKEY' >> /root/.ssh/authorized_keys
+            echo "KEY_APPENDED"
+          fi
+          chmod 600 /root/.ssh/authorized_keys
+          echo "AUTH_KEYS_LINES=\$(wc -l < /root/.ssh/authorized_keys)"
+          echo "KEY_COMMENTS=\$(awk '{print \$3}' /root/.ssh/authorized_keys | tr '\n' ',')"
+          echo "SSHD_PUBKEY=\$(grep -Ei '^PubkeyAuthentication' /etc/ssh/sshd_config || echo 'default(on)')"
+          REMOTE
+          )
+
+          echo "$OUT"
+          if echo "$OUT" | grep -q 'KEY_APPENDED\|KEY_ALREADY_PRESENT'; then
+            MSG=$(echo "$OUT" | tr '\n' ' ' | sed 's/%/%25/g' | cut -c1-1500)
+            echo "::notice title=SSH 公钥已就绪::$MSG"
+          else
+            MSG=$(echo "$OUT" | sed 's/%/%25/g' | awk '{printf "%s%%0A", $0}' | cut -c1-3000)
+            echo "::error title=公钥写入失败::$MSG"
+            exit 1
+          fi

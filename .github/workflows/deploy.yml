@@ -17,9 +17,30 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+
+      # 仅改动 .github/ 的提交（如新增运维工作流）不触发重建
+      - name: Detect deployable changes
+        id: changes
+        run: |
+          set -e
+          if git rev-parse HEAD^ >/dev/null 2>&1; then
+            CHANGED=$(git diff --name-only HEAD^ HEAD)
+          else
+            CHANGED=""
+          fi
+          echo "changed files:"; echo "$CHANGED"
+          if [ -n "$CHANGED" ] && [ -z "$(echo "$CHANGED" | grep -v '^\.github/')" ]; then
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+            echo "::notice::本次仅 .github/ 变更，跳过部署"
+          else
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+          fi
 
       # ---------- 认证方式：优先密码，其次密钥 ----------
       - name: Prepare SSH auth
+        if: steps.changes.outputs.skip != 'true'
         env:
           DEPLOY_KEY: ${{ secrets.DEPLOY_KEY }}
           DEPLOY_PASSWORD: ${{ secrets.DEPLOY_PASSWORD }}
@@ -46,6 +67,7 @@ jobs:
 
       # ---------- 统一执行入口 ----------
       - name: Upload source and rebuild on server
+        if: steps.changes.outputs.skip != 'true'
         env:
           DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
           DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
@@ -116,6 +138,7 @@ jobs:
           run_remote "cd '$APP_DIR' && docker compose --env-file .env.production up -d --remove-orphans && sleep 5 && docker compose ps" 2>&1 | tee -a "$LOG" || fail
 
       - name: Verify HTTP 200
+        if: steps.changes.outputs.skip != 'true'
         env:
           DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
         run: |
