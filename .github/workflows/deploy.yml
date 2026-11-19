@@ -13,7 +13,7 @@ concurrency:
 jobs:
   deploy:
     runs-on: ubuntu-latest
-    timeout-minutes: 40
+    timeout-minutes: 50
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -51,16 +51,33 @@ jobs:
           DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
           DEPLOY_PATH: ${{ secrets.DEPLOY_PATH }}
         run: |
-          set -euo pipefail
+          set -uo pipefail
           HOST="${DEPLOY_HOST:?DEPLOY_HOST missing}"
           USER="${DEPLOY_USER:-root}"
           APP_DIR="${DEPLOY_PATH:-/app}"
+          LOG="/tmp/deploy.log"
+          : > "$LOG"
 
-          if [ "${SSH_AUTH}" = "password" ]; then
-            SSHP="sshpass -p ${DEPLOY_PASSWORD} ssh -o StrictHostKeyChecking=no -o ConnectTimeout=20"
-          else
-            SSHP="ssh -i ~/.ssh/id_ed25519 -o StrictHostKeyChecking=no -o ConnectTimeout=20"
-          fi
+          run_remote() {
+            if [ "${SSH_AUTH}" = "password" ]; then
+              sshpass -p "$DEPLOY_PASSWORD" ssh -o StrictHostKeyChecking=no -o ConnectTimeout=20 \
+                -o ServerAliveInterval=15 -o ServerAliveCountMax=8 "$USER@$HOST" "$@"
+            else
+              ssh -i ~/.ssh/id_ed25519 -o StrictHostKeyChecking=no -o ConnectTimeout=20 \
+                -o ServerAliveInterval=15 -o ServerAliveCountMax=8 "$USER@$HOST" "$@"
+            fi
+          }
+
+          fail() {
+            echo "===== 部署失败，日志尾部 ====="
+            tail -n 80 "$LOG" || true
+            MSG=$(tail -n 80 "$LOG" | sed 's/%/%25/g' | awk '{printf "%s%%0A", $0}' | cut -c1-6000)
+            echo "::error title=Deploy failed::$MSG"
+            exit 1
+          }
+
+          echo "===== 0) 连通性与环境自检 ====="
+          run_remote "echo CONNECTED \$(hostname); docker --version; docker compose version; df -h / | tail -1; free -m | head -2" 2>&1 | tee -a "$LOG" || fail
 
           echo "===== 1) 上传源码（不动 .env / certs / order-files / .git / node_modules / .next）====="
           tar --exclude='./node_modules' \
@@ -72,27 +89,41 @@ jobs:
               --exclude='./.env.*' \
               --exclude='./.trae' \
               --exclude='./.vscode' \
+              --exclude='*~root*' \
               --exclude='*.log' \
-              -czf - . | $SSHP "$USER@$HOST" "mkdir -p '$APP_DIR' && tar xzf - -C '$APP_DIR'"
+              -czf - . | run_remote "mkdir -p '$APP_DIR' && tar xzf - -C '$APP_DIR'" 2>&1 | tee -a "$LOG" || fail
 
-          echo "===== 2) 停服务 + 清构建缓存 ====="
-          $SSHP "$USER@$HOST" "cd '$APP_DIR' && docker compose --env-file .env.production down --remove-orphans || true; docker builder prune -f || true; docker image prune -f || true; df -h /"
+          echo "===== 2) 清理构建缓存（不清运行中的容器）====="
+          run_remote "docker builder prune -f; docker image prune -f; df -h /" 2>&1 | tee -a "$LOG" || true
 
-          echo "===== 3) 覆盖式重建 ====="
-          $SSHP "$USER@$HOST" "cd '$APP_DIR' && docker compose --env-file .env.production up -d --build"
+          echo "===== 3) 构建镜像（保留旧容器，构建失败不影响线上）====="
+          if ! run_remote "cd '$APP_DIR' && bash -s" <<'REMOTE' 2>&1 | tee -a "$LOG"
+          set -e
+          echo "--- env 检查 ---"
+          grep -q '^DATABASE_URL=' .env.production && echo "DATABASE_URL present"
+          grep -q '^DOMAIN=' .env.production && echo "DOMAIN present"
+          echo "--- disk before ---"; df -h / | tail -2; free -m | head -2
+          echo "--- docker compose build ---"
+          docker compose --env-file .env.production build --progress=plain
+          REMOTE
+          then
+            echo "===== 构建失败，收集现场 =====" | tee -a "$LOG"
+            run_remote "cd '$APP_DIR' && (docker compose --env-file .env.production logs --no-color --tail=100 app || true); echo '--- dmesg ---'; dmesg 2>/dev/null | tail -15 || true; echo '--- mem ---'; free -m; echo '--- disk ---'; df -h /" 2>&1 | tee -a "$LOG" || true
+            fail
+          fi
 
-          echo "===== 4) 容器状态 ====="
-          $SSHP "$USER@$HOST" "cd '$APP_DIR' && docker compose ps"
+          echo "===== 4) 切换容器 ====="
+          run_remote "cd '$APP_DIR' && docker compose --env-file .env.production up -d --remove-orphans && sleep 5 && docker compose ps" 2>&1 | tee -a "$LOG" || fail
 
       - name: Verify HTTP 200
         env:
           DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
         run: |
-          for i in $(seq 1 24); do
-            code=$(curl -s -o /dev/null -w '%{http_code}' --max-time 8 "http://${DEPLOY_HOST}/" || echo 000)
+          for i in $(seq 1 30); do
+            code=$(curl -s -o /dev/null -w '%{http_code}' --max-time 10 "http://${DEPLOY_HOST}/" || echo 000)
             echo "attempt $i -> HTTP $code"
             [ "$code" = "200" ] && exit 0
             sleep 10
           done
-          echo "::error::站点 4 分钟内未返回 200"
+          echo "::error title=Health check failed::站点 5 分钟内未返回 200，请查看上一步日志尾部"
           exit 1
