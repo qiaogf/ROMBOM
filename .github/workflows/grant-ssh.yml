@@ -33,23 +33,40 @@ jobs:
           mkdir -p ~/.ssh && chmod 700 ~/.ssh
           ssh-keyscan -H "$HOST" >> ~/.ssh/known_hosts 2>/dev/null || true
           [ -n "$PUBKEY" ] || { echo "::error::pubkey 为空"; exit 1; }
+          PWB64=$(printf '%s' "$DEPLOY_PASSWORD" | base64 -w0)
 
           OUT=$(sshpass -p "$DEPLOY_PASSWORD" ssh -o StrictHostKeyChecking=no -o ConnectTimeout=20 \
                 -o ServerAliveInterval=10 -o ServerAliveCountMax=6 \
-                -o NumberOfPasswordPrompts=1 "$USER@$HOST" bash -s <<REMOTE 2>&1
+                -o NumberOfPasswordPrompts=1 "$USER@$HOST" "PWB64='$PWB64' bash -s" <<REMOTE 2>&1
           set -e
           echo "WHOAMI=\$(whoami)"
-          mkdir -p /root/.ssh && chmod 700 /root/.ssh
-          if grep -qxF '$PUBKEY' /root/.ssh/authorized_keys 2>/dev/null; then
-            echo "KEY_ALREADY_PRESENT"
+          echo "HOME=\$HOME"
+          echo "USER_B64=\$(printf '%s' "\$(whoami)" | base64 -w0)"
+          # 1) 授权当前登录用户（非 root，在 docker 组里，足够查镜像）
+          mkdir -p ~/.ssh && chmod 700 ~/.ssh
+          if grep -qxF '$PUBKEY' ~/.ssh/authorized_keys 2>/dev/null; then
+            echo "USER_KEY=PRESENT"
           else
-            echo '$PUBKEY' >> /root/.ssh/authorized_keys
-            echo "KEY_APPENDED"
+            printf '%s\n' '$PUBKEY' >> ~/.ssh/authorized_keys
+            echo "USER_KEY=APPENDED"
           fi
-          chmod 600 /root/.ssh/authorized_keys
-          echo "AUTH_KEYS_LINES=\$(wc -l < /root/.ssh/authorized_keys)"
-          echo "KEY_COMMENTS=\$(awk '{print \$3}' /root/.ssh/authorized_keys | tr '\n' ',')"
-          echo "SSHD_PUBKEY=\$(grep -Ei '^PubkeyAuthentication' /etc/ssh/sshd_config || echo default-on)"
+          chmod 600 ~/.ssh/authorized_keys
+          echo "USER_AUTH_KEYS=\$(wc -l < ~/.ssh/authorized_keys)"
+          # 2) 尽力给 root 也授权（依赖 sudo）
+          PASSWORD=\$(printf '%s' "\$PWB64" | base64 -d 2>/dev/null || true)
+          TMP=\$(mktemp)
+          printf '%s\n' '$PUBKEY' > "\$TMP"
+          if [ -n "\$PASSWORD" ] && echo "\$PASSWORD" | sudo -S -p '' true 2>/dev/null; then
+            if echo "\$PASSWORD" | sudo -S -p '' sh -c "mkdir -p /root/.ssh && chmod 700 /root/.ssh; grep -qxF '$PUBKEY' /root/.ssh/authorized_keys 2>/dev/null || cat '\$TMP' >> /root/.ssh/authorized_keys; chmod 600 /root/.ssh/authorized_keys" >/dev/null 2>&1; then
+              echo "ROOT_KEY=DONE"
+            else
+              echo "ROOT_KEY=WRITE_FAIL"
+            fi
+          else
+            echo "ROOT_KEY=SKIPPED"
+          fi
+          rm -f "\$TMP"
+          echo "SSHD_ROOT=\$(grep -Ei '^PermitRootLogin' /etc/ssh/sshd_config || echo default)"
           REMOTE
           )
           RC=$?
@@ -57,7 +74,7 @@ jobs:
           echo "---- OUTPUT ----"
           echo "$OUT"
           MSG=$(echo "$OUT" | sed 's/%/%25/g' | awk '{printf "%s%%0A", $0}' | cut -c1-3000)
-          if [ "$RC" -eq 0 ] && echo "$OUT" | grep -q 'KEY_APPENDED\|KEY_ALREADY_PRESENT'; then
+          if [ "$RC" -eq 0 ] && echo "$OUT" | grep -q 'USER_KEY=APPENDED\|USER_KEY=PRESENT'; then
             echo "::notice title=SSH 公钥已就绪 (RC=$RC)::$MSG"
             exit 0
           else
