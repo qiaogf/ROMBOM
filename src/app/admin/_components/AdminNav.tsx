@@ -14,6 +14,7 @@ import {
   UserCog,
   ReceiptText,
   Code,
+  FileText,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
@@ -38,6 +39,7 @@ const NAV_ITEMS: NavItem[] = [
   { href: "/admin/purchase-order", label: "Purchase", icon: ShoppingCart },
   { href: "/admin/sales-order", label: "Sales", icon: ReceiptText },
   { href: "/admin/api", label: "API", icon: Code },
+  { href: "/admin/content", label: "Content", icon: FileText, superOnly: true },
 ];
 
 export function AdminNav({

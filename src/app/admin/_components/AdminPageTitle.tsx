@@ -19,6 +19,7 @@ const TITLE_MAP: Record<string, string> = {
   "/admin/supplier": "supplier",
   "/admin/admin-user": "admin",
   "/admin/api": "API Accounts",
+  "/admin/content": "Content",
 };
 
 export function AdminPageTitle() {

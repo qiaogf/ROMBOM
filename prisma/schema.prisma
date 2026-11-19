@@ -607,3 +607,13 @@ model ApiAccount {
   @@index([apiKey])
   @@index([customerId])
 }
+
+// =================================================================
+// 站点内容 — 后台 Content 页编辑 About / Terms 文案
+// =================================================================
+model SiteContent {
+  id        Int      @id @default(autoincrement())
+  key       String   @unique
+  value     String   @db.Text
+  updatedAt DateTime @updatedAt
+}
