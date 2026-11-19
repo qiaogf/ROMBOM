@@ -13,14 +13,8 @@ export const metadata: Metadata = {
   alternates: { canonical: `${SITE_URL}/terms` },
 };
 
-function formatDate(iso: string) {
-  const d = new Date(iso);
-  const pad = (n: number) => String(n).padStart(2, "0");
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
-}
-
 export default async function TermsPage() {
-  const { value, updatedAt } = await getPage("terms");
+  const { value } = await getPage("terms");
 
   return (
     <div className="flex-1 min-h-0 overflow-y-auto main-scrollbar">
@@ -30,11 +24,6 @@ export default async function TermsPage() {
           Terms | Privacy | Shipping | Returns &amp; Refunds
         </h1>
         <MarkdownBody content={value} />
-        {updatedAt && (
-          <p className="mt-8 text-[12px] text-slate-500">
-            Last updated: {formatDate(updatedAt)}
-          </p>
-        )}
       </div>
     </div>
   );

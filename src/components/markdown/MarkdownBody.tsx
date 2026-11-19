@@ -4,13 +4,13 @@ import rehypeSanitize from "rehype-sanitize";
 import rehypeSlug from "rehype-slug";
 
 /**
- * 站点 Markdown 渲染组件
+ * Site Markdown renderer
  *
- * 前台 /about、/terms 与后台预览共用同一个组件，保证预览 = 线上。
- * 安全：rehype-sanitize 先清洗用户输入，rehype-slug 再为标题补 id
- * （id 由插件生成，不含用户任意属性），全程不使用 dangerouslySetInnerHTML。
- * 注意：react-markdown 会向自定义组件传入 node 等非 DOM 属性，这里只取需要的字段，
- * 不做全量透传，避免 node="[object Object]" 泄漏到 HTML。
+ * Shared by /about, /terms and the admin preview, so preview output equals production.
+ * Security: rehype-sanitize cleans user input first, then rehype-slug adds heading ids
+ * (ids come from the plugin, not arbitrary user attributes). No dangerouslySetInnerHTML.
+ * Note: react-markdown passes non-DOM props such as `node` to custom components, so only
+ * the fields we need are forwarded to avoid leaking node="[object Object]" into the HTML.
  */
 
 export function MarkdownBody({ content }: { content: string }) {

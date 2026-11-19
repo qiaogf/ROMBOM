@@ -6,21 +6,21 @@ import { getAdminSession, isSuperAdminEmail } from "@/lib/auth-admin";
 import { isContentKey } from "@/lib/content";
 
 /**
- * 保存 About / Terms 文案（仅超级管理员）
+ * Save About / Terms copy (super admin only)
  */
 export async function savePage(
   formData: FormData
 ): Promise<{ ok: boolean; message: string; updatedAt?: string }> {
   const session = await getAdminSession();
   if (!session || !isSuperAdminEmail(session.email)) {
-    return { ok: false, message: "无权限" };
+    return { ok: false, message: "Permission denied" };
   }
 
   const key = String(formData.get("key") ?? "");
   const value = String(formData.get("value") ?? "");
 
-  if (!isContentKey(key)) return { ok: false, message: "无效的页面" };
-  if (!value.trim()) return { ok: false, message: "内容不能为空" };
+  if (!isContentKey(key)) return { ok: false, message: "Invalid page" };
+  if (!value.trim()) return { ok: false, message: "Content cannot be empty" };
 
   try {
     const row = await prisma.siteContent.upsert({
@@ -29,10 +29,10 @@ export async function savePage(
       update: { value },
     });
     revalidatePath(`/${key}`);
-    // Next 16 的 revalidateTag 需要 cacheLife profile，"max" 表示立即失效
+    // Next 16 requires a cacheLife profile; "max" expires immediately
     revalidateTag(`page-${key}`, "max");
-    return { ok: true, message: "已保存", updatedAt: row.updatedAt.toISOString() };
+    return { ok: true, message: "Saved", updatedAt: row.updatedAt.toISOString() };
   } catch {
-    return { ok: false, message: "保存失败，请稍后重试" };
+    return { ok: false, message: "Save failed, please try again" };
   }
 }

@@ -29,13 +29,13 @@ export function AdminSidebar({ isSuperAdmin = false }: { isSuperAdmin?: boolean 
       </button>
 
       <aside
-        className={`w-52 sm:w-[124px] shrink-0 bg-slate-50 border-r border-slate-200 flex flex-col transition-transform duration-200 ease-in-out ${
+        className={`w-[139px] sm:w-[124px] shrink-0 bg-slate-50 border-r border-slate-200 flex flex-col transition-transform duration-200 ease-in-out ${
           mobileOpen ? "max-sm:translate-x-0" : "max-sm:-translate-x-full"
         } max-sm:fixed max-sm:inset-y-0 max-sm:left-0 max-sm:z-40 sm:static sm:translate-x-0`}
       >
         <div className="h-11 shrink-0 flex items-center gap-1.5 px-2 border-b border-slate-200 bg-white">
           <Shield className="w-4 h-4 shrink-0 text-slate-700" />
-          <span className="text-[12px] font-semibold text-slate-800 whitespace-nowrap">Admin Panel</span>
+          <span className="min-w-0 truncate text-[12px] font-semibold text-slate-800 whitespace-nowrap">Admin Panel</span>
           <button
             type="button"
             onClick={() => setMobileOpen(false)}

@@ -12,7 +12,7 @@ import { useState, type ChangeEvent, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import { validateImportFile } from "@/lib/import-form";
 
-interface UseImportFormOptions<TResult> {
+interface UseImportFormOptions {
   /** Endpoint that accepts multipart/form-data with a `file` field. */
   endpoint: string;
   /** Optional FormData field appended alongside `file` (e.g. "product_info" / "price"). */
@@ -25,7 +25,7 @@ export function useImportForm<TResult>({
   endpoint,
   batchType,
   refreshAfterSuccess = false,
-}: UseImportFormOptions<TResult>) {
+}: UseImportFormOptions) {
   const [file, setFile] = useState<File | null>(null);
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<TResult | null>(null);

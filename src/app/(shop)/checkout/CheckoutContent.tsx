@@ -86,7 +86,6 @@ export function CheckoutContent({ order, defaultName, savedShipping }: CheckoutC
   }
   const [slipLoading, setSlipLoading] = useState(false);
   const [docsLoading, setDocsLoading] = useState(false);
-  const [bankDetailsOpen, setBankDetailsOpen] = useState(false);
   const slipInputRef = useRef<HTMLInputElement>(null);
   const router = useRouter();
   const lastSubmitRef = useRef(0);
@@ -397,14 +396,6 @@ export function CheckoutContent({ order, defaultName, savedShipping }: CheckoutC
   const inputClass = (deepPlaceholder = false) =>
     `${compactInputClass} ${deepPlaceholder ? "placeholder:text-slate-500" : "placeholder:text-slate-300"}`;
 
-  // 支付渠道信息（未配置时不虚构银行账户或支付链接）
-  const whatsappNumber = process.env.NEXT_PUBLIC_WHATSAPP_NUMBER?.trim();
-  const xTransferDetails = (process.env.NEXT_PUBLIC_XTRANSFER_BANK_DETAILS ?? "")
-    .split(/\r?\n/)
-    .map((line) => line.trim())
-    .filter(Boolean);
-  const airwallexPayUrl = process.env.NEXT_PUBLIC_AIRWALLEX_PAY_URL?.trim();
-
   return (
     <div className="flex-1 min-h-0 overflow-y-scroll main-scrollbar">
       <div className="h-0.5 bg-amber-400 shrink-0"></div>
@@ -428,18 +419,18 @@ export function CheckoutContent({ order, defaultName, savedShipping }: CheckoutC
 
         <form onSubmit={handleSubmit} className="grid grid-cols-1 lg:grid-cols-2 gap-2 lg:gap-3">
           {/* ===== 左侧：整体一张表格（Shipping + Payment 分区行） ===== */}
-          <div className="lg:col-span-1 min-w-0 overflow-auto max-h-[70dvh]">
-            <div className="border border-slate-200 rounded bg-white min-w-[720px]">
+          <div className="lg:col-span-1 min-w-0 overflow-x-auto">
+            <div className="border border-slate-200 rounded bg-white">
             {/* Shipping Address */}
-            <div className="p-2 border-b border-slate-200">
-              <h2 className="text-[12px] font-bold text-slate-900 mb-1 flex items-center gap-1.5">
+            <div className="p-1.5 border-b border-slate-200">
+              <h2 className="text-[12px] font-bold text-slate-900 mb-0.5 flex items-center gap-1.5">
                 <svg className="w-3.5 h-3.5 text-[#336633]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
                 </svg>
                 Shipping Address
               </h2>
-              <div className="grid grid-cols-2 gap-x-2 gap-y-0.5">
+              <div className="grid grid-cols-2 gap-x-1.5 gap-y-0.5">
                 <div>
                   <label className={labelClass}>Full Name <span className="text-rose-500">*</span></label>
                   <input type="text" value={formData.shippingName} onChange={(e) => setFormData({ ...formData, shippingName: e.target.value })} className={inputClass(!!savedShipping?.contactName)} placeholder={savedShipping?.contactName || "John Doe"} />
@@ -476,18 +467,18 @@ export function CheckoutContent({ order, defaultName, savedShipping }: CheckoutC
             </div>
 
             {/* Payment Method */}
-            <div className="p-2">
-              <h2 className="text-[12px] font-bold text-slate-900 mb-2 flex items-center gap-1">
+            <div className="p-1.5">
+              <h2 className="text-[12px] font-bold text-slate-900 mb-1 flex items-center gap-1">
                 <Wallet className="w-3.5 h-3.5 text-[#336633]" />
                 Payment &amp; Delivery
               </h2>
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src="/payment-methods.png" alt="Payment Methods" className="w-2/3 mx-auto h-auto mb-2 object-contain" />
-              <div className="space-y-1.5">
+              <img src="/payment-methods.png" alt="Payment Methods" className="w-full mx-auto h-auto mb-1 object-contain" />
+              <div className="space-y-0.5">
                 {/* Payment Terms */}
-                <div className="rounded border border-slate-200 bg-slate-50 p-2">
-                  <p className="text-[13px] font-bold text-slate-900 mb-1">Payment Terms</p>
-                  <div className="flex items-center gap-2">
+                <div className="rounded border border-slate-200 bg-slate-50 p-1">
+                  <p className="text-[13px] font-bold text-slate-900">Payment Terms</p>
+                  <div>
                     <OrderTermsSelect
                       orderId={order.orderId}
                       field="paymentTerms"
@@ -496,16 +487,15 @@ export function CheckoutContent({ order, defaultName, savedShipping }: CheckoutC
                       locked={order.paymentTermsSetByAdmin}
                       mode="customer"
                       compact
-                      className="w-[60%]"
+                      className="w-full"
                     />
-                    <span className="ml-auto shrink-0 w-[160px] invisible" aria-hidden="true" />
                   </div>
                 </div>
 
                 {/* Payment Method + XTransfer 银行信息 */}
-                <div className="rounded border border-slate-200 bg-slate-50 p-2">
-                  <p className="text-[13px] font-bold text-slate-900 mb-1">Payment Method</p>
-                  <div className="flex items-center gap-2">
+                <div className="rounded border border-slate-200 bg-slate-50 p-1">
+                  <p className="text-[13px] font-bold text-slate-900">Payment Method</p>
+                  <div>
                     <OrderTermsSelect
                       orderId={order.orderId}
                       field="paymentMethod"
@@ -514,51 +504,15 @@ export function CheckoutContent({ order, defaultName, savedShipping }: CheckoutC
                       locked={order.paymentMethodSetByAdmin}
                       mode="customer"
                       compact
-                      className="w-[60%]"
+                      className="w-full"
                     />
-                    <button
-                      type="button"
-                      onClick={() => setBankDetailsOpen((v) => !v)}
-                      className="ml-auto shrink-0 w-[160px] whitespace-nowrap inline-flex items-center justify-center px-2 py-0.5 bg-[#336633] text-white text-[11px] font-bold rounded hover:bg-[#2d5a2d] transition-colors"
-                    >
-                      View Bank Details
-                    </button>
                   </div>
-                  {bankDetailsOpen && (
-                    <div className="mt-1.5 rounded border border-slate-200 bg-white p-2">
-                      {xTransferDetails.length > 0 ? (
-                        <ul className="space-y-0.5">
-                          {xTransferDetails.map((line) => (
-                            <li key={line} className="text-[11px] text-slate-700 font-mono break-all">{line}</li>
-                          ))}
-                        </ul>
-                      ) : (
-                        <p className="text-[11px] text-slate-500">
-                          Bank details will be shared by the seller after order confirmation. Please contact the seller
-                          {whatsappNumber ? (
-                            <>
-                              {" "}
-                              <a
-                                href={`https://wa.me/${whatsappNumber.replace(/[^\d]/g, "")}`}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="text-[#128c7e] font-semibold underline"
-                              >
-                                via WhatsApp
-                              </a>
-                            </>
-                          ) : null}
-                          .
-                        </p>
-                      )}
-                    </div>
-                  )}
                 </div>
 
-                {/* Delivery Terms + Airwallex 支付入口 */}
-                <div className="rounded border border-slate-200 bg-slate-50 p-2">
-                  <p className="text-[13px] font-bold text-slate-900 mb-1">Delivery Terms</p>
-                  <div className="flex items-center gap-2">
+                {/* Delivery Terms */}
+                <div className="rounded border border-slate-200 bg-slate-50 p-1">
+                  <p className="text-[13px] font-bold text-slate-900">Delivery Terms</p>
+                  <div>
                     <OrderTermsSelect
                       orderId={order.orderId}
                       field="deliveryTerms"
@@ -567,22 +521,17 @@ export function CheckoutContent({ order, defaultName, savedShipping }: CheckoutC
                       locked={order.deliveryTermsSetByAdmin}
                       mode="customer"
                       compact
-                      className="w-[60%]"
+                      className="w-full"
                     />
-                    <button
-                      type="button"
-                      onClick={() => {
-                        if (airwallexPayUrl) {
-                          window.open(airwallexPayUrl, "_blank", "noopener,noreferrer");
-                        }
-                      }}
-                      disabled={!airwallexPayUrl}
-                      title={airwallexPayUrl ? undefined : "Airwallex payment link is not configured"}
-                      className="ml-auto shrink-0 w-[160px] whitespace-nowrap inline-flex items-center justify-center px-2 py-0.5 bg-[#336633] text-white text-[11px] font-bold rounded hover:bg-[#2d5a2d] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                      Pay Now via Airwallex
-                    </button>
                   </div>
+                </div>
+
+                {/* Payment methods fine print */}
+                <div className="mt-2 rounded border border-amber-300 bg-amber-50 px-3 py-2 text-[13px] leading-relaxed text-amber-800 space-y-1">
+                  <p><span className="font-bold">Payment:</span> T/T · Local Transfer · Visa · Mastercard · Apple Pay · Google Pay · Western Union · MoneyGram</p>
+                  <p><span className="font-bold">Western Union / MoneyGram:</span> small orders only (under USD 3,000)</p>
+                  <p>Bank transfers received via <span className="font-bold">XTransfer</span> · <span className="font-bold">Airwallex</span></p>
+                  <p><span className="font-bold">Terms:</span> all bank charges, including intermediary fees, are borne by the buyer</p>
                 </div>
               </div>
             </div>

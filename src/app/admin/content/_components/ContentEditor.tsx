@@ -6,7 +6,7 @@ import { MarkdownBody } from "@/components/markdown/MarkdownBody";
 import { savePage } from "@/app/actions/admin/content";
 import type { ContentKey } from "@/lib/content";
 
-type TabData = { value: string; updatedAt: string | null };
+type TabData = { value: string };
 
 const TABS: { key: ContentKey; label: string }[] = [
   { key: "about", label: "About" },
@@ -14,15 +14,6 @@ const TABS: { key: ContentKey; label: string }[] = [
 ];
 
 const PREVIEW_STORAGE_KEY = "mrobom-content-preview-collapsed";
-
-function formatTime(iso: string | null) {
-  if (!iso) return "—";
-  const d = new Date(iso);
-  const pad = (n: number) => String(n).padStart(2, "0");
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(
-    d.getMinutes()
-  )}`;
-}
 
 export function ContentEditor({
   initialTab,
@@ -41,10 +32,6 @@ export function ContentEditor({
     about: initial.about.value,
     terms: initial.terms.value,
   });
-  const [updatedAt, setUpdatedAt] = useState<Record<ContentKey, string | null>>({
-    about: initial.about.updatedAt,
-    terms: initial.terms.updatedAt,
-  });
   const [collapsed, setCollapsed] = useState(false);
   const [status, setStatus] = useState<"idle" | "saving" | "saved" | "error">("idle");
   const [errorMessage, setErrorMessage] = useState("");
@@ -54,12 +41,12 @@ export function ContentEditor({
   const value = values[tab];
   const dirty = value !== savedValues[tab];
 
-  // localStorage 记住预览收起状态（挂载后读取，避免 hydration 不一致）
+  // Remember preview collapsed state in localStorage (read after mount to avoid hydration mismatch)
   useEffect(() => {
     setCollapsed(window.localStorage.getItem(PREVIEW_STORAGE_KEY) === "1");
   }, []);
 
-  // textarea 随内容自动增高，min-height 70vh，避免内部双层滚动条
+  // Grow the textarea with its content (min 70vh) to avoid a nested scrollbar
   useLayoutEffect(() => {
     const el = textareaRef.current;
     if (!el) return;
@@ -84,7 +71,7 @@ export function ContentEditor({
   const switchTab = useCallback(
     (next: ContentKey) => {
       if (next === tab) return;
-      if (dirty && !window.confirm("当前内容尚未保存，确定离开？")) return;
+      if (dirty && !window.confirm("You have unsaved changes. Leave without saving?")) return;
       setTab(next);
       setStatus("idle");
       setErrorMessage("");
@@ -106,7 +93,7 @@ export function ContentEditor({
     [tab]
   );
 
-  /** 用标记包裹选区；无选区时插入标记并把光标放在标记中间 */
+  /** Wrap the selection with markers; with no selection, insert markers and place the cursor between them */
   const wrapSelection = useCallback(
     (prefix: string, suffix: string, placeholder: string) => {
       const el = textareaRef.current;
@@ -126,7 +113,7 @@ export function ContentEditor({
     [applyChange, value]
   );
 
-  /** 为选中行（或当前行）加行首标记 */
+  /** Prefix the selected lines (or the current line) with a marker */
   const prefixLines = useCallback(
     (prefix: string, numbered = false) => {
       const el = textareaRef.current;
@@ -173,9 +160,6 @@ export function ContentEditor({
     const result = await savePage(payload);
     if (result.ok) {
       setSavedValues((prev) => ({ ...prev, [tab]: value }));
-      if (result.updatedAt) {
-        setUpdatedAt((prev) => ({ ...prev, [tab]: result.updatedAt! }));
-      }
       setStatus("saved");
       if (statusTimer.current) clearTimeout(statusTimer.current);
       statusTimer.current = setTimeout(() => setStatus("idle"), 2500);
@@ -186,25 +170,25 @@ export function ContentEditor({
   }, [status, tab, value]);
 
   const toolbarButtons: { label: string; title: string; onClick: () => void }[] = [
-    { label: "H2", title: "二级标题", onClick: () => prefixLines("## ") },
-    { label: "H3", title: "三级标题", onClick: () => prefixLines("### ") },
-    { label: "B", title: "加粗", onClick: () => wrapSelection("**", "**", "加粗文字") },
-    { label: "• List", title: "无序列表", onClick: () => prefixLines("- ") },
-    { label: "1. List", title: "有序列表", onClick: () => prefixLines("", true) },
-    { label: "Link", title: "链接", onClick: () => wrapSelection("[", "](https://)", "文字") },
+    { label: "H2", title: "Heading 2", onClick: () => prefixLines("## ") },
+    { label: "H3", title: "Heading 3", onClick: () => prefixLines("### ") },
+    { label: "B", title: "Bold", onClick: () => wrapSelection("**", "**", "bold text") },
+    { label: "• List", title: "Bullet list", onClick: () => prefixLines("- ") },
+    { label: "1. List", title: "Numbered list", onClick: () => prefixLines("", true) },
+    { label: "Link", title: "Link", onClick: () => wrapSelection("[", "](https://)", "link text") },
     {
       label: "Table",
-      title: "表格",
+      title: "Table",
       onClick: () =>
         insertBlock("| Column 1 | Column 2 |\n| --- | --- |\n| Cell | Cell |\n"),
     },
-    { label: "Note", title: "提示卡", onClick: () => prefixLines("> ") },
-    { label: "HR", title: "分隔线", onClick: () => insertBlock("---\n") },
+    { label: "Note", title: "Callout", onClick: () => prefixLines("> ") },
+    { label: "HR", title: "Divider", onClick: () => insertBlock("---\n") },
   ];
 
   return (
     <div className="space-y-3" data-dirty={dirty ? "true" : "false"}>
-      {/* Tab 切换 */}
+      {/* Tabs */}
       <div className="flex items-center gap-2">
         {TABS.map((item) => (
           <button
@@ -225,7 +209,7 @@ export function ContentEditor({
         ))}
       </div>
 
-      {/* 工具栏：格式按钮 + 预览开关 */}
+      {/* Toolbar: formatting buttons + preview toggle */}
       <div className="flex flex-wrap items-center gap-1.5 rounded border border-slate-200 bg-slate-50 px-2 py-1.5">
         {toolbarButtons.map((btn) => (
           <button
@@ -243,12 +227,12 @@ export function ContentEditor({
           onClick={togglePreview}
           className="ml-auto px-2 py-1 text-[12px] font-semibold text-slate-700 bg-white border border-slate-300 rounded hover:bg-slate-100"
         >
-          {collapsed ? "展开预览" : "收起预览"}
+          {collapsed ? "Expand preview" : "Collapse preview"}
         </button>
       </div>
 
       <div className={`grid grid-cols-1 gap-3 ${collapsed ? "" : "lg:grid-cols-2"}`}>
-        {/* 编辑区 */}
+        {/* Editor */}
         <section className="min-w-0">
           <textarea
             ref={textareaRef}
@@ -266,7 +250,7 @@ export function ContentEditor({
               disabled={status === "saving" || !dirty}
               className="px-4 py-1.5 text-[13px] font-semibold text-white bg-green-700 rounded hover:bg-green-800 disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              {status === "saving" ? "保存中" : status === "saved" ? "已保存" : "保存"}
+              {status === "saving" ? "Saving" : status === "saved" ? "Saved" : "Save"}
             </button>
             <a
               href={`/${tab}`}
@@ -274,43 +258,40 @@ export function ContentEditor({
               rel="noopener noreferrer"
               className="px-3 py-1.5 text-[13px] font-semibold text-green-700 border border-green-700 rounded hover:bg-green-50"
             >
-              打开页面 →
+              Open page →
             </a>
             {status === "error" && (
               <span className="text-[12px] text-red-600">{errorMessage}</span>
             )}
             {dirty && status !== "error" && (
-              <span className="text-[12px] text-amber-600">有未保存的修改</span>
+              <span className="text-[12px] text-amber-600">Unsaved changes</span>
             )}
-            <span className="ml-auto text-[12px] text-slate-500">
-              最后保存时间：{formatTime(updatedAt[tab])}
-            </span>
           </div>
 
-          {/* 语法速查卡 */}
+          {/* Markdown cheatsheet */}
           <div className="mt-3 rounded border border-slate-200 bg-slate-50 p-2 text-[12px] text-slate-600">
-            <div className="mb-1 font-semibold text-slate-700">Markdown 速查</div>
+            <div className="mb-1 font-semibold text-slate-700">Markdown cheatsheet</div>
             <div className="grid grid-cols-2 gap-x-4 gap-y-0.5 sm:grid-cols-3">
-              <span><code>## 标题</code> → 二级标题</span>
-              <span><code>### 标题</code> → 三级标题</span>
-              <span><code>- 条目</code> → 无序列表</span>
-              <span><code>1. 条目</code> → 有序列表</span>
-              <span><code>**加粗**</code> → 加粗</span>
-              <span><code>&gt; 提示</code> → 提示卡</span>
-              <span><code>[文字](url)</code> → 链接</span>
-              <span><code>| 表头 |</code> → 表格</span>
-              <span><code>---</code> → 分隔线</span>
+              <span><code>## Heading</code> → H2</span>
+              <span><code>### Heading</code> → H3</span>
+              <span><code>- Item</code> → bullet list</span>
+              <span><code>1. Item</code> → numbered list</span>
+              <span><code>**bold**</code> → bold</span>
+              <span><code>&gt; Note</code> → callout</span>
+              <span><code>[text](url)</code> → link</span>
+              <span><code>| Header |</code> → table</span>
+              <span><code>---</code> → divider</span>
             </div>
           </div>
         </section>
 
-        {/* 预览区：与前台同一渲染组件 */}
+        {/* Preview: same renderer as the live site */}
         {!collapsed && (
           <section className="min-w-0 lg:sticky lg:top-0 lg:self-start">
             <div className="rounded border border-slate-300 bg-white">
               <div className="sticky top-0 flex items-center justify-between border-b border-slate-200 bg-slate-50 px-3 py-1.5">
                 <span className="text-[12px] font-semibold text-slate-700">
-                  预览（与前台一致）
+                  Preview (same as live site)
                 </span>
                 <span className="text-[11px] text-slate-400">{TABS.find((t) => t.key === tab)?.label}</span>
               </div>

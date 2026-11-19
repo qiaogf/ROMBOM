@@ -12,7 +12,7 @@ export default async function AdminContentPage({
 }) {
   const session = await getAdminSession();
   if (!session) redirect("/auth/admin-login");
-  // 仅超级管理员可进入（普通管理员侧栏无入口，直接访问同样拦截）
+  // Super admin only: hidden from nav for other admins, direct access redirected
   if (!isSuperAdminEmail(session.email)) redirect("/admin");
 
   const sp = await searchParams;
@@ -22,12 +22,11 @@ export default async function AdminContentPage({
 
   return (
     <div className="max-w-[1600px]">
-      <h1 className="text-[20px] font-bold text-slate-900 mb-3">Content</h1>
       <ContentEditor
         initialTab={tab}
         initial={{
-          about: { value: about.value, updatedAt: about.updatedAt },
-          terms: { value: terms.value, updatedAt: terms.updatedAt },
+          about: { value: about.value },
+          terms: { value: terms.value },
         }}
       />
     </div>

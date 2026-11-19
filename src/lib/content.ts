@@ -2,11 +2,11 @@ import { unstable_cache } from "next/cache";
 import { prisma } from "@/lib/prisma";
 
 /**
- * 站点内容（About / Terms）
+ * Site content (About / Terms)
  *
- * - 后台 /admin/content 编辑，前台 /about /terms 渲染
- * - 读库失败或内容为空时回落到内置英文默认文案，保证页面不 500
- * - 缓存 tag: `page-${key}`，保存后由 savePage 触发失效
+ * - Edited in /admin/content, rendered on /about and /terms
+ * - Falls back to the built-in English copy when the DB read fails or the value is empty (never 500)
+ * - Cache tag: `page-${key}`, invalidated by savePage
  */
 
 export const CONTENT_KEYS = ["about", "terms"] as const;
@@ -229,7 +229,7 @@ export const DEFAULT_CONTENT: Record<ContentKey, string> = {
 
 export interface PageContent {
   value: string;
-  /** ISO 字符串；unstable_cache 序列化后 Date 无法保持对象类型 */
+  /** ISO string: unstable_cache serialization cannot preserve Date objects */
   updatedAt: string | null;
 }
 
@@ -241,7 +241,7 @@ async function readContent(key: ContentKey): Promise<PageContent> {
     }
     return { value: row.value, updatedAt: row.updatedAt.toISOString() };
   } catch {
-    // 数据库异常 → 回落默认文案，页面不 500
+    // DB failure → fall back to default copy, never 500
     return { value: DEFAULT_CONTENT[key], updatedAt: null };
   }
 }
