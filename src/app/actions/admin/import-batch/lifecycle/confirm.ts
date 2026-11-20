@@ -79,10 +79,12 @@ export async function confirmImportBatch(formData: FormData): Promise<{ success:
     const productList = models.length > 0
       ? await prisma.product.findMany({
           where: { model: { in: models } },
-          select: { productId: true, categoryId: true, model: true },
+          select: { productId: true, categoryId: true, model: true, brandId: true },
         })
       : [];
     const productByKey = new Map(productList.map((p) => [`${p.categoryId}|${p.model}`, p.productId]));
+    // 特殊类目价格文件常无 Brand 列：按「类目+型号」继承已有产品的真实品牌
+    const productBrandByKey = new Map(productList.map((p) => [`${p.categoryId}|${p.model}`, p.brandId]));
 
     const productIds = productList.map((p) => p.productId);
     const quoteList = productIds.length > 0
@@ -123,6 +125,7 @@ export async function confirmImportBatch(formData: FormData): Promise<{ success:
       brandByKey.set(normNavKey(b.brandName), { brandId: b.brandId, brandName: b.brandName });
       if (b.slug) brandByKey.set(b.slug, { brandId: b.brandId, brandName: b.brandName });
     }
+    const brandNameById = new Map(navBrands.map((b) => [b.brandId, b.brandName]));
     const categoryByKey = new Map<string, { categoryId: string }>();
     for (const c of navCategories) {
       // 品类键忽略 <>()（）：暂存值可能是 "Discontinued"（导航原名是 "<Discontinued>"）
@@ -252,7 +255,14 @@ export async function confirmImportBatch(formData: FormData): Promise<{ success:
             throw new Error(`Row ${item.rowNumber} (model=${item.model}) references a category that no longer exists. Cannot publish.`);
           }
           const special = item.categoryName ? isSpecialCategoryName(item.categoryName) : false;
-          const brandName = item.brandName?.trim() || (special ? GENERIC_BRAND_NAME : "");
+          // 特殊类目价格文件通常没有 Brand 列：优先继承同型号已有产品的真实品牌，
+          // 否则全部落到 Generic，前台按品牌分组时会与 0 价属性行分家导致价格不显示。
+          let brandName = item.brandName?.trim() || "";
+          if (special && (!brandName || normCategoryKey(brandName) === "generic")) {
+            const inheritedBrandId = productBrandByKey.get(`${category.categoryId}|${item.model}`);
+            brandName = (inheritedBrandId && brandNameById.get(inheritedBrandId)) || brandName;
+          }
+          if (!brandName) brandName = special ? GENERIC_BRAND_NAME : "";
           if (!brandName) {
             throw new Error(`Row ${item.rowNumber} (model=${item.model}) staged without brand name. Cannot publish.`);
           }
