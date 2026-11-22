@@ -103,7 +103,7 @@ export async function confirmImportBatch(formData: FormData): Promise<{ success:
       ? await prisma.modelPrice.findMany({
           where: { model: { in: models }, quoteKey: { startsWith: "base|" } },
           select: {
-            categoryId: true, model: true, description: true, origin: true, certification: true,
+            categoryId: true, model: true, productName: true, description: true, origin: true, certification: true,
             length: true, width: true, height: true, diameter: true, dimensionUnit: true,
             weight: true, packingWeight: true, weightUnit: true, batteryAttributes: true, datasheetLink: true,
           },
@@ -480,6 +480,10 @@ export async function confirmImportBatch(formData: FormData): Promise<{ success:
           // description 等属性——价格模板无 Name 列，productName 是型号回退值，
           // 写入会覆盖产品表里的真实产品名；memo 防并发下同型号重复创建）
           const productKey = `${seriesCtx.categoryId}|${item.model}`;
+          // 新建产品时优先继承 GOODS 属性行的真实产品名，避免用型号占位导致 Product 列=Model 列
+          const baseProductName = baseAttrByKey.get(productKey)?.productName;
+          const displayProductName =
+            baseProductName && baseProductName !== item.model ? baseProductName : item.productName;
           const productId = await memoProduct(productKey, async () => {
             const existingProductId = productByKey.get(productKey);
             if (!existingProductId) {
@@ -487,7 +491,7 @@ export async function confirmImportBatch(formData: FormData): Promise<{ success:
                 data: {
                   categoryId: seriesCtx.categoryId,
                   brandId: seriesCtx.brandId,
-                  productName: item.productName,
+                  productName: displayProductName,
                   model: item.model,
                   series: seriesCtx.seriesName,
                   unit: item.unit,
