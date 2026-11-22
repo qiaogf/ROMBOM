@@ -19,6 +19,7 @@ import {
   parseUploadFile,
 } from "@/lib/import-price-upload";
 import { slugify } from "@/lib/db/types";
+import { confirmImportBatch } from "@/app/actions/admin/import-batch/lifecycle/confirm";
 
 export const dynamic = "force-dynamic";
 
@@ -395,13 +396,32 @@ export async function POST(request: Request) {
     },
   });
 
+  // 产品文件（product_info）无人工确认入口：暂存完成后直接复用确认逻辑上线。
+  // 价格批次（price）保留人工 Confirm，不在此处自动发布。
+  let message = "File staged successfully. An admin must confirm this batch before prices go live.";
+  let published = false;
+  if (batchType === "product_info") {
+    if (successCount > 0) {
+      const fd = new FormData();
+      fd.set("importBatchId", batch.importBatchId);
+      const publishRes = await confirmImportBatch(fd);
+      published = publishRes.success;
+      message = publishRes.success
+        ? "File uploaded and published live."
+        : `File staged, but auto-publish failed: ${publishRes.message}`;
+    } else {
+      message = "No valid rows to publish.";
+    }
+  }
+
   return NextResponse.json({
     success: true,
     successCount,
     failureCount,
     mergedCount,
+    published,
     errors,
     headerMapping: origHeader,
-    message: "File staged successfully. An admin must confirm this batch before prices go live.",
+    message,
   });
 }
