@@ -90,7 +90,7 @@ export function ProductPriceTable({ seriesGroups, searchQuery, showSeriesHeader 
         <table className="w-full min-w-[720px] text-[11px] border-collapse table-fixed">
           {/* PC 端列宽按字段字符上限固定（ch 单位）；移动端用紧凑百分比自适应，全部列保留 */}
           <colgroup>
-            <col className="w-[12%] sm:w-[10ch]" />
+            <col className="w-[12%] sm:w-[15ch]" />
             <col className="w-[20ch]" />
             <col className="w-[22%] sm:w-auto" />
             <col className="w-[10%] sm:w-[10ch]" />
