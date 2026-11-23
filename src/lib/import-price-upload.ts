@@ -22,9 +22,19 @@ export function normCategoryKey(raw: string): string {
 }
 
 /**
+ * 系列三键匹配键：Category + Brand + Series 组合，避免不同品牌/类目下的同名系列错配。
+ * 与 loadActiveSeriesMap 中注册的 combo3 键一致。
+ */
+export function seriesComboKey(categoryId: string, brandName: string, seriesName: string): string {
+  return `combo3|${categoryId}|${normNavKey(brandName)}|${normNavKey(seriesName)}`;
+}
+
+/**
  * 加载启用系列的键 → seriesId 映射（逐行 Series 列解析用）。
- * 支持三种写法（优先级：组合全名 > 系列名 > slug），匹配键大小写/空格不敏感：
- *   - "Siemens S7-1200"（品牌 + 空格 + 系列名，新模板格式）
+ * 支持四种写法（优先级：Category+Brand+Series 三键 > 品牌+系列名 > 系列名 > slug），
+ * 匹配键大小写/空格不敏感：
+ *   - "{categoryId}|{brand} {series}"（三键，最精确，需调用方用 seriesComboKey 构造）
+ *   - "Siemens S7-1200"（品牌 + 空格 + 系列名）
  *   - "S7-1200"（系列名）
  *   - "s7-1200"（slug）
  */
@@ -35,6 +45,7 @@ export async function loadActiveSeriesMap(): Promise<Map<string, string>> {
       seriesId: true,
       seriesName: true,
       slug: true,
+      categoryId: true,
       brand: { select: { brandName: true } },
     },
   });
@@ -52,6 +63,12 @@ export async function loadActiveSeriesMap(): Promise<Map<string, string>> {
     // 组合全名最具体，覆盖任何同名的低优先级键
     const combo = normNavKey(`${s.brand.brandName} ${s.seriesName}`);
     if (combo) seriesMap.set(combo, s.seriesId);
+  }
+  for (const s of activeSeries) {
+    // 三键（Category + Brand + Series）最精确，同名系列跨品牌/类目不会串号
+    if (s.categoryId) {
+      seriesMap.set(seriesComboKey(s.categoryId, s.brand.brandName, s.seriesName), s.seriesId);
+    }
   }
   return seriesMap;
 }

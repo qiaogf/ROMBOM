@@ -16,6 +16,7 @@ import {
   loadActiveSeriesMap,
   normNavKey,
   normCategoryKey,
+  seriesComboKey,
   parseUploadFile,
 } from "@/lib/import-price-upload";
 import { slugify } from "@/lib/db/types";
@@ -228,10 +229,19 @@ export async function POST(request: Request) {
       errors.push({ row: rowNumber, message: `Series is required for normal category "${effectiveCategory}". Only special categories (name contains <>/()) may leave Series empty.` });
       continue;
     } else {
-      rowSeriesId = seriesMap.get(normNavKey(seriesStr)) ?? null;
+      // 系列归属严格按 Category + Brand + Series 三列对应匹配（同名系列跨品牌/类目不会串号）；
+      // Brand 为空时回退 Generic，与确认阶段建系列的三键逻辑保持一致。
+      if (!rowBrandName) rowBrandName = GENERIC_BRAND_NAME;
+      const categoryId = categoryMap.get(normCategoryKey(categoryStr));
+      const comboKey = categoryId
+        ? seriesComboKey(categoryId, rowBrandName, seriesStr)
+        : null;
+      rowSeriesId =
+        (comboKey ? seriesMap.get(comboKey) : undefined) ??
+        seriesMap.get(normNavKey(seriesStr)) ??
+        null;
       if (!rowSeriesId) {
         stagedSeriesName = seriesStr;
-        if (!rowBrandName) rowBrandName = GENERIC_BRAND_NAME;
       }
     }
     const itemSeriesId = rowSeriesId;

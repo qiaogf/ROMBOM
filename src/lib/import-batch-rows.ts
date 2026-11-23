@@ -16,7 +16,7 @@ export type ImportBatchWithRows = Prisma.ImportBatchGetPayload<{
     series: { select: { seriesName: true; brand: { select: { brandName: true } } } };
     admin: { select: { email: true } };
     supplier: { select: { email: true } };
-    items: { select: { seriesId: true } };
+    items: { select: { seriesId: true; seriesName: true; brandName: true } };
   };
 }>;
 
@@ -38,8 +38,10 @@ export async function loadSeriesMapByIds(
 }
 
 /**
- * 批次列表行组装：Series 以每行 items 的 seriesId 为准（Admin/Supplier CSV
- * 均逐行带 Series），去重后全部展示；行系列缺失时才回退到批次级 series。
+ * 批次列表行组装：Series 以每行 items 为准（Admin/Supplier CSV 均逐行带 Series），
+ * 去重后全部展示；行系列尚未建号（seriesId 为空但暂存了 seriesName）时，
+ * 回退用暂存行里的 Series + Brand 名称，保证上传后 Admin Panel 立即能看到。
+ * 行系列完全缺失时才回退到批次级 series。
  */
 export async function assembleBatchListRows(batches: ImportBatchWithRows[]) {
   // 列表批次行系列：ImportBatchItem 仅存 seriesId，统一批量加载避免 N+1
@@ -51,9 +53,22 @@ export async function assembleBatchListRows(batches: ImportBatchWithRows[]) {
     const perRowSeries = Array.from(
       new Map(
         b.items
-          .map((it) => (it.seriesId ? (rowSeriesMap.get(it.seriesId) ?? null) : null))
+          .map((it) => {
+            if (it.seriesId) {
+              const s = rowSeriesMap.get(it.seriesId);
+              return s ? { seriesName: s.seriesName, brand: s.brand } : null;
+            }
+            // 暂存的新系列（尚未创建 Series 记录）：用 CSV 行里的 Series/Brand 名回退
+            if (it.seriesName) {
+              return {
+                seriesName: it.seriesName,
+                brand: it.brandName ? { brandName: it.brandName } : null,
+              };
+            }
+            return null;
+          })
           .filter((s): s is NonNullable<typeof s> => s !== null)
-          .map((s) => [s.seriesId, s])
+          .map((s) => [`${s.brand?.brandName ?? ""}:${s.seriesName}`, s])
       ).values()
     ).map((s) => ({ seriesName: s.seriesName, brand: s.brand }));
     const seriesRows = perRowSeries.length > 0

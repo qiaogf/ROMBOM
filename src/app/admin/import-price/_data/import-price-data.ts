@@ -28,6 +28,8 @@ export async function getListData() {
         items: {
           select: {
             seriesId: true,
+            seriesName: true,
+            brandName: true,
           },
         },
       },
@@ -89,6 +91,7 @@ export async function getDetailData(batchId: string) {
       itemId: true,
       slug: true,
       seriesId: true,
+      seriesName: true,
       productName: true,
       model: true,
       description: true,
@@ -129,7 +132,12 @@ export async function getDetailData(batchId: string) {
     datasheetLink: it.datasheetLink,
     brandName: it.brandName,
     selfOrder: it.selfOrder,
-    series: it.seriesId ? (itemSeriesMap.get(it.seriesId) ?? null) : null,
+    // seriesId 未建号时（新系列仅暂存名称）回退展示 CSV 的 Series + Brand，Admin 上传后立即可见
+    series: it.seriesId
+      ? (itemSeriesMap.get(it.seriesId) ?? null)
+      : it.seriesName
+        ? { seriesName: it.seriesName, brand: it.brandName ? { brandName: it.brandName } : null }
+        : null,
   }));
 
   const isPending = batch.approvalStatus === "pending";

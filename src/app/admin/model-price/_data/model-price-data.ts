@@ -40,6 +40,8 @@ export async function getBatchDetailViewData(batchId: string) {
     select: {
       itemId: true,
       seriesId: true,
+      seriesName: true,
+      brandName: true,
       slug: true,
       model: true,
       categoryName: true,
@@ -63,7 +65,12 @@ export async function getBatchDetailViewData(batchId: string) {
     moq: it.moq,
     condition: it.condition,
     leadTime: it.leadTime,
-    series: it.seriesId ? (itemSeriesMap.get(it.seriesId) ?? null) : null,
+    // seriesId 未建号时（新系列仅暂存名称）回退展示 CSV 的 Series + Brand
+    series: it.seriesId
+      ? (itemSeriesMap.get(it.seriesId) ?? null)
+      : it.seriesName
+        ? { seriesName: it.seriesName, brand: it.brandName ? { brandName: it.brandName } : null }
+        : null,
   }));
 
   const isPending = batch.approvalStatus === "pending";
@@ -232,6 +239,8 @@ export async function getListViewData() {
         items: {
           select: {
             seriesId: true,
+            seriesName: true,
+            brandName: true,
           },
         },
       },
