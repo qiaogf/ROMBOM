@@ -114,8 +114,8 @@ export async function POST(request: Request) {
   }
   if (missing.length > 0) {
     const hint = batchType === "price"
-      ? "Required: Category, Model, Price. Optional: Series (existing series name, or a new one to be created on confirm), Brand (optional — rows with a Series but no Brand are auto-assigned to the existing Generic brand), Condition, Lead Time (In stock / Out of stock / lead-time text such as 3-5 days), Markup, Sell Price, MOQ, Stock Status. Category must already exist in the Category navigation; new Brand/Series names are auto-created on confirm. Name lengths: Brand/Series/Product ≤ 15 chars, Description ≤ 150 chars. Legacy headers (Unit Price, Product Condition) are also accepted."
-      : "Required: Category, Name, Model. Optional: Series (existing or new), Brand (optional — a Series without Brand is auto-assigned to the existing Generic brand; Brand without Series lists all models under the brand), Description, Origin, Certifications, Length, Width, Height, Diameter, Dimension Unit, Weight, Packing Weight, Weight Unit, Battery Attributes, Datasheet Link, Unit Price, MOQ, Unit, Stock Status, Lead Time, Cost Price, Product Condition. Category must already exist in the Category navigation; new Brand/Series names are auto-created on confirm. Name lengths: Brand/Series/Product ≤ 15 chars, Description ≤ 150 chars.";
+      ? "Required: Category, Model, Price. Optional: Series (existing series name, or a new one to be created on confirm), Brand (optional — rows with a Series but no Brand are auto-assigned to the existing Generic brand), Condition, Lead Time (In stock / Out of stock / lead-time text such as 3-5 days), Markup, Sell Price, MOQ, Stock Status. Category must already exist in the Category navigation; new Brand/Series names are auto-created on confirm. Name lengths: Brand ≤ 15, Series ≤ 50, Product ≤ 50 chars, Description ≤ 150 chars. Legacy headers (Unit Price, Product Condition) are also accepted."
+      : "Required: Category, Name, Model. Optional: Series (existing or new), Brand (optional — a Series without Brand is auto-assigned to the existing Generic brand; Brand without Series lists all models under the brand), Description, Origin, Certifications, Length, Width, Height, Diameter, Dimension Unit, Weight, Packing Weight, Weight Unit, Battery Attributes, Datasheet Link, Unit Price, MOQ, Unit, Stock Status, Lead Time, Cost Price, Product Condition. Category must already exist in the Category navigation; new Brand/Series names are auto-created on confirm. Name lengths: Brand ≤ 15, Series ≤ 50, Product ≤ 50 chars, Description ≤ 150 chars.";
     return NextResponse.json({
       success: false,
       message: `Missing required column(s): ${missing.join(", ")}. ${hint} Recognized headers from your file: ${rows[0].map((h) => `"${h}"`).join(", ")}.`,
@@ -246,7 +246,7 @@ export async function POST(request: Request) {
     }
     const itemSeriesId = rowSeriesId;
 
-    // 字段长度上限：Brand/Series ≤ 15、Model ≤ 20、Product ≤ 50、Description ≤ 150
+    // 字段长度上限：Brand ≤ 15、Series ≤ 50、Model ≤ 20、Product ≤ 50、Description ≤ 150
     // （仅校验将写入/新建的名称；匹配到系统已有系列的行不校验 Series 长度）
     const lengthError = validateFieldLengths({
       brandname: rowBrandName,

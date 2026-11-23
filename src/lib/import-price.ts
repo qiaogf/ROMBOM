@@ -143,7 +143,7 @@ export function normalizeLeadtime(value: string | null | undefined): string {
 // Category 不在此列：它必须匹配导航已有类目（存在性校验已覆盖，且已存在类目名可超 15 字符）
 export const FIELD_LIMITS = {
   brandname: 15,
-  series: 15,
+  series: 50,
   model: 20,
   productname: 50,
   description: 150,
