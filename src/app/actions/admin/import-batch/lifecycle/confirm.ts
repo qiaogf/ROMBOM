@@ -583,19 +583,41 @@ export async function confirmImportBatch(formData: FormData): Promise<{ success:
       throw writeErr;
     }
 
-    // 产品表整体替换：同「品牌 + 类目」下本次未出现的旧系列停用，品牌页不再残留历史系列
-    // （软删除 isActive=false，数据保留可恢复；价格表上传不触发）
+    // 产品表上传后清理孤儿系列：同「品牌 + 类目」下本次未出现的旧系列，
+    // 仅当该系列下已无任何关联产品（ModelPrice isActive=true）时才停用（软删除 isActive=false）
+    // 仍有关联产品的系列保留，避免误删活跃数据；价格表上传不触发
     if (batchType === "product_info") {
       for (const group of keptSeriesByGroup.values()) {
-        await prisma.series.updateMany({
+        // 1. 找出候选旧系列：同品牌+类目下 isActive=true 且不在本次保留集
+        const staleSeries = await prisma.series.findMany({
           where: {
             brandId: group.brandId,
             categoryId: group.categoryId,
             isActive: true,
             seriesId: { notIn: [...group.ids] },
           },
-          data: { isActive: false },
+          select: {
+            seriesId: true,
+            _count: {
+              select: {
+                modelPrices: { where: { isActive: true } },
+              },
+            },
+          },
         });
+
+        // 2. 过滤：只保留无关联产品的孤儿系列 ID
+        const orphanSeriesIds = staleSeries
+          .filter(s => s._count.modelPrices === 0)
+          .map(s => s.seriesId);
+
+        // 3. 停用孤儿系列
+        if (orphanSeriesIds.length > 0) {
+          await prisma.series.updateMany({
+            where: { seriesId: { in: orphanSeriesIds } },
+            data: { isActive: false },
+          });
+        }
       }
     }
 
