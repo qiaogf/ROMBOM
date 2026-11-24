@@ -99,7 +99,7 @@ export function ImportBatchList({ batches, detailHref, emptyHint }: ImportBatchL
                       <span className="text-slate-400 italic">—</span>
                     ) : (
                       <div className="flex flex-col gap-0.5">
-                        {b.seriesRows.map((s) => {
+                        {b.seriesRows.slice(0, 1).map((s) => {
                           const full = s.brand?.brandName
                             ? `${s.brand.brandName} / ${s.seriesName}`
                             : s.seriesName;

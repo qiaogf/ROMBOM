@@ -178,6 +178,8 @@ export async function confirmImportBatch(formData: FormData): Promise<{ success:
     const memoCatBrand = memo(new Map<string, Promise<void>>());
     const memoProduct = memo(new Map<string, Promise<string>>());
     const memoQuote = memo(new Map<string, Promise<void>>());
+    // 产品表按「品牌 + 类目」整体替换：记录本次上传保留的系列，确认后停用同组其余旧系列
+    const keptSeriesByGroup = new Map<string, { brandId: string; categoryId: string; ids: Set<string> }>();
 
     try {
       // ── 导航条目匹配或创建（memo 防并发重复创建；匹配用预读 Map，slug 集合防重）──
@@ -293,6 +295,16 @@ export async function confirmImportBatch(formData: FormData): Promise<{ success:
               supplierId: batch.supplierId ?? null,
             };
           }
+        }
+
+        if (batchType === "product_info" && seriesCtx.seriesId) {
+          const key = `${seriesCtx.brandId}|${seriesCtx.categoryId}`;
+          let group = keptSeriesByGroup.get(key);
+          if (!group) {
+            group = { brandId: seriesCtx.brandId, categoryId: seriesCtx.categoryId, ids: new Set() };
+            keptSeriesByGroup.set(key, group);
+          }
+          group.ids.add(seriesCtx.seriesId);
         }
 
         const sellPriceRaw = Number(item.sellPrice);
@@ -569,6 +581,22 @@ export async function confirmImportBatch(formData: FormData): Promise<{ success:
         data: { approvalStatus: "pending", approvedAt: null, approvedById: null },
       });
       throw writeErr;
+    }
+
+    // 产品表整体替换：同「品牌 + 类目」下本次未出现的旧系列停用，品牌页不再残留历史系列
+    // （软删除 isActive=false，数据保留可恢复；价格表上传不触发）
+    if (batchType === "product_info") {
+      for (const group of keptSeriesByGroup.values()) {
+        await prisma.series.updateMany({
+          where: {
+            brandId: group.brandId,
+            categoryId: group.categoryId,
+            isActive: true,
+            seriesId: { notIn: [...group.ids] },
+          },
+          data: { isActive: false },
+        });
+      }
     }
 
     // ── 比价任务：新价格表上线后自动比对所有 Approved 文件，写产品 ListPrice ──
