@@ -12,12 +12,14 @@ export interface PriceCompareToggleResult {
   success: boolean;
   enabled: boolean;
   message: string;
+  /** 本次实际参与比价的 SKU 分组数；0 表示无可比对价格（按钮侧不展示提示文案） */
+  comparedGroups: number;
 }
 
 export async function togglePriceCompareAction(): Promise<PriceCompareToggleResult> {
   const session = await getAdminSession();
   if (!session) {
-    return { success: false, enabled: false, message: "Unauthorized. Admin login required." };
+    return { success: false, enabled: false, message: "Unauthorized. Admin login required.", comparedGroups: 0 };
   }
 
   const current = await isPriceCompareEnabled();
@@ -29,11 +31,12 @@ export async function togglePriceCompareAction(): Promise<PriceCompareToggleResu
       success: true,
       enabled: false,
       message: "Run Compare stopped. Storefront now shows product sheet Unit Price only.",
+      comparedGroups: 0,
     };
   }
 
   // OFF → ON：置位并立即执行一次比价，刷新优胜标记
   await setPriceCompareEnabled(true);
   const result = await runPriceComparison();
-  return { success: true, enabled: true, message: result.summary };
+  return { success: true, enabled: true, message: result.summary, comparedGroups: result.groups };
 }
