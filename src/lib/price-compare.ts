@@ -17,6 +17,31 @@ import type { Prisma } from "@/../prisma/generated/client";
 import { isSpecialCategoryName, leadTimeRank } from "@/lib/import-price";
 import { expireStaleQuotes } from "@/lib/quote-validity";
 
+// ── Run Compare 全局开关（持久化于 SystemSetting 表）──
+// ON（默认）：价格表 Confirm 后参与比价展示，同品牌+型号命中优先展示比价价，未命中回退产品表 Unit Price
+// OFF：不加载比价价格，所有型号读取产品表 Unit Price；自动/定时比价任务短路跳过
+// 读取失败（如表尚未 db push）回退默认 ON，保持现状行为不阻塞页面。
+
+const COMPARE_SETTING_KEY = "priceCompareEnabled";
+
+export async function isPriceCompareEnabled(): Promise<boolean> {
+  try {
+    const row = await prisma.systemSetting.findUnique({ where: { key: COMPARE_SETTING_KEY } });
+    if (!row) return true; // 无记录 = 默认 ON（现状行为）
+    return row.value === "true";
+  } catch {
+    return true;
+  }
+}
+
+export async function setPriceCompareEnabled(enabled: boolean): Promise<void> {
+  await prisma.systemSetting.upsert({
+    where: { key: COMPARE_SETTING_KEY },
+    create: { key: COMPARE_SETTING_KEY, value: String(enabled) },
+    update: { value: String(enabled) },
+  });
+}
+
 export interface PriceCompareResult {
   groups: number;
   models: number;
@@ -51,6 +76,13 @@ export async function runPriceComparison(): Promise<PriceCompareResult> {
   if (compareRunning) {
     return { ...empty, summary: "Another price comparison is already running; this run was skipped." };
   }
+
+  // Run Compare 停止状态：自动（Confirm 上线 / 改 Markup）与定时比价全部短路，
+  // 展示层此时只读产品表 Unit Price，无需刷新优胜标记。
+  if (!(await isPriceCompareEnabled())) {
+    return { ...empty, summary: "Run Compare is OFF. Comparison skipped; storefront shows product sheet Unit Price." };
+  }
+
   compareRunning = true;
 
   try {

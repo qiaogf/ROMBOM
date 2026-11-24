@@ -5,6 +5,7 @@ import { prisma } from "@/lib/prisma";
 import type { Prisma } from "@/../prisma/generated/client";
 import type { SeriesGroup } from "../types";
 import { slugify, toNumber } from "../types";
+import { isPriceCompareEnabled } from "@/lib/price-compare";
 
 // ---------- 查询形状常量（单组合版与多品牌批量版共用，保证行为一致） ----------
 
@@ -25,10 +26,12 @@ const seriesSelect = {
     where: {
       isActive: true,
       status: "on_sale",
-      // 线上只展示比价优胜行（最低价 / 最快交期）；特殊类目导入时已标记为优胜
-      OR: [{ isWinnerPrice: true }, { isWinnerLeadTime: true }],
     },
-    orderBy: [{ isWinnerPrice: "desc" as const }, { sortOrder: "asc" as const }],
+    orderBy: [
+      { isWinnerPrice: "desc" as const },
+      { isWinnerLeadTime: "desc" as const },
+      { sortOrder: "asc" as const },
+    ],
   },
 } satisfies Prisma.SeriesSelect;
 
@@ -53,7 +56,8 @@ type ProductInfoRow = Prisma.ProductGetPayload<{ select: typeof productInfoSelec
 function buildSeriesGroups(
   products: ProductRow[],
   seriesRows: SeriesRow[],
-  productInfoRows: ProductInfoRow[]
+  productInfoRows: ProductInfoRow[],
+  compareEnabled: boolean
 ): SeriesGroup[] {
   // 系列名（小写）→ 分组下标；旧产品组保持首次出现顺序
   const indexByKey = new Map<string, number>();
@@ -83,9 +87,19 @@ function buildSeriesGroups(
 
   // 新型号价格体系（ModelPrice）已覆盖的型号：以新报价行为准（可展示最低价 / 最快交期两行）
   // 旧 Product 行只用于新体系里没有报价的型号，避免同一型号重复出现
+  // 同一 model 有多条 mp 时：有 winner 行只显示 winner，无 winner 显示 sellPrice>0 的 base 行
   const modelsWithNewPrice = new Set<string>();
   for (const s of seriesRows) {
-    for (const mp of s.modelPrices) modelsWithNewPrice.add(mp.model);
+    const mpByModel = new Map<string, typeof s.modelPrices>();
+    for (const mp of s.modelPrices) {
+      if (!mpByModel.has(mp.model)) mpByModel.set(mp.model, []);
+      mpByModel.get(mp.model)!.push(mp);
+    }
+    for (const [model, mps] of mpByModel) {
+      const hasWinner = mps.some((mp) => mp.isWinnerPrice || mp.isWinnerLeadTime);
+      const hasPrice = hasWinner || mps.some((mp) => toNumber(mp.sellPrice) > 0);
+      if (hasPrice) modelsWithNewPrice.add(model);
+    }
   }
 
   products.forEach((product) => {
@@ -140,34 +154,67 @@ function buildSeriesGroups(
     // 收集该分组已存在的 model（来自旧 Product），避免与新 ModelPrice 重复
     const existingModels = new Set(groups[index].products.map((p) => p.model));
 
+    // 同一 model 可能有多条 mp（产品表 base 行 + 价格表 winner 行）：
+    //   有 winner 行 → 只显示 winner（最低价 + 最快交期可各一行）
+    //   无 winner 行 → 显示 sellPrice > 0 的 base 行（产品表 Unit Price）
+    //   都没有 → 跳过该 model
+    const mpByModel = new Map<string, typeof row.modelPrices>();
     for (const mp of row.modelPrices) {
+      if (!mpByModel.has(mp.model)) mpByModel.set(mp.model, []);
+      mpByModel.get(mp.model)!.push(mp);
+    }
+
+    for (const [model, mps] of mpByModel) {
       // 同一 model 已由旧 Product 提供（含 quoteId 可加购），跳过新 ModelPrice 避免重复
-      if (existingModels.has(mp.model)) continue;
-      const info = productInfoMap.get(mp.model);
-      groups[index].products.push({
-        id: mp.modelPriceId,
-        name: info?.productName || mp.productName,
-        model: mp.model,
-        description: info?.description || mp.description,
-        unit: mp.unit,
-        // 优胜行展示该行自身成交价（最低价行 / 最快交期行各一行）
-        price: toNumber(mp.sellPrice),
-        // 新模型暂无 SupplierQuote，quoteId 留空 → 前端加购按钮自动禁用
-        quoteId: "",
-        moq: mp.moq,
-        condition: mp.condition ?? null,
-        leadTime: mp.leadTime,
-        categoryId: row.categoryId,
-        brandId: row.brandId,
-        seriesName: groupName,
-        seriesDesc: row.description || null,
-        priceTag:
-          mp.isWinnerPrice && mp.isWinnerLeadTime
-            ? "both"
-            : mp.isWinnerPrice
-              ? "lowest"
-              : "fastest",
-      });
+      if (existingModels.has(model)) continue;
+
+      let displayMps: typeof mps;
+      if (!compareEnabled) {
+        // Run Compare 停止状态：不加载比价价格，只取产品表 base 行（quoteKey 前缀 base|）的 Unit Price；
+        // 价格表行（winner 或非 winner）一律不参与展示
+        displayMps = mps.filter(
+          (mp) => (mp.quoteKey || "").startsWith("base|") && toNumber(mp.sellPrice) > 0
+        );
+      } else {
+        const winnerMps = mps.filter((mp) => mp.isWinnerPrice || mp.isWinnerLeadTime);
+        if (winnerMps.length > 0) {
+          displayMps = winnerMps;
+        } else {
+          displayMps = mps.filter((mp) => toNumber(mp.sellPrice) > 0);
+        }
+      }
+      if (displayMps.length === 0) continue;
+
+      for (const mp of displayMps) {
+        const info = productInfoMap.get(mp.model);
+        groups[index].products.push({
+          id: mp.modelPriceId,
+          name: info?.productName || mp.productName,
+          model: mp.model,
+          description: info?.description || mp.description,
+          unit: mp.unit,
+          // 优胜行展示该行自身成交价（最低价行 / 最快交期行各一行）；
+          // 无 winner 时显示产品表 base 行的 sellPrice（Unit Price）
+          price: toNumber(mp.sellPrice),
+          // 新模型暂无 SupplierQuote，quoteId 留空 → 前端加购按钮自动禁用
+          quoteId: "",
+          moq: mp.moq,
+          condition: mp.condition ?? null,
+          leadTime: mp.leadTime,
+          categoryId: row.categoryId,
+          brandId: row.brandId,
+          seriesName: groupName,
+          seriesDesc: row.description || null,
+          priceTag:
+            mp.isWinnerPrice && mp.isWinnerLeadTime
+              ? "both"
+              : mp.isWinnerPrice
+                ? "lowest"
+                : mp.isWinnerLeadTime
+                  ? "fastest"
+                  : undefined,
+        });
+      }
     }
   }
 
@@ -248,7 +295,7 @@ export async function getSeriesGroupsForCategoryBrand(
   // 过滤掉 Product 里不在 ModelPrice 集合中的行
   const filteredProducts = products.filter((p) => modelsWithPrice.has(p.model));
 
-  return buildSeriesGroups(filteredProducts, effectiveSeriesRows, productInfoRows);
+  return buildSeriesGroups(filteredProducts, effectiveSeriesRows, productInfoRows, await isPriceCompareEnabled());
 }
 
 /**
@@ -262,6 +309,8 @@ export async function getSeriesGroupsForCategoryBrands(
 ): Promise<Map<string, SeriesGroup[]>> {
   const result = new Map<string, SeriesGroup[]>();
   if (brandIds.length === 0) return result;
+
+  const compareEnabled = await isPriceCompareEnabled();
 
   const [products, seriesRows, productInfoRows, specialMpRows] = await Promise.all([
     prisma.product.findMany({
@@ -335,7 +384,7 @@ export async function getSeriesGroupsForCategoryBrands(
       for (const mp of s.modelPrices) modelsWithPrice.add(mp.model);
     }
     const filteredProducts = bucket.products.filter((p) => modelsWithPrice.has(p.model));
-    result.set(brandId, buildSeriesGroups(filteredProducts, effectiveSeriesRows, bucket.infoRows));
+    result.set(brandId, buildSeriesGroups(filteredProducts, effectiveSeriesRows, bucket.infoRows, compareEnabled));
   }
   return result;
 }

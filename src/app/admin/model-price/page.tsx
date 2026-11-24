@@ -5,6 +5,7 @@ import { ImportFormBase } from "@/components/import/ImportFormBase";
 import { PriceBatchList } from "@/app/admin/_components/PriceBatchList";
 import { PriceBatchDetail } from "@/app/admin/_components/PriceBatchDetail";
 import { PriceCompareButton } from "./_components/PriceCompareButton";
+import { isPriceCompareEnabled } from "@/lib/price-compare";
 import {
   getBatchDetailViewData,
   getListViewData,
@@ -55,8 +56,8 @@ export default async function ModelPriceListPage({
               title="Upload Price File"
               headerActions={
                 <>
-                  {/* 比价任务：自动随 Confirm/Markup 触发，此处可手动补跑 */}
-                  <PriceCompareButton />
+                  {/* Run Compare 全局开关：ON=价格表 Confirm 后参与比价展示；OFF=前台全部读产品表 Unit Price */}
+                  <PriceCompareButton initialEnabled={await isPriceCompareEnabled()} />
                   <a
                     href={`data:text/csv;charset=utf-8,${encodeURIComponent(PRICE_TEMPLATE_CSV)}`}
                     download="model-price-template.csv"

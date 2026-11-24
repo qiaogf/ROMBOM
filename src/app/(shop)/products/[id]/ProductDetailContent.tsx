@@ -233,7 +233,8 @@ export function ProductDetailContent({ product }: ProductDetailContentProps) {
               </h1>
             </div>
 
-            <div className="flex items-baseline gap-2 sm:gap-3">
+            {/* data-nosnippet：价格不进入搜索结果摘要，标题/描述正常索引（SEO） */}
+            <div data-nosnippet className="flex items-baseline gap-2 sm:gap-3">
               <span className="text-2xl sm:text-3xl font-bold text-slate-900">${price.toFixed(2)}</span>
               {costPrice > price && costPrice > 0 && (
                 <span className="text-base sm:text-lg text-slate-400 line-through">${costPrice.toFixed(2)}</span>

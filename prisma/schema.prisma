@@ -218,6 +218,13 @@ model Session {
   @@index([expiresAt])
 }
 
+/// 系统级键值配置 — 全局开关等（如 priceCompareEnabled = "true"/"false"）
+model SystemSetting {
+  key       String   @id
+  value     String
+  updatedAt DateTime @updatedAt
+}
+
 // =================================================================
 // 2. 供应商与品牌
 // =================================================================

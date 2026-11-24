@@ -178,8 +178,7 @@ export async function confirmImportBatch(formData: FormData): Promise<{ success:
     const memoCatBrand = memo(new Map<string, Promise<void>>());
     const memoProduct = memo(new Map<string, Promise<string>>());
     const memoQuote = memo(new Map<string, Promise<void>>());
-    // 产品表按「品牌 + 类目」整体替换：记录本次上传保留的系列，确认后停用同组其余旧系列
-    const keptSeriesByGroup = new Map<string, { brandId: string; categoryId: string; ids: Set<string> }>();
+
 
     try {
       // ── 导航条目匹配或创建（memo 防并发重复创建；匹配用预读 Map，slug 集合防重）──
@@ -297,16 +296,6 @@ export async function confirmImportBatch(formData: FormData): Promise<{ success:
           }
         }
 
-        if (batchType === "product_info" && seriesCtx.seriesId) {
-          const key = `${seriesCtx.brandId}|${seriesCtx.categoryId}`;
-          let group = keptSeriesByGroup.get(key);
-          if (!group) {
-            group = { brandId: seriesCtx.brandId, categoryId: seriesCtx.categoryId, ids: new Set() };
-            keptSeriesByGroup.set(key, group);
-          }
-          group.ids.add(seriesCtx.seriesId);
-        }
-
         const sellPriceRaw = Number(item.sellPrice);
         const costPrice = Number(item.costPrice);
         const markup = item.markup !== null ? Number(item.markup) : null;
@@ -343,11 +332,11 @@ export async function confirmImportBatch(formData: FormData): Promise<{ success:
               datasheetLink: item.datasheetLink,
               brandName: item.brandName,
               unit: item.unit,
-              costPrice: 0,
-              sellPrice: 0,
-              moq: 1,
+              costPrice: item.costPrice,
+              sellPrice: item.sellPrice,
+              moq: item.moq,
               selfOrder: item.selfOrder,
-              status: "off_sale",
+              status: Number(item.sellPrice) > 0 ? "on_sale" : "off_sale",
               // 特殊类目（无系列）：属性行即线上展示行，直接标记为优胜
               isWinnerPrice: seriesCtx.seriesId === null,
               isWinnerLeadTime: seriesCtx.seriesId === null,
@@ -374,6 +363,10 @@ export async function confirmImportBatch(formData: FormData): Promise<{ success:
               datasheetLink: item.datasheetLink,
               brandName: item.brandName,
               unit: item.unit,
+              costPrice: item.costPrice,
+              sellPrice: item.sellPrice,
+              moq: item.moq,
+              status: Number(item.sellPrice) > 0 ? "on_sale" : "off_sale",
               selfOrder: item.selfOrder,
               importBatchId: batch.importBatchId,
               isWinnerPrice: seriesCtx.seriesId === null,
@@ -569,6 +562,73 @@ export async function confirmImportBatch(formData: FormData): Promise<{ success:
         }
       };
 
+      // ── 产品表上传：差集删除 —— 只删新表中不再出现的旧 Series，新表存在的系列保留复用 ──
+      // 系列仅为前台分类展示维度，ModelPrice.seriesId 是 SetNull 级联，删系列不会影响订单/型号数据
+      if (batchType === "product_info") {
+        // 1. 预扫描：收集本批次涉及的 brandId 范围 + 新表系列 key 集合
+        const brandNameSet = new Set<string>();
+        const brandIdSet = new Set<string>();
+        const newSeriesKeys = new Set<string>(); // brandId:categoryId:normNavKey(seriesName)
+        for (const item of batch.items) {
+          if (item.seriesId) {
+            const s = itemSeriesMap.get(item.seriesId) ?? batch.series;
+            if (s?.brand?.brandId) {
+              brandIdSet.add(s.brand.brandId);
+              // item 已有 seriesId → 属于"保留"集合，key 用已有系列信息
+              newSeriesKeys.add(`${s.brand.brandId}:${s.categoryId}:${normNavKey(s.seriesName)}`);
+            }
+          }
+          const bn = item.brandName?.trim();
+          if (bn) brandNameSet.add(bn);
+        }
+        if (batch.series?.brand?.brandId) brandIdSet.add(batch.series.brand.brandId);
+
+        // 2. 新品牌先 ensure（但新品牌无旧系列可删，只是补齐 brandId 范围）
+        for (const name of brandNameSet) {
+          const b = await findOrCreateBrand(name);
+          brandIdSet.add(b.brandId);
+        }
+
+        if (brandIdSet.size > 0) {
+          // 3. 新系列 key：遍历所有 batch.items，用与 findOrCreateSeries 相同的 key 规则归一化
+          //    （覆盖无 item.seriesId 的行，它们会在 processItem 里新 create，但 key 先算出来）
+          const categories = new Map(navCategories.map((c) => [c.categoryName, c.categoryId]));
+          const categoriesBySlug = new Map(navCategories.map((c) => [c.slug, c.categoryId]));
+          for (const item of batch.items) {
+            if (item.seriesId) continue; // 上面已处理
+            if (!item.seriesName) continue; // 特殊类目不建系列
+            let categoryId: string | undefined;
+            if (item.categoryName) {
+              const cat = categories.get(item.categoryName) ?? categoriesBySlug.get(item.categoryName);
+              categoryId = cat;
+            } else if (batch.series) {
+              categoryId = batch.series.categoryId;
+            }
+            if (!categoryId) continue;
+            const brandName = item.brandName?.trim() ||
+              (batch.series?.brand?.brandId ? brandNameById.get(batch.series.brand.brandId) : undefined) || "";
+            if (!brandName) continue;
+            const brand = brandByKey.get(normNavKey(brandName));
+            if (!brand) continue;
+            newSeriesKeys.add(`${brand.brandId}:${categoryId}:${normNavKey(item.seriesName)}`);
+          }
+
+          // 4. 查涉及品牌的全部旧 Series → 计算差集 = 不在新 key 里的旧系列
+          const oldSeries = await prisma.series.findMany({
+            where: { brandId: { in: [...brandIdSet] } },
+            select: { seriesId: true, seriesName: true, brandId: true, categoryId: true },
+          });
+          const orphanIds = oldSeries
+            .filter((s) => !newSeriesKeys.has(`${s.brandId}:${s.categoryId}:${normNavKey(s.seriesName)}`))
+            .map((s) => s.seriesId);
+
+          // 5. 硬删差集
+          if (orphanIds.length > 0) {
+            await prisma.series.deleteMany({ where: { seriesId: { in: orphanIds } } });
+          }
+        }
+      }
+
       // 限流并发执行：每行 2-3 次写，跨境 RTT 下串行是分钟级；8 路并发在连接池默认上限内
       const CONCURRENCY = 8;
       for (let i = 0; i < batch.items.length; i += CONCURRENCY) {
@@ -581,44 +641,6 @@ export async function confirmImportBatch(formData: FormData): Promise<{ success:
         data: { approvalStatus: "pending", approvedAt: null, approvedById: null },
       });
       throw writeErr;
-    }
-
-    // 产品表上传后清理孤儿系列：同「品牌 + 类目」下本次未出现的旧系列，
-    // 仅当该系列下已无任何关联产品（ModelPrice isActive=true）时才停用（软删除 isActive=false）
-    // 仍有关联产品的系列保留，避免误删活跃数据；价格表上传不触发
-    if (batchType === "product_info") {
-      for (const group of keptSeriesByGroup.values()) {
-        // 1. 找出候选旧系列：同品牌+类目下 isActive=true 且不在本次保留集
-        const staleSeries = await prisma.series.findMany({
-          where: {
-            brandId: group.brandId,
-            categoryId: group.categoryId,
-            isActive: true,
-            seriesId: { notIn: [...group.ids] },
-          },
-          select: {
-            seriesId: true,
-            _count: {
-              select: {
-                modelPrices: { where: { isActive: true } },
-              },
-            },
-          },
-        });
-
-        // 2. 过滤：只保留无关联产品的孤儿系列 ID
-        const orphanSeriesIds = staleSeries
-          .filter(s => s._count.modelPrices === 0)
-          .map(s => s.seriesId);
-
-        // 3. 停用孤儿系列
-        if (orphanSeriesIds.length > 0) {
-          await prisma.series.updateMany({
-            where: { seriesId: { in: orphanSeriesIds } },
-            data: { isActive: false },
-          });
-        }
-      }
     }
 
     // ── 比价任务：新价格表上线后自动比对所有 Approved 文件，写产品 ListPrice ──

@@ -160,7 +160,8 @@ export function ProductPriceTable({ seriesGroups, searchQuery, showSeriesHeader 
                           {product.leadTime || <span className="text-slate-400 italic">-</span>}
                         </span>
                       </td>
-                      <td className="px-1.5 py-1 tabular-nums align-middle">
+                      {/* data-nosnippet：价格不进入搜索结果摘要，页面其余内容正常索引（SEO） */}
+                      <td data-nosnippet className="px-1.5 py-1 tabular-nums align-middle">
                         <div className="flex items-center gap-1 whitespace-nowrap">
                           <span className="font-semibold text-slate-900">{product.price.toFixed(2)}</span>
                           {product.priceTag === "lowest" && (

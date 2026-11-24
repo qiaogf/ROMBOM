@@ -6,7 +6,13 @@ export const dynamic = "force-dynamic";
 export default async function SeriesListPage() {
   const [series, brands, categories] = await Promise.all([
     prisma.series.findMany({
-      orderBy: [{ sortOrder: "asc" }, { seriesName: "asc" }],
+      orderBy: [
+        { brand: { sortOrder: "asc" } },
+        { brand: { brandName: "asc" } },
+        { category: { sortOrder: "asc" } },
+        { category: { categoryName: "asc" } },
+        { seriesName: "asc" },
+      ],
       include: {
         brand: { select: { brandId: true, brandName: true } },
         category: { select: { categoryId: true, categoryName: true } },
