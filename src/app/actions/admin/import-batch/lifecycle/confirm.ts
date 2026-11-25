@@ -335,6 +335,8 @@ export async function confirmImportBatch(formData: FormData): Promise<{ success:
               costPrice: item.costPrice,
               sellPrice: item.sellPrice,
               moq: item.moq,
+              condition: item.condition,
+              leadTime: item.leadTime,
               selfOrder: item.selfOrder,
               status: Number(item.sellPrice) > 0 ? "on_sale" : "off_sale",
               // 特殊类目（无系列）：属性行即线上展示行，直接标记为优胜
@@ -366,6 +368,8 @@ export async function confirmImportBatch(formData: FormData): Promise<{ success:
               costPrice: item.costPrice,
               sellPrice: item.sellPrice,
               moq: item.moq,
+              condition: item.condition,
+              leadTime: item.leadTime,
               status: Number(item.sellPrice) > 0 ? "on_sale" : "off_sale",
               selfOrder: item.selfOrder,
               importBatchId: batch.importBatchId,
