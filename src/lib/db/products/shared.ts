@@ -254,12 +254,12 @@ export async function getSeriesGroupsForCategoryBrand(
       select: productInfoSelect,
     }),
     // 特殊类目：seriesId=null 的 ModelPrice（不建 Series，价格行直接挂 categoryId+brandId）
+    // 不在此处过滤优胜行：产品表 base 行（无 winner）需回退展示 Unit Price，统一由 buildSeriesGroups 收敛
     prisma.modelPrice.findMany({
       where: {
         isActive: true,
         status: "on_sale" as const,
         seriesId: null,
-        OR: [{ isWinnerPrice: true }, { isWinnerLeadTime: true }],
         categoryId,
         brandId,
       },
@@ -332,7 +332,6 @@ export async function getSeriesGroupsForCategoryBrands(
         isActive: true,
         status: "on_sale" as const,
         seriesId: null,
-        OR: [{ isWinnerPrice: true }, { isWinnerLeadTime: true }],
         categoryId,
         brandId: { in: brandIds },
       },

@@ -30,24 +30,17 @@ export function PriceCompareButton({ initialEnabled }: { initialEnabled: boolean
         disabled={pending}
         title={
           enabled
-            ? "Comparing is ON — click to stop; storefront will show product sheet Unit Price only."
-            : "Comparing is OFF — click to run; confirmed price sheets will join live price comparison."
+            ? "Comparing is ON — click to stop; storefront will show product sheet price only."
+            : "Comparing is OFF — click to run; price sheet comparison prices will go live."
         }
-        onClick={() => {
-          if (enabled) {
-            run();
-            return;
-          }
-          if (!window.confirm("Run price comparison now? Confirmed price sheet prices will go live immediately.")) return;
-          run();
-        }}
+        onClick={run}
         className={
           enabled
-            ? "inline-flex w-[112px] items-center justify-center whitespace-nowrap px-3 py-1 text-[11px] font-medium leading-4 text-white bg-emerald-600 border border-emerald-600 rounded-md hover:bg-emerald-700 disabled:opacity-50"
-            : "inline-flex w-[112px] items-center justify-center whitespace-nowrap px-3 py-1 text-[11px] font-medium leading-4 text-slate-600 border border-slate-300 rounded-md hover:bg-slate-50 disabled:opacity-50"
+            ? "inline-flex w-[80px] items-center justify-center whitespace-nowrap px-2 py-1 text-[11px] font-medium text-green-700 bg-green-50 border border-orange-400 rounded-md hover:bg-green-100 disabled:opacity-50"
+            : "inline-flex w-[80px] items-center justify-center whitespace-nowrap px-2 py-1 text-[11px] font-medium text-slate-500 border border-orange-400 rounded-md hover:bg-orange-50 disabled:opacity-50"
         }
       >
-        {enabled ? (pending ? "Stopping..." : "Stop Compare") : pending ? "Comparing..." : "Run Compare"}
+        Compare
       </button>
       {msg && (
         <span className="text-[10px] text-slate-500 max-w-[320px] truncate" title={msg}>

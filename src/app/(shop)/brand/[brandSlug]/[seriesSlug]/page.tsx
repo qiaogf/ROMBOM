@@ -4,6 +4,7 @@ import Link from "next/link";
 import { ChevronRight } from "lucide-react";
 import { getBrandBySlug } from "@/lib/db-service";
 import { prisma } from "@/lib/prisma";
+import { isPriceCompareEnabled } from "@/lib/price-compare";
 import { ProductPriceTable } from "@/components/ProductPriceTable";
 import type { SeriesGroup, Product } from "@/lib/db-service";
 
@@ -109,8 +110,11 @@ export default async function SeriesDetailPage({ params }: PageProps) {
     notFound();
   }
 
-  // 线上展示以 ModelPrice 比价优胜行为准（最低价 / 最快交期可各一行）；
-  // 旧 Product 行仅用于新体系未覆盖的型号，避免同型号重复且价格显示 0.00
+  // 线上展示以 ModelPrice 为准：
+  //   Run Compare 开启 → 有优胜行（价格表比价）优先，未命中/无报价回退产品表 base 行 Unit Price
+  //   Run Compare 关闭 → 只取产品表 base 行 Unit Price，价格表行不参与展示
+  // 旧 Product 行仅用于新体系未覆盖（无价格）的型号，避免同型号重复且价格显示 0.00
+  const compareEnabled = await isPriceCompareEnabled();
   let modelPrices: Awaited<ReturnType<typeof prisma.modelPrice.findMany>>;
   if (seriesRecord) {
     modelPrices = await prisma.modelPrice.findMany({
@@ -118,7 +122,6 @@ export default async function SeriesDetailPage({ params }: PageProps) {
         seriesId: seriesRecord.seriesId,
         isActive: true,
         status: "on_sale",
-        OR: [{ isWinnerPrice: true }, { isWinnerLeadTime: true }],
       },
       orderBy: [{ isWinnerPrice: "desc" }, { sortOrder: "asc" }],
     });
@@ -137,7 +140,6 @@ export default async function SeriesDetailPage({ params }: PageProps) {
         isActive: true,
         status: "on_sale",
         categoryId: { in: categoryIds },
-        OR: [{ isWinnerPrice: true }, { isWinnerLeadTime: true }],
       },
       orderBy: [{ isWinnerPrice: "desc" }, { sortOrder: "asc" }],
     });
@@ -145,9 +147,35 @@ export default async function SeriesDetailPage({ params }: PageProps) {
     modelPrices = [];
   }
 
+  // 同一 model 有多条价格行时按开关收敛展示行：
+  // 开：有 winner 只显示 winner，否则显示 sellPrice>0 的行；关：只显示 base| 行且 sellPrice>0
+  const displayModelPrices: typeof modelPrices = (() => {
+    const byModel = new Map<string, typeof modelPrices>();
+    for (const mp of modelPrices) {
+      if (!byModel.has(mp.model)) byModel.set(mp.model, []);
+      byModel.get(mp.model)!.push(mp);
+    }
+    const out: typeof modelPrices = [];
+    for (const rows of byModel.values()) {
+      if (!compareEnabled) {
+        out.push(
+          ...rows.filter(
+            (mp) => (mp.quoteKey || "").startsWith("base|") && mp.sellPrice.toNumber() > 0
+          )
+        );
+      } else {
+        const winners = rows.filter((mp) => mp.isWinnerPrice || mp.isWinnerLeadTime);
+        out.push(
+          ...(winners.length > 0 ? winners : rows.filter((mp) => mp.sellPrice.toNumber() > 0))
+        );
+      }
+    }
+    return out;
+  })();
+
   // 兜底：如果仍无 ModelPrice 且无 Product → 404
-  if (modelPrices.length === 0 && products.length === 0) notFound();
-  const modelPriceModels = new Set(modelPrices.map((mp) => mp.model));
+  if (displayModelPrices.length === 0 && products.length === 0) notFound();
+  const modelPriceModels = new Set(displayModelPrices.map((mp) => mp.model));
   const productInfoMap = new Map(
     products
       .filter((p) => p.productName && p.productName !== p.model)
@@ -155,7 +183,7 @@ export default async function SeriesDetailPage({ params }: PageProps) {
   );
 
   mappedProducts = [
-    ...modelPrices.map((mp): Product => {
+    ...displayModelPrices.map((mp): Product => {
       const info = productInfoMap.get(mp.model);
       return {
         id: mp.modelPriceId,
@@ -177,7 +205,9 @@ export default async function SeriesDetailPage({ params }: PageProps) {
             ? "both"
             : mp.isWinnerPrice
               ? "lowest"
-              : "fastest",
+              : mp.isWinnerLeadTime
+                ? "fastest"
+                : undefined,
       };
     }),
     ...products
