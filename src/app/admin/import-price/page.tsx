@@ -9,9 +9,9 @@ import { toStr } from "@/lib/search-params";
 
 export const dynamic = "force-dynamic";
 
-const TEMPLATE_CSV = `Category,Brand,Series,Product,Model,Unit Price,MOQ,Description,Origin,Certifications,Length,Width,Height,Diameter,Dimension Unit,Weight,Packing Weight,Weight Unit,Battery Attributes,Datasheet Link
-PLC,Siemens,S7-1200,CPU 1214C,6ES7214-1AG40-0XB0,285.00,1,CPU 1214C DC/DC/DC,Germany,CE/UL,110,100,75,,mm,0.5,0.6,kg,,https://example.com/datasheet.pdf
-PLC,Siemens,S7-1500,CPU 1511C,6ES7511-1AK02-0AB0,420.00,1,CPU 1511C PN,Germany,CE/UL,120,95,80,,mm,0.6,0.7,kg,,https://example.com/datasheet2.pdf`;
+const TEMPLATE_CSV = `Category,Brand,Series,Product,Model,Unit Price,Condition,Leadtime,MOQ,Description,Origin,Certifications,Length,Width,Height,Diameter,Dimension Unit,Weight,Packing Weight,Weight Unit,Battery Attributes,Datasheet Link
+PLC,Siemens,S7-1200,CPU 1214C,6ES7214-1AG40-0XB0,285.00,New,In Stock,1,CPU 1214C DC/DC/DC,Germany,CE/UL,110,100,75,,mm,0.5,0.6,kg,,https://example.com/datasheet.pdf
+PLC,Siemens,S7-1500,CPU 1511C,6ES7511-1AK02-0AB0,420.00,New,In Stock,1,CPU 1511C PN,Germany,CE/UL,120,95,80,,mm,0.6,0.7,kg,,https://example.com/datasheet2.pdf`;
 
 export default async function AdminImportPricePage({
   searchParams,
