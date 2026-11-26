@@ -16,7 +16,7 @@ export function isContentKey(value: string | null | undefined): value is Content
   return value === "about" || value === "terms";
 }
 
-export const DEFAULT_ABOUT = `MROBOM supplies production MRO (Maintenance, Repair & Operations) and BOM (Bill of Materials) materials to customers worldwide, together with a broad portfolio of service solutions.
+const DEFAULT_ABOUT = `MROBOM supplies production MRO (Maintenance, Repair & Operations) and BOM (Bill of Materials) materials to customers worldwide, together with a broad portfolio of service solutions.
 
 MROBOM empowers product design through innovation and technology, helping customers increase capacity, shorten lead times and reduce procurement costs, and optimising inventory management across maintenance, repair and operations. Alongside full-lifecycle product support, we deliver customised product and service solutions that help customers achieve both cost efficiency and business growth.
 
@@ -111,7 +111,7 @@ Heat-resistant castings, tuyère sleeves, cooling walls, high-temperature compen
 
 Conveyor rollers, idlers, chains and sprockets, belts, stoppers, stacker travel wheels and guide wheels, encoders, brakes, limit sensors, AGV navigation radar and charging modules, lifting tooling, wheel-sorter modules, code readers, safety light curtains and emergency-stop components.`;
 
-export const DEFAULT_TERMS = `## 1. Definitions
+const DEFAULT_TERMS = `## 1. Definitions
 
 - **We / Us / Our:** MROBOM.
 - **You / Customer:** a business, institution or commercial buyer submitting enquiries or placing orders.
@@ -227,7 +227,7 @@ export const DEFAULT_CONTENT: Record<ContentKey, string> = {
   terms: DEFAULT_TERMS,
 };
 
-export interface PageContent {
+interface PageContent {
   value: string;
   /** ISO string: unstable_cache serialization cannot preserve Date objects */
   updatedAt: string | null;

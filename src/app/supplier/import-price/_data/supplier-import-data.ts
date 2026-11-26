@@ -30,7 +30,7 @@ export interface SupplierPurchaseOrder {
  * 采购单：管理者在 Admin Purchase 页 Approve 后发给当前供应商的真实采购单。
  * 按 PO 分组返回，每组带明细；Condition 经该供应商 ModelPrice（按 model 匹配）补充，无匹配显示 null。
  */
-export async function getSupplierPurchaseOrders(supplierId: string): Promise<SupplierPurchaseOrder[]> {
+async function getSupplierPurchaseOrders(supplierId: string): Promise<SupplierPurchaseOrder[]> {
   const pos = await prisma.purchaseOrder.findMany({
     where: { supplierId, auditStatus: "approved" },
     orderBy: { orderTime: "desc" },

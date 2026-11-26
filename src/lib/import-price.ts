@@ -62,7 +62,7 @@ export async function parseExcel(buffer: Buffer): Promise<string[][]> {
  * Union of admin and supplier templates. Canonical keys not used by a route
  * (e.g. "qty" for admin) are simply ignored by that route's REQUIRED check.
  */
-export const HEADER_ALIASES: Record<string, string[]> = {
+const HEADER_ALIASES: Record<string, string[]> = {
   productname: ["productname", "name", "product", "名称", "产品名称", "产品名"],
   model: ["model", "modelno", "modelnumber", "partnumber", "型号"],
   description: ["description", "desc", "描述", "产品描述"],
@@ -95,7 +95,7 @@ export const HEADER_ALIASES: Record<string, string[]> = {
 };
 
 /** Normalize header text: lowercase + strip whitespace/underscores/punct. */
-export function normHeader(raw: string): string {
+function normHeader(raw: string): string {
   return raw.trim().toLowerCase().replace(/[\s_\-()（）:：/]/g, "");
 }
 
@@ -141,7 +141,7 @@ export function normalizeLeadtime(value: string | null | undefined): string {
 
 // ── 字段长度上限（字符）—— PC 端列宽按字符上限定宽，超限行在导入时拒绝 ──
 // Category 不在此列：它必须匹配导航已有类目（存在性校验已覆盖，且已存在类目名可超 15 字符）
-export const FIELD_LIMITS = {
+const FIELD_LIMITS = {
   brandname: 15,
   series: 50,
   model: 20,
@@ -178,9 +178,6 @@ export function validateFieldLengths(fields: {
 /** Brand 缺失时的自动填充品牌名（有 Series 无 Brand 的行归此品牌；复用系统已有的 Generic 品牌） */
 export const GENERIC_BRAND_NAME = "Generic";
 
-/** 特殊类目下 Brand/Series 都为空时的统一分组系列名（展示在页面末尾） */
-export const OTHERS_SERIES_NAME = "(Others)";
-
 /** 特殊类目判定：`<xxx>` / `(xxx)` 格式（点击跳过系列选择，直接展示公开价表） */
 export function isSpecialCategoryName(name: string): boolean {
   return /[()<>]/.test(name);
@@ -203,7 +200,7 @@ export function leadTimeRank(lt: string | null | undefined): number {
   return m ? Number(m[0]) : 10000;
 }
 
-export interface QuoteKeyParts {
+interface QuoteKeyParts {
   categoryId: string;
   model: string;
   condition: string | null;

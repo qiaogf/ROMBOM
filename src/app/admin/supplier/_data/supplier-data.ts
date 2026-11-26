@@ -46,15 +46,3 @@ export async function getSupplierList() {
       .map((brandName) => ({ brandName })),
   }));
 }
-
-export async function getSupplierDetail(supplierId: string) {
-  return prisma.supplier.findUnique({
-    where: { supplierId },
-    include: {
-      brands: {
-        select: { brandName: true },
-        orderBy: { brandName: "asc" },
-      },
-    },
-  });
-}

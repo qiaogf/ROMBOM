@@ -12,7 +12,7 @@ import { isInStock, resolveSingleSelfOrder } from "./shared";
 import { addToCart, addToCartByModelPrice } from "./add";
 
 /** ModelPrice 路径伪条目价格行（字段与 CartItemRelationsInput["modelPrice"] 对齐） */
-export interface GuestModelPriceData {
+interface GuestModelPriceData {
   modelPriceId: string;
   productName: string;
   model: string;
@@ -41,7 +41,7 @@ export interface GuestModelPriceData {
 }
 
 /** SupplierQuote 路径伪条目价格行 */
-export interface GuestQuoteData {
+interface GuestQuoteData {
   productId: string;
   quoteId: string;
   product: { productName: string; model: string; unit: string; thumbnail: string | null };
@@ -52,13 +52,13 @@ export interface GuestQuoteData {
   };
 }
 
-export interface GuestLookupResult<T> {
+interface GuestLookupResult<T> {
   success: boolean;
   message: string;
   data?: T;
 }
 
-export interface GuestMergeResult {
+interface GuestMergeResult {
   success: boolean;
   merged: number;
   failed: number;

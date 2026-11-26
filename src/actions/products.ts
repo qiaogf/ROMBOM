@@ -2,7 +2,7 @@ import { unstable_cache } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import type { Product, Category } from "@/../prisma/generated/client";
 
-export type ProductWithCategory = Product & { category: Category };
+type ProductWithCategory = Product & { category: Category };
 
 type CategoryRaw = Awaited<ReturnType<typeof prisma.category.findMany>>[number];
 

@@ -36,7 +36,7 @@ export const DEFAULT_ORDER_TERMS: Record<OrderTermField, string> = {
   deliveryTerms: "EXW (Buyer pickup & export)",
 };
 
-export const ORDER_TERM_OPTIONS: Record<OrderTermField, readonly string[]> = {
+const ORDER_TERM_OPTIONS: Record<OrderTermField, readonly string[]> = {
   paymentTerms: PAYMENT_TERMS_OPTIONS,
   paymentMethod: PAYMENT_METHOD_OPTIONS,
   deliveryTerms: DELIVERY_TERMS_OPTIONS,

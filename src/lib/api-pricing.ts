@@ -12,7 +12,7 @@
 import { Prisma } from "@/../prisma/generated/client";
 import { prisma } from "@/lib/prisma";
 
-export interface ApiPriceRow {
+interface ApiPriceRow {
   /** 品牌名（取自 series.brand.brandName） */
   brand: string | null;
   model: string;
@@ -26,7 +26,7 @@ export interface ApiPriceRow {
   tag: "lowest" | "fastest" | "both";
 }
 
-export interface QueryApiPricesParams {
+interface QueryApiPricesParams {
   /** 授权可见的 seriesId 白名单；空数组 = 全部 */
   seriesWhitelist: string[];
   /** 型号查询词，支持逗号分隔多个型号（每个模糊 contains，任一匹配）；null/空 = 不按型号过滤 */
@@ -39,7 +39,7 @@ export interface QueryApiPricesParams {
   offset: number;
 }
 
-export interface QueryApiPricesResult {
+interface QueryApiPricesResult {
   /** 匹配的型号总数（非结果行数；一个型号可能对应多行） */
   total: number;
   limit: number;

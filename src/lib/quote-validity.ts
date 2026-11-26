@@ -10,7 +10,7 @@
 import { prisma } from "@/lib/prisma";
 
 /** 从 from 起往后推 n 个工作日（跳过周六、周日），返回当天 23:59:59.999 */
-export function addBusinessDays(from: Date, days: number): Date {
+function addBusinessDays(from: Date, days: number): Date {
   const d = new Date(from.getTime());
   let added = 0;
   while (added < days) {

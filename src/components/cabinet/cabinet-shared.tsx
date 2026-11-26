@@ -1,7 +1,7 @@
 // Shared helpers for cabinet diagram components (CabinetDiagram + DistributionDiagram).
 // Keeps the duplicated label-layout logic and tiny SVG primitives in one place.
 
-export interface BasePart {
+interface BasePart {
   key: string;
   x: number;
   y: number;
@@ -9,7 +9,7 @@ export interface BasePart {
   h: number;
 }
 
-export interface BaseLabelItem {
+interface BaseLabelItem {
   part: string;
 }
 

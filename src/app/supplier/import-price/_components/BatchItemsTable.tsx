@@ -5,7 +5,7 @@ import type { Prisma } from "@/../prisma/generated/client";
 import { formatLeadtime } from "@/lib/cart-display";
 import { formatUSD } from "@/lib/price";
 
-export type StagedItemRow = Prisma.ImportBatchItemGetPayload<{
+type StagedItemRow = Prisma.ImportBatchItemGetPayload<{
   select: {
     itemId: true;
     model: true;
@@ -18,7 +18,7 @@ export type StagedItemRow = Prisma.ImportBatchItemGetPayload<{
   };
 }>;
 
-export type ItemSeriesInfo = Prisma.SeriesGetPayload<{
+type ItemSeriesInfo = Prisma.SeriesGetPayload<{
   select: { seriesId: true; seriesName: true; brand: { select: { brandName: true } } };
 }>;
 

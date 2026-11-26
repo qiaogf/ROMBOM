@@ -1,16 +1,11 @@
-import type { Product, Category, SupplierQuote, Brand } from "@/../prisma/generated/client";
+import type { Product, Category, SupplierQuote } from "@/../prisma/generated/client";
 
-export type SerializableCategory = Omit<Category, "createdAt" | "updatedAt"> & {
+type SerializableCategory = Omit<Category, "createdAt" | "updatedAt"> & {
   createdAt: string;
   updatedAt: string;
 };
 
-export type SerializableBrand = Omit<Brand, "createdAt" | "updatedAt"> & {
-  createdAt: string;
-  updatedAt: string;
-};
-
-export type SerializableSupplierQuote = {
+type SerializableSupplierQuote = {
   quoteId: string;
   supplierId: string;
   productId: string;
@@ -25,7 +20,7 @@ export type SerializableSupplierQuote = {
   updatedAt: string;
 };
 
-export type SerializableProduct = Omit<Product, "createdAt" | "updatedAt" | "supplierQuotes" | "cartItems" | "orderItems" | "category" | "brand" | "images"> & {
+type SerializableProduct = Omit<Product, "createdAt" | "updatedAt" | "supplierQuotes" | "cartItems" | "orderItems" | "category" | "brand" | "images"> & {
   createdAt: string;
   updatedAt: string;
   images: string[];
@@ -68,7 +63,7 @@ function serializeSupplierQuote(quote: SupplierQuote): SerializableSupplierQuote
   };
 }
 
-export function serializeProduct(product: Product & { supplierQuotes?: SupplierQuote[] }): SerializableProduct {
+function serializeProduct(product: Product & { supplierQuotes?: SupplierQuote[] }): SerializableProduct {
   const quotes = (product.supplierQuotes || []).filter(q => q.isValid);
   const defaultQuote = quotes.find(q => q.isDefault) || quotes[0] || null;
   
@@ -96,7 +91,7 @@ export function serializeProduct(product: Product & { supplierQuotes?: SupplierQ
   };
 }
 
-export function serializeCategory(category: Category): SerializableCategory {
+function serializeCategory(category: Category): SerializableCategory {
   return {
     ...category,
     createdAt: toDateString(category.createdAt),
@@ -112,30 +107,4 @@ export function serializeProductWithCategory(
     ...serializeProduct(rest as Product & { supplierQuotes?: SupplierQuote[] }),
     category: category ? serializeCategory(category) : null,
   };
-}
-
-export function serializeProducts(products: (Product & { supplierQuotes?: SupplierQuote[] })[]): SerializableProduct[] {
-  return products.map(serializeProduct);
-}
-
-export function serializeProductsWithCategory(
-  products: (Product & { category?: Category | null; supplierQuotes?: SupplierQuote[] })[]
-): SerializableProductWithCategory[] {
-  return products.map(serializeProductWithCategory);
-}
-
-export function serializeCategories(categories: Category[]): SerializableCategory[] {
-  return categories.map(serializeCategory);
-}
-
-export function serializeBrand(brand: Brand): SerializableBrand {
-  return {
-    ...brand,
-    createdAt: toDateString(brand.createdAt),
-    updatedAt: toDateString(brand.updatedAt),
-  };
-}
-
-export function serializeBrands(brands: Brand[]): SerializableBrand[] {
-  return brands.map(serializeBrand);
 }

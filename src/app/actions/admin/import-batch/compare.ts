@@ -8,7 +8,7 @@
 import { getAdminSession } from "@/lib/auth-admin";
 import { isPriceCompareEnabled, runPriceComparison, setPriceCompareEnabled } from "@/lib/price-compare";
 
-export interface PriceCompareToggleResult {
+interface PriceCompareToggleResult {
   success: boolean;
   enabled: boolean;
   message: string;

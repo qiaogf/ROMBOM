@@ -4,13 +4,7 @@
 
 import { prisma } from "@/lib/prisma";
 import type { Prisma } from "@/../prisma/generated/client";
-import type { StandardPriceSeriesGroup } from "@/app/admin/_components/StandardPriceTable";
 import { assembleBatchListRows, loadSeriesMapByIds } from "@/lib/import-batch-rows";
-
-// 最低成本归组键：有系列按 seriesId，无系列（特殊类目）按品牌归属
-const costNorm = (v: string | null | undefined) => (v ?? "").trim().toLowerCase();
-const costKey = (seriesId: string | null, brandKey: string, model: string) =>
-  seriesId ? `s:${seriesId}:${model}` : `b:${brandKey}:${model}`;
 
 // ============ 批次详情视图 ============
 
@@ -140,88 +134,6 @@ export async function getBatchDetailViewData(batchId: string) {
   }
 
   return { batch, itemRows, modelPrices };
-}
-
-// ============ 标准价格表（两个视图共享） ============
-
-/**
- * 全部上架的标准价格表（公开报价页同源数据），按品牌/系列名排序分组。
- * Cost = 同系列已确认(approved)文件中该型号的最低 costPrice。
- */
-export async function getStandardPriceGroups(): Promise<StandardPriceSeriesGroup[]> {
-  const allModelPrices = await prisma.modelPrice.findMany({
-    where: { isActive: true, status: "on_sale" },
-    orderBy: [{ seriesId: "asc" }, { sortOrder: "asc" }, { model: "asc" }],
-    select: {
-      modelPriceId: true,
-      model: true,
-      productName: true,
-      costPrice: true,
-      sellPrice: true,
-      markup: true,
-      moq: true,
-      condition: true,
-      leadTime: true,
-      brandId: true,
-      brandName: true,
-      brand: { select: { brandName: true } },
-      series: { select: { seriesId: true, seriesName: true, brand: { select: { brandName: true } } } },
-    },
-  });
-  // 已确认文件(approved 价格批次)的同组最低成本：有系列按 seriesId 归组，
-  // 无系列行（特殊类目）按品牌归属归组，避免这些行的「最低确认成本」恒为空
-  const [confirmedItems, brands] = await Promise.all([
-    prisma.importBatchItem.findMany({
-      where: { importBatch: { approvalStatus: "approved", batchType: "price" } },
-      select: { seriesId: true, model: true, costPrice: true, brandName: true },
-    }),
-    prisma.brand.findMany({ select: { brandId: true, brandName: true } }),
-  ]);
-  const brandIdByName = new Map(brands.map((b) => [costNorm(b.brandName), b.brandId]));
-  const minCostMap = new Map<string, number>();
-  for (const it of confirmedItems) {
-    const brandKey = it.seriesId
-      ? ""
-      : (brandIdByName.get(costNorm(it.brandName)) ?? `name:${costNorm(it.brandName)}`);
-    const key = costKey(it.seriesId, brandKey, it.model);
-    const cost = Number(it.costPrice);
-    const prev = minCostMap.get(key);
-    if (prev === undefined || cost < prev) minCostMap.set(key, cost);
-  }
-
-  const sgMap = new Map<string, StandardPriceSeriesGroup>();
-  for (const mp of allModelPrices) {
-    // 无系列行（特殊类目）按品牌归为一组
-    const sid = mp.series?.seriesId ?? `brand:${mp.brandId ?? "unknown"}`;
-    if (!sgMap.has(sid)) {
-      sgMap.set(sid, {
-        seriesId: sid,
-        seriesName: mp.series?.seriesName ?? "",
-        brandName: mp.brand?.brandName ?? mp.series?.brand?.brandName ?? "",
-        items: [],
-      });
-    }
-    const brandKey = mp.series?.seriesId
-      ? ""
-      : (mp.brandId ?? `name:${costNorm(mp.brandName)}`);
-    const minCost = minCostMap.get(costKey(mp.series?.seriesId ?? null, brandKey, mp.model));
-    sgMap.get(sid)!.items.push({
-      modelPriceId: mp.modelPriceId,
-      model: mp.model,
-      productName: mp.productName,
-      costPrice: mp.costPrice.toString(),
-      sellPrice: mp.sellPrice.toString(),
-      markup: mp.markup !== null ? mp.markup.toString() : null,
-      moq: mp.moq,
-      condition: mp.condition,
-      leadTime: mp.leadTime,
-      minConfirmedCost: minCost !== undefined ? minCost.toString() : null,
-    });
-  }
-
-  return Array.from(sgMap.values()).sort((a, b) =>
-    a.brandName.localeCompare(b.brandName) || a.seriesName.localeCompare(b.seriesName)
-  );
 }
 
 // ============ 列表视图 ============

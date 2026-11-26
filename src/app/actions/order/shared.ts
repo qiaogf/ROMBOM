@@ -30,10 +30,6 @@ export interface CreateOrderData {
   payTax?: boolean;
 }
 
-export const SHIPPING_THRESHOLD = 100;
-export const SHIPPING_COST = 10;
-export const TAX_RATE = 0.08;
-
 function toNumber(value: unknown): number {
   if (value === null || value === undefined) return 0;
   if (typeof value === "number") return value;

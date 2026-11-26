@@ -13,7 +13,7 @@ const ADMIN_COOKIE = "admin_session";
 const ROLE_COOKIE = "user_role";
 const SESSION_MAX_AGE = 60 * 60 * 24 * 7;
 
-export interface AdminLoginResult {
+interface AdminLoginResult {
   success: boolean;
   message: string;
   adminId?: string;

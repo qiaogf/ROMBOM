@@ -8,7 +8,3 @@ export async function getAdminUserList() {
     orderBy: { createdAt: "desc" },
   });
 }
-
-export async function getAdminUserDetail(adminId: string) {
-  return prisma.adminUser.findUnique({ where: { adminId } });
-}

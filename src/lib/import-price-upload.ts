@@ -103,7 +103,7 @@ export async function parseUploadFile(
   return { fileName, rows };
 }
 
-export interface HeaderIndex {
+interface HeaderIndex {
   idx: Record<string, number>;
   origHeader: Record<string, string>;
   dupError: string | null;

@@ -1,6 +1,6 @@
 "use server";
 
-// Order payment server actions: updateOrderShippingAndPay (checkout) and payOrder.
+// Order payment server actions: updateOrderShippingAndPay (checkout) and toggleOrderComponentPaid.
 
 import { prisma } from "@/lib/prisma";
 import { getCurrentUserId } from "@/lib/auth";
@@ -181,61 +181,5 @@ export async function toggleOrderComponentPaid(
   } catch (error) {
     console.error("Toggle order component paid error:", error);
     return { success: false, message: "An error occurred while updating payment" };
-  }
-}
-
-/**
- * 模拟支付（项目无真实支付网关）：校验归属与状态后，将 paymentStatus 标记为 paid。
- * 订单发货等实时状态由 orderStatus 驱动，支付成功后订单列表/详情即时体现。
- */
-export async function payOrder(orderId: string): Promise<OrderActionResult> {
-  try {
-    const customerId = await getCurrentUserId();
-    if (!customerId) {
-      return { success: false, message: "Please login to pay for your order" };
-    }
-
-    if (!/^[a-zA-Z0-9_-]+$/.test(orderId) || orderId.length > 255) {
-      return { success: false, message: "Invalid order ID" };
-    }
-
-    return prisma.$transaction(async (tx) => {
-      const order = await tx.salesOrder.findUnique({
-        where: { orderId },
-      });
-
-      if (!order || order.customerId !== customerId) {
-        return { success: false, message: "Order not found or unauthorized" };
-      }
-
-      if (order.orderStatus === "cancelled") {
-        return { success: false, message: "Cannot pay for a cancelled order" };
-      }
-
-      if (order.auditStatus !== "approved") {
-        return { success: false, message: "Order must be approved by admin before payment" };
-      }
-
-      const updated = await tx.salesOrder.update({
-        where: { orderId },
-        data: {
-          paymentStatus: "paid",
-          soStatus: "paid",
-          subtotalPaid: true,
-          shippingPaid: true,
-          taxPaid: true,
-        },
-        include: { items: true },
-      });
-
-      return {
-        success: true,
-        message: "Payment successful",
-        order: serializeDecimals(updated) as OrderWithItems,
-      };
-    }, { maxWait: 20000, timeout: 60000 }) as Promise<OrderActionResult>;
-  } catch (error) {
-    console.error("Pay order error:", error);
-    return { success: false, message: "An error occurred while processing payment. Please try again." };
   }
 }

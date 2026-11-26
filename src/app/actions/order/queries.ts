@@ -5,15 +5,8 @@
 import { prisma } from "@/lib/prisma";
 import { getCurrentUserId } from "@/lib/auth";
 import { withDbRetry } from "@/lib/db-retry";
-import type { Prisma } from "@/../prisma/generated/client";
 import type { OrderWithItems } from "./shared";
 import { serializeDecimals } from "./shared";
-import { generateSalesOrderNumber } from "./mutations/create-shared";
-
-/** 暴露给前端展示用：获取下一个可用销售订单号 */
-export async function getNextSalesOrderNumber(): Promise<string> {
-  return generateSalesOrderNumber(prisma as unknown as Prisma.TransactionClient);
-}
 
 export async function getOrders(customerId?: string): Promise<OrderWithItems[]> {
   const currentCustomerId = customerId || (await getCurrentUserId());
@@ -32,31 +25,8 @@ export async function getOrders(customerId?: string): Promise<OrderWithItems[]> 
   return serializeDecimals(orders) as OrderWithItems[];
 }
 
-/** 获取购物车页展示用的未支付订单（soStatus=ordered 且未从购物车隐藏） */
-export async function getUnpaidOrdersForCart(): Promise<OrderWithItems[]> {
-  try {
-    const customerId = await getCurrentUserId();
-    if (!customerId) return [];
-
-    const orders = await prisma.salesOrder.findMany({
-      where: {
-        customerId,
-        soStatus: "ordered",
-        hiddenFromCart: false,
-      },
-      include: { items: { include: { modelPrice: true } } },
-      orderBy: { createdAt: "desc" },
-    });
-
-    return serializeDecimals(orders) as OrderWithItems[];
-  } catch (error) {
-    console.error("Get unpaid orders for cart error:", error);
-    return [];
-  }
-}
-
 /** 订单查询结果：区分"确实不存在"与"数据库暂时不可用" */
-export type OrderLookup =
+type OrderLookup =
   | { status: "ok"; order: OrderWithItems }
   | { status: "not_found" }
   | { status: "unavailable" };

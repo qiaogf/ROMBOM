@@ -27,7 +27,7 @@ export interface CartSnapshot {
   subtotal: number;
 }
 
-export type ServerCart = Awaited<ReturnType<typeof getCurrentCart>>;
+type ServerCart = Awaited<ReturnType<typeof getCurrentCart>>;
 
 /**
  * 将 server action 返回的 CartWithItems 转换为 UI 精简行

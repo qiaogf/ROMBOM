@@ -19,7 +19,7 @@ import {
   type ImportResultStructured,
 } from "@/lib/import-form";
 
-export interface SeriesOption {
+interface SeriesOption {
   seriesId: string;
   seriesName: string;
   brandName: string;

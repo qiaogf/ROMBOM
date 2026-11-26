@@ -10,7 +10,7 @@ export interface CartState extends CartSnapshot {
   addingProductIds: Record<string, boolean>;
 }
 
-export type CartAction =
+type CartAction =
   | { type: "HYDRATE"; cart: CartSnapshot }
   | { type: "ADD_START"; productId: string }
   | { type: "ADD_DONE"; productId: string; cart: CartSnapshot }

@@ -1,5 +1,5 @@
-// Helpers for create-full.ts — purchase order generation + idempotency store.
-// Extracted from create-full.ts (Phase 14) to keep the order creation leaf focused.
+// Helpers for purchase order generation (shared with admin/orders/sales.ts).
+// Extracted from the former create-full.ts (Phase 14).
 
 import type { Prisma } from "@/../prisma/generated/client";
 
@@ -18,7 +18,7 @@ const HOLIDAYS = new Set<string>([
   "2026-10-01", "2026-10-02", "2026-10-03", "2026-10-04", "2026-10-05", "2026-10-06", "2026-10-07", // 国庆
 ]);
 
-export function workingDaysCutoff(from: Date, workingDays: number): Date {
+function workingDaysCutoff(from: Date, workingDays: number): Date {
   const d = new Date(from);
   let counted = 0;
   while (counted < workingDays) {
@@ -214,16 +214,3 @@ export async function generatePurchaseOrders(
     seq++;
   }
 }
-
-// 幂等性存储（内存级，进程重启后失效）
-export const idempotencyStore = new Map<string, { orderId: string; createdAt: number }>();
-const IDEMPOTENCY_WINDOW_MS = 30000;
-
-setInterval(() => {
-  const now = Date.now();
-  for (const [key, value] of idempotencyStore.entries()) {
-    if (now - value.createdAt > IDEMPOTENCY_WINDOW_MS) {
-      idempotencyStore.delete(key);
-    }
-  }
-}, 30000);

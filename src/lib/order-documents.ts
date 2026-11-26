@@ -28,7 +28,7 @@ const COLOR_MUTED = rgb(0.45, 0.45, 0.45);
 const COLOR_LINE = rgb(0.78, 0.78, 0.78);
 const COLOR_HEAD_BG = rgb(0.94, 0.94, 0.94);
 
-export interface DocumentOrderItem {
+interface DocumentOrderItem {
   productName: string;
   brand: string | null;
   model: string | null;

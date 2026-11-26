@@ -11,7 +11,7 @@ import { prisma } from "@/lib/prisma";
 import { Prisma } from "@/../prisma/generated/client";
 
 /** 锁价时长（小时） */
-export const PRICE_LOCK_HOURS = 48;
+const PRICE_LOCK_HOURS = 48;
 
 export function computeLockExpiry(from: Date = new Date()): Date {
   return new Date(from.getTime() + PRICE_LOCK_HOURS * 60 * 60 * 1000);

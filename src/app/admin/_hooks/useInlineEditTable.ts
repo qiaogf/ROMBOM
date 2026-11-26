@@ -6,7 +6,7 @@
 
 import { useState, useTransition } from "react";
 
-export interface InlineEditTable {
+interface InlineEditTable {
   /** 新建行名称 */
   name: string;
   setName: (v: string) => void;

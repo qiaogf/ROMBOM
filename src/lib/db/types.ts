@@ -39,11 +39,6 @@ export interface Product {
   priceTag?: "lowest" | "fastest" | "both" | null;
 }
 
-export interface SeriesInfo {
-  seriesName: string;
-  seriesDesc: string | null;
-}
-
 export interface SeriesGroup {
   seriesName: string;
   seriesSlug: string;
@@ -80,37 +75,4 @@ export function toNumber(value: { toNumber: () => number } | string | number | n
 }
 
 /**
- * 合并系列的两个数据源并按系列名（小写）去重：
- *   1) Series 表记录（新模型，带描述，优先）
- *   2) Product 表 series 文本（旧兼容模型，补充 Series 表中缺失的系列）
- * 结果按系列名字母序返回。
- */
-export function mergeSeriesSources(
-  seriesFromTable: { seriesName: string; description: string | null }[],
-  seriesFromProducts: { series: string | null }[]
-): SeriesInfo[] {
-  const merged = new Map<string, SeriesInfo>();
-
-  for (const s of seriesFromTable) {
-    const name = s.seriesName.trim();
-    if (!name) continue;
-    merged.set(name.toLowerCase(), {
-      seriesName: name,
-      seriesDesc: s.description || null,
-    });
-  }
-
-  for (const p of seriesFromProducts) {
-    if (!p.series) continue;
-    const name = p.series.trim();
-    if (!name) continue;
-    const key = name.toLowerCase();
-    if (!merged.has(key)) {
-      merged.set(key, { seriesName: name, seriesDesc: null });
-    }
-  }
-
-  return Array.from(merged.values()).sort((a, b) =>
-    a.seriesName.localeCompare(b.seriesName)
-  );
-}
+ * 系列名 → URL slug（与导入路由保持一致） */

@@ -34,8 +34,4 @@ export interface CartWithItems extends Cart {
   items: CartItemWithProduct[];
 }
 
-export interface CartSummary {
-  totalQuantity: number;
-  totalAmount: number;
-  itemCount: number;
-}
+

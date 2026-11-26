@@ -11,7 +11,7 @@ import { ModalShell } from "./ModalShell";
 export type AuthView = "login" | "register" | "reset" | "oneTime";
 
 /** 注册下拉选项（页面展示用） */
-export type AccountType = "buyer" | "supplier" | "engineer";
+type AccountType = "buyer" | "supplier" | "engineer";
 /** 系统内部角色（对应数据库 customer / supplier / admin 三张表） */
 export type AccountRole = "customer" | "supplier" | "admin";
 
@@ -22,7 +22,7 @@ const ACCOUNT_ROLE_BY_TYPE: Record<AccountType, AccountRole> = {
   engineer: "admin",
 };
 
-export interface AuthSubmitInput {
+interface AuthSubmitInput {
   email: string;
   password: string;
   stayLoggedIn: boolean;

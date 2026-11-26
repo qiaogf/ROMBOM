@@ -6,12 +6,12 @@ import { prisma } from "@/lib/prisma";
 import type { Prisma } from "@/../prisma/generated/client";
 
 /** 系列 + 品牌名（批量加载的最小形状） */
-export type SeriesWithBrand = Prisma.SeriesGetPayload<{
+type SeriesWithBrand = Prisma.SeriesGetPayload<{
   select: { seriesId: true; seriesName: true; brand: { select: { brandName: true } } };
 }>;
 
 /** 批次列表行（含逐行系列拼装）所需的 ImportBatch include 形状 */
-export type ImportBatchWithRows = Prisma.ImportBatchGetPayload<{
+type ImportBatchWithRows = Prisma.ImportBatchGetPayload<{
   include: {
     series: { select: { seriesName: true; brand: { select: { brandName: true } } } };
     admin: { select: { email: true } };

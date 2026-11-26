@@ -5,7 +5,7 @@
 
 import { useState } from "react";
 
-export type ApiAccountEdits = Record<string, Record<string, string>>;
+type ApiAccountEdits = Record<string, Record<string, string>>;
 
 export interface ApiAccountEditsApi {
   edits: ApiAccountEdits;

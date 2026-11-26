@@ -8,7 +8,7 @@ import { applyBatchMarkup, applyItemMarkup, applyModelMarkup } from "@/app/actio
 import { formatLeadtime } from "@/lib/cart-display";
 import { formatUSDSafe } from "@/lib/format";
 
-export interface PriceBatchDetailItem {
+interface PriceBatchDetailItem {
   importBatchId: string;
   fileName: string;
   sourceType: string;
@@ -23,7 +23,7 @@ export interface PriceBatchDetailItem {
   approvedByEmail: string | null;
 }
 
-export interface PriceItemRow {
+interface PriceItemRow {
   itemId: string;
   slug: string;
   model: string;
@@ -36,7 +36,7 @@ export interface PriceItemRow {
   series: { seriesName: string; brand: { brandName: string } | null } | null;
 }
 
-export interface PriceModelPrice {
+interface PriceModelPrice {
   modelPriceId: string;
   model: string;
   costPrice: Prisma.Decimal;

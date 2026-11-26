@@ -5,13 +5,13 @@ import path from "node:path";
 export type OrderFileKind = "pi" | "slip";
 
 /** 存档根目录：standalone 运行时 cwd 在 .next/standalone，需回到项目根目录 */
-export function storageRoot(): string {
+function storageRoot(): string {
   const cwd = process.cwd();
   const base = path.basename(cwd) === "standalone" ? path.resolve(cwd, "..", "..") : cwd;
   return path.join(base, "order-files");
 }
 
-export function orderFileDir(orderId: string, kind: OrderFileKind): string {
+function orderFileDir(orderId: string, kind: OrderFileKind): string {
   return path.join(storageRoot(), orderId, kind);
 }
 

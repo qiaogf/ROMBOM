@@ -30,7 +30,7 @@ const SESSION_MAX_AGE = 60 * 60 * 24 * 7; // 7天
  * （Confirm 启用 / Reject 停用 / Delete 删除）。
  * 该账号本身不可被停用或删除。
  */
-export const SUPER_ADMIN_EMAIL = "406756076@qq.com";
+const SUPER_ADMIN_EMAIL = "406756076@qq.com";
 
 export function isSuperAdminEmail(email: string | null | undefined): boolean {
   return !!email && email.trim().toLowerCase() === SUPER_ADMIN_EMAIL.toLowerCase();
@@ -219,9 +219,4 @@ export async function setCustomerRoleCookie() {
     maxAge: SESSION_MAX_AGE,
     path: "/",
   });
-}
-
-export async function clearRoleCookie() {
-  const cookieStore = await cookies();
-  cookieStore.delete({ name: ROLE_COOKIE, path: "/" });
 }

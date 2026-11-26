@@ -23,7 +23,7 @@ const TEMPLATE_CSV = `Brand,Series,Model,Price,Condition,Leadtime
 Siemens,S7-1200,6ES7214-1AG40-0XB0,128.00,New Original,In stock
 Siemens,S7-1500,6ES7511-1AK02-0AB0,455.00,New Original,2-3 weeks`;
 
-export interface SupplierBatchItem {
+interface SupplierBatchItem {
   importBatchId: string;
   fileName: string;
   importedAt: Date;

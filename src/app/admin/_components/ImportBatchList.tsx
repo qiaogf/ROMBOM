@@ -3,7 +3,7 @@ import { FileText, Hash } from "lucide-react";
 import { BatchActionButtons } from "./BatchActionButtons";
 import { formatDateYYMMDD } from "@/lib/format";
 
-export interface BatchListItem {
+interface BatchListItem {
   importBatchId: string;
   fileName: string;
   sourceType: string;

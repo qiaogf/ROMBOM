@@ -7,12 +7,12 @@
  */
 import nodemailer from "nodemailer";
 
-export interface SendEmailInquiryInput {
+interface SendEmailInquiryInput {
   from: string;
   message: string;
 }
 
-export interface SendEmailInquiryResult {
+interface SendEmailInquiryResult {
   ok: boolean;
   error?: string;
 }

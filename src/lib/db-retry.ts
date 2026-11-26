@@ -6,7 +6,7 @@ import { Prisma } from "@/../prisma/generated/client";
 const TRANSIENT_CODES = new Set(["P1000", "P1001", "P1002", "P1008", "P1017", "P2024"]);
 
 /** 判断是否为可重试的瞬时连接类错误 */
-export function isTransientDbError(error: unknown): boolean {
+function isTransientDbError(error: unknown): boolean {
   if (error instanceof Prisma.PrismaClientInitializationError) return true;
   if (error instanceof Prisma.PrismaClientKnownRequestError) {
     return TRANSIENT_CODES.has(error.code);

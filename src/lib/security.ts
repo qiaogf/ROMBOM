@@ -42,24 +42,6 @@ function cleanupExpiredRecords(): void {
 // 每10分钟清理一次
 setInterval(cleanupExpiredRecords, 10 * 60 * 1000);
 
-// 生成安全的随机字符串
-export function generateSecureRandom(length: number = 32): string {
-  return crypto.randomBytes(length).toString("hex");
-}
-
-// 生成安全的订单号
-export function generateOrderNumber(): string {
-  const timestamp = Date.now().toString(36).toUpperCase();
-  const randomBytes = crypto.randomBytes(6).toString("hex").toUpperCase();
-  return `ORD-${timestamp}-${randomBytes}`;
-}
-
-// 生成唯一幂等键
-export function generateIdempotencyKey(...parts: string[]): string {
-  const data = parts.join(":");
-  return crypto.createHash("sha256").update(data).digest("hex");
-}
-
 // 验证密码强度
 export function validatePasswordStrength(password: string): { valid: boolean; message: string } {
   if (password.length < 8) {

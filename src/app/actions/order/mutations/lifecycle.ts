@@ -15,52 +15,6 @@ import {
   resolveSubmittedAuditStatus,
 } from "../status-machine";
 
-export async function cancelOrder(orderId: string): Promise<OrderActionResult> {
-  try {
-    const customerId = await getCurrentUserId();
-    if (!customerId) {
-      return { success: false, message: "Please login to cancel order" };
-    }
-
-    if (!/^[a-zA-Z0-9_-]+$/.test(orderId) || orderId.length > 255) {
-      return { success: false, message: "Invalid order ID" };
-    }
-
-    return prisma.$transaction(async (tx) => {
-      const order = await tx.salesOrder.findUnique({
-        where: { orderId },
-        include: { items: true },
-      });
-
-      if (!order || order.customerId !== customerId) {
-        return { success: false, message: "Order not found or unauthorized" };
-      }
-
-      if (order.orderStatus === "cancelled") {
-        return { success: false, message: "Order is already cancelled" };
-      }
-
-      if (order.orderStatus === "purchasing" || order.orderStatus === "completed") {
-        return { success: false, message: "Cannot cancel orders that are already being processed or completed" };
-      }
-
-      await tx.salesOrder.update({
-        where: { orderId },
-        data: { orderStatus: "cancelled" },
-      });
-
-      return {
-        success: true,
-        message: "Order cancelled successfully",
-        order: serializeDecimals(order) as OrderWithItems,
-      };
-    }, { maxWait: 20000, timeout: 60000 }) as Promise<OrderActionResult>;
-  } catch (error) {
-    console.error("Cancel order error:", error);
-    return { success: false, message: "An error occurred while cancelling order" };
-  }
-}
-
 /**
  * 提交订单后：把结算页填写的收货信息写进订单，并回写到客户档案
  * （Admin Panel → Customer 的账户记录随即同步）
@@ -364,36 +318,5 @@ export async function confirmReceipt(orderId: string): Promise<OrderActionResult
   } catch (error) {
     console.error("Confirm receipt error:", error);
     return { success: false, message: "An error occurred while confirming receipt" };
-  }
-}
-
-/**
- * 从 Cart 页移除订单（仅隐藏，不删除订单本身）
- * 订单仍可在 Orders 页查看并支付
- */
-export async function hideOrderFromCart(orderId: string): Promise<OrderActionResult> {
-  try {
-    const customerId = await getCurrentUserId();
-    if (!customerId) {
-      return { success: false, message: "Please login" };
-    }
-    if (!/^[a-zA-Z0-9_-]+$/.test(orderId) || orderId.length > 255) {
-      return { success: false, message: "Invalid order ID" };
-    }
-
-    const order = await prisma.salesOrder.findUnique({ where: { orderId } });
-    if (!order || order.customerId !== customerId) {
-      return { success: false, message: "Order not found or unauthorized" };
-    }
-
-    await prisma.salesOrder.update({
-      where: { orderId },
-      data: { hiddenFromCart: true },
-    });
-
-    return { success: true, message: "Order removed from cart" };
-  } catch (error) {
-    console.error("Hide order from cart error:", error);
-    return { success: false, message: "An error occurred" };
   }
 }

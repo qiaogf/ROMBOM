@@ -22,7 +22,7 @@ export interface BatchDetailItem {
 }
 
 /** 行级系列（CSV 每行 Series 列解析），与批次级 series 独立 */
-export interface BatchRowSeries {
+interface BatchRowSeries {
   seriesName: string;
   brand: { brandName: string } | null;
 }

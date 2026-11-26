@@ -29,7 +29,7 @@ export function isPurchasableLeadtime(leadTime: string | null | undefined): bool
  *   - 服务端 cartActions 在返回给前端前先 toCartItemDisplay() 一次
  *   - 前端无论拿到 CartItemWithProduct 还是 CartItemDisplay 都能复用同一函数
  */
-export interface CartItemDisplay {
+interface CartItemDisplay {
   itemId: string;
   quantity: number;
   productId: string | null;

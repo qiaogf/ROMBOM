@@ -2,11 +2,9 @@
 // No "use server" directive: this module exports sync helpers, which are forbidden in
 // server-action modules. The "use server" boundary lives in queries.ts / mutations.ts.
 
-import { decimalToNumber } from "@/lib/price";
 import { toCartItemDisplayList, computeCartTotals } from "@/lib/cart-display";
 import { prisma } from "@/lib/prisma";
 import type { CartItemWithProduct } from "./types";
-import type { SupplierQuote } from "@/../prisma/generated/client";
 
 export const MAX_QUANTITY_PER_ITEM = 999;
 export const MAX_CART_ITEMS = 100;
@@ -19,30 +17,10 @@ export function validateQuantity(quantity: number): boolean {
   return Number.isInteger(quantity) && quantity >= 1 && quantity <= MAX_QUANTITY_PER_ITEM;
 }
 
-export function getSellPrice(quote: SupplierQuote): number {
-  return typeof quote.sellPrice === "number"
-    ? quote.sellPrice
-    : parseFloat(String(quote.sellPrice));
-}
-
 /** 通用可购性校验：Leadtime 统一字段语义，仅 "Out of Stock" 不可加购（SupplierQuote/ModelPrice 结构兼容） */
 export function isInStock(item: { leadTime: string | null }): boolean {
   const t = item.leadTime?.trim().toLowerCase() ?? "";
   return !t.includes("out of stock");
-}
-
-/** 从 CartItem 关系对象计算单价（双路径：SupplierQuote > ModelPrice > 0） */
-export function getItemUnitPrice(item: CartItemWithProduct): number {
-  if (item.supplierQuote) return getSellPrice(item.supplierQuote);
-  if (item.modelPrice) return decimalToNumber(item.modelPrice.sellPrice);
-  return 0;
-}
-
-/** 从 CartItem 关系对象计算 MOQ（双路径：SupplierQuote > ModelPrice > 1） */
-export function getItemMoq(item: CartItemWithProduct): number {
-  if (item.supplierQuote) return item.supplierQuote.moq;
-  if (item.modelPrice) return item.modelPrice.moq;
-  return 1;
 }
 
 /** 计算 cart items 的总数与总金额（双路径） */

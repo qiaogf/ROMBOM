@@ -42,7 +42,7 @@ export async function setPriceCompareEnabled(enabled: boolean): Promise<void> {
   });
 }
 
-export interface PriceCompareResult {
+interface PriceCompareResult {
   groups: number;
   models: number;
   listPricesUpdated: number;

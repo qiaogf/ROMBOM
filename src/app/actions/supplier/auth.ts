@@ -16,7 +16,7 @@ const SUPPLIER_COOKIE = "supplier_session";
 const ROLE_COOKIE = "user_role";
 const SESSION_MAX_AGE = 60 * 60 * 24 * 7;
 
-export interface SupplierLoginResult {
+interface SupplierLoginResult {
   success: boolean;
   message: string;
   supplierId?: string;
@@ -102,7 +102,7 @@ export async function supplierLoginAction(formData: FormData): Promise<SupplierL
 }
 
 // ── Supplier 自助注册（Create login） ──
-export interface SupplierRegisterResult {
+interface SupplierRegisterResult {
   success: boolean;
   message: string;
   supplierId?: string;
