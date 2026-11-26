@@ -48,22 +48,27 @@ export async function deleteImportBatch(formData: FormData): Promise<{ success: 
       // 4. 删除批次本身（ImportBatchItem 由 onDelete: Cascade 自动清理）
       await tx.importBatch.delete({ where: { importBatchId } });
 
-      // 5. 系列同步下线：本批次删除后已无任何型号价格的系列 → isActive=false
-      //    （仍被其他批次价格行引用的系列保持原状；保留系列记录便于重新上传时复用）
+      // 5. 系列同步删除：本批次删除后已无任何型号价格的系列直接删除
+      //    （仍被其他批次价格行引用的系列保留；重新上传同一系列时确认流程会自动重建）
       if (seriesIds.size > 0) {
         const orphanSeries = await tx.series.findMany({
           where: {
             seriesId: { in: [...seriesIds] },
-            isActive: true,
             modelPrices: { none: {} },
           },
-          select: { seriesId: true },
+          select: { seriesId: true, brandId: true, categoryId: true },
         });
         if (orphanSeries.length > 0) {
-          await tx.series.updateMany({
+          await tx.series.deleteMany({
             where: { seriesId: { in: orphanSeries.map((s) => s.seriesId) } },
-            data: { isActive: false },
           });
+          // 同品牌同品类已无其他系列 → 移除 CategoryBrand 关联，前台导航同步收敛
+          for (const { brandId, categoryId } of orphanSeries) {
+            const remaining = await tx.series.count({ where: { brandId, categoryId } });
+            if (remaining === 0) {
+              await tx.categoryBrand.deleteMany({ where: { brandId, categoryId } });
+            }
+          }
         }
       }
     });
