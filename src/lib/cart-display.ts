@@ -60,6 +60,8 @@ export interface CartItemDisplay {
   weightUnit: string | null;
   batteryAttributes: string | null;
   datasheetLink: string | null;
+  /** 该型号是否有资料（游客只拿这个布尔值，不拿地址） */
+  datasheetAvailable: boolean;
 }
 
 /**
@@ -104,6 +106,8 @@ export interface CartItemRelationsInput {
     weightUnit?: string | null;
     batteryAttributes?: string | null;
     datasheetLink?: string | null;
+    /** 游客路径：服务端只回传「有无资料」，不回传地址 */
+    hasDatasheet?: boolean;
     selfOrder?: boolean;
     importBatch?: { selfOrderAll: boolean } | null;
   } | null;
@@ -134,6 +138,7 @@ export function toCartItemDisplay(item: CartItemRelationsInput): CartItemDisplay
     weightUnit: null,
     batteryAttributes: null,
     datasheetLink: null,
+    datasheetAvailable: false,
   };
 
   // 1) 旧路径：有 supplierQuote（必然有 product 关系）
@@ -188,6 +193,7 @@ export function toCartItemDisplay(item: CartItemRelationsInput): CartItemDisplay
       weightUnit: mp.weightUnit ?? null,
       batteryAttributes: mp.batteryAttributes ?? null,
       datasheetLink: mp.datasheetLink ?? null,
+      datasheetAvailable: Boolean(mp.datasheetLink) || mp.hasDatasheet === true,
     };
   }
 

@@ -36,6 +36,8 @@ export interface GuestModelPriceData {
   packingWeight: number | null;
   weightUnit: string | null;
   batteryAttributes: string | null;
+  /** 是否有资料（游客只拿布尔值，不拿地址） */
+  hasDatasheet: boolean;
 }
 
 /** SupplierQuote 路径伪条目价格行 */
@@ -114,6 +116,7 @@ export async function getModelPriceForGuest(
         packingWeight: mp.packingWeight != null ? decimalToNumber(mp.packingWeight) : null,
         weightUnit: mp.weightUnit,
         batteryAttributes: mp.batteryAttributes,
+        hasDatasheet: Boolean(mp.datasheetLink),
       },
     };
   } catch {

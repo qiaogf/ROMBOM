@@ -48,20 +48,21 @@ export function CartSpecsPanel({ items, isLoggedIn = true }: Props) {
                   <td className="px-1.5 py-1 text-slate-600">{d.origin || "—"}</td>
                   <td className="px-1.5 py-1 text-slate-600">{d.certification || "—"}</td>
                   <td className="px-1.5 py-1">
-                    {!isLoggedIn ? (
-                      <a
-                        href="/auth/customer-login?redirect=/cart"
-                        title="Login to download datasheet"
-                        className="text-[#336633] underline hover:text-[#2d5a2d]"
-                      >
-                        Login
-                      </a>
-                    ) : link ? (
+                    {!d.datasheetAvailable ? (
+                      <span className="text-slate-400">—</span>
+                    ) : isLoggedIn && link ? (
                       <a href={link} target="_blank" rel="noopener noreferrer" className="text-[#336633] underline hover:text-[#2d5a2d]">
                         Link
                       </a>
                     ) : (
-                      <span className="text-slate-400">—</span>
+                      // 游客：与登录用户同样显示 Link，点击跳登录；资料地址不下发到浏览器
+                      <a
+                        href="/auth/customer-login?redirect=/cart"
+                        title="Login to view datasheet"
+                        className="text-[#336633] underline hover:text-[#2d5a2d]"
+                      >
+                        Link
+                      </a>
                     )}
                   </td>
                   <td className="px-1.5 py-1 text-right text-slate-600">{d.length ?? "—"}</td>

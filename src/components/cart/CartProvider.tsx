@@ -223,6 +223,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
             packingWeight: d.packingWeight,
             weightUnit: d.weightUnit,
             batteryAttributes: d.batteryAttributes,
+            hasDatasheet: d.hasDatasheet,
           },
         });
         saveGuestItems(next);
