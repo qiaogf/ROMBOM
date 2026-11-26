@@ -45,6 +45,7 @@ export async function confirmImportBatch(formData: FormData): Promise<{ success:
             seriesId: true,
             seriesName: true,
             categoryId: true,
+            isActive: true,
             brand: { select: { brandId: true, brandName: true, supplierId: true } },
           },
         },
@@ -68,6 +69,7 @@ export async function confirmImportBatch(formData: FormData): Promise<{ success:
             seriesId: true,
             seriesName: true,
             categoryId: true,
+            isActive: true,
             brand: { select: { brandId: true, brandName: true, supplierId: true } },
           },
         })
@@ -116,7 +118,7 @@ export async function confirmImportBatch(formData: FormData): Promise<{ success:
       prisma.brand.findMany({ select: { brandId: true, brandName: true, slug: true } }),
       prisma.category.findMany({ select: { categoryId: true, categoryName: true, slug: true } }),
       prisma.series.findMany({
-        select: { seriesId: true, seriesName: true, slug: true, categoryId: true, brandId: true },
+        select: { seriesId: true, seriesName: true, slug: true, categoryId: true, brandId: true, isActive: true },
       }),
       prisma.categoryBrand.findMany({ select: { categoryId: true, brandId: true } }),
     ]);
@@ -136,11 +138,11 @@ export async function confirmImportBatch(formData: FormData): Promise<{ success:
     const seriesSlugSet = new Set(navSeriesSlugs.map((s) => s.slug));
     // (brandId:categoryId:归一化系列名) → 已有系列；重复导入时复用同一条系列，不再每次新建
     // （特殊类目的「品牌同名系列」尤其依赖此索引）
-    const seriesByKey = new Map<string, { seriesId: string; seriesName: string; categoryId: string }>();
+    const seriesByKey = new Map<string, { seriesId: string; seriesName: string; categoryId: string; isActive?: boolean }>();
     for (const s of navSeriesSlugs) {
       const key = `${s.brandId}:${s.categoryId}:${normNavKey(s.seriesName)}`;
       if (!seriesByKey.has(key)) {
-        seriesByKey.set(key, { seriesId: s.seriesId, seriesName: s.seriesName, categoryId: s.categoryId });
+        seriesByKey.set(key, { seriesId: s.seriesId, seriesName: s.seriesName, categoryId: s.categoryId, isActive: s.isActive });
       }
     }
     const catBrandSet = new Set(navCatBrands.map((cb) => `${cb.categoryId}:${cb.brandId}`));
@@ -179,6 +181,15 @@ export async function confirmImportBatch(formData: FormData): Promise<{ success:
     const memoProduct = memo(new Map<string, Promise<string>>());
     const memoQuote = memo(new Map<string, Promise<void>>());
 
+    // 系列随批次删除被下线（isActive=false）后，再次上传同一系列时自动恢复上线
+    const memoSeriesActive = memo(new Map<string, Promise<void>>());
+    const ensureSeriesActive = (seriesId: string, isActive?: boolean): Promise<void> =>
+      isActive === false
+        ? memoSeriesActive(seriesId, async () => {
+            await prisma.series.update({ where: { seriesId }, data: { isActive: true } });
+          })
+        : Promise.resolve();
+
 
     try {
       // ── 导航条目匹配或创建（memo 防并发重复创建；匹配用预读 Map，slug 集合防重）──
@@ -196,12 +207,12 @@ export async function confirmImportBatch(formData: FormData): Promise<{ success:
         });
       };
       // Category 仅查找不创建：上传时已校验 Category 列必须为系统已有品类
-      const stagedSeriesByKey = new Map<string, { seriesId: string; seriesName: string; categoryId: string }>();
+      const stagedSeriesByKey = new Map<string, { seriesId: string; seriesName: string; categoryId: string; isActive?: boolean }>();
       const findOrCreateSeries = (name: string, brandId: string, categoryId: string) => {
         // 索引按「品牌 + 品类 + 归一化系列名」，避免同名系列被跨品牌/跨类目复用或重复创建
         const key = `${brandId}:${categoryId}:${normNavKey(name)}`;
         const hit = stagedSeriesByKey.get(key) ?? seriesByKey.get(key);
-        if (hit) return Promise.resolve(hit);
+        if (hit) return ensureSeriesActive(hit.seriesId, hit.isActive).then(() => hit);
         return memoSeries(key, async () => {
           const created = await prisma.series.create({
             data: { seriesName: name, slug: uniqueSlug(name, seriesSlugSet), brandId, categoryId },
@@ -236,6 +247,7 @@ export async function confirmImportBatch(formData: FormData): Promise<{ success:
           if (!itemSeries) {
             throw new Error(`Row ${item.rowNumber} (model=${item.model}) has no resolvable series. Cannot publish.`);
           }
+          await ensureSeriesActive(itemSeries.seriesId, itemSeries.isActive);
           seriesCtx = {
             seriesId: itemSeries.seriesId,
             seriesName: itemSeries.seriesName,

@@ -18,9 +18,19 @@ export async function deleteImportBatch(formData: FormData): Promise<{ success: 
     await prisma.$transaction(async (tx) => {
       const batch = await tx.importBatch.findUnique({
         where: { importBatchId },
-        select: { importBatchId: true, fileName: true, approvalStatus: true },
+        select: { importBatchId: true, fileName: true, approvalStatus: true, seriesId: true },
       });
       if (!batch) throw new Error("Import batch not found.");
+
+      // 记录本批次涉及的系列（批次归属系列 + 批次内价格行归属系列），删除后再判断是否需下线
+      const touchedSeries = await tx.modelPrice.findMany({
+        where: { importBatchId },
+        select: { seriesId: true },
+        distinct: ["seriesId"],
+      });
+      const seriesIds = new Set<string>();
+      if (batch.seriesId) seriesIds.add(batch.seriesId);
+      for (const row of touchedSeries) if (row.seriesId) seriesIds.add(row.seriesId);
 
       // 已上线批次需要回滚线上数据
       if (batch.approvalStatus === "approved") {
@@ -37,6 +47,25 @@ export async function deleteImportBatch(formData: FormData): Promise<{ success: 
 
       // 4. 删除批次本身（ImportBatchItem 由 onDelete: Cascade 自动清理）
       await tx.importBatch.delete({ where: { importBatchId } });
+
+      // 5. 系列同步下线：本批次删除后已无任何型号价格的系列 → isActive=false
+      //    （仍被其他批次价格行引用的系列保持原状；保留系列记录便于重新上传时复用）
+      if (seriesIds.size > 0) {
+        const orphanSeries = await tx.series.findMany({
+          where: {
+            seriesId: { in: [...seriesIds] },
+            isActive: true,
+            modelPrices: { none: {} },
+          },
+          select: { seriesId: true },
+        });
+        if (orphanSeries.length > 0) {
+          await tx.series.updateMany({
+            where: { seriesId: { in: orphanSeries.map((s) => s.seriesId) } },
+            data: { isActive: false },
+          });
+        }
+      }
     });
     return { success: true, message: "Import file and all its model prices deleted." };
   } catch (err) {
