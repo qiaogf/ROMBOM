@@ -24,6 +24,19 @@ export interface GuestModelPriceData {
   thumbnail: string | null;
   /** 可自助下单结算（淡绿） */
   selfOrder: boolean;
+  // ===== 规格参数（与 CartItemRelationsInput["modelPrice"] 对齐，购物车 Specifications 表用）=====
+  origin: string | null;
+  certification: string | null;
+  length: number | null;
+  width: number | null;
+  height: number | null;
+  diameter: number | null;
+  dimensionUnit: string | null;
+  weight: number | null;
+  packingWeight: number | null;
+  weightUnit: string | null;
+  batteryAttributes: string | null;
+  datasheetLink: string | null;
 }
 
 /** SupplierQuote 路径伪条目价格行 */
@@ -91,6 +104,18 @@ export async function getModelPriceForGuest(
         leadTime: mp.leadTime,
         thumbnail: mp.thumbnail,
         selfOrder: selfOrder === true,
+        origin: mp.origin,
+        certification: mp.certification,
+        length: mp.length != null ? decimalToNumber(mp.length) : null,
+        width: mp.width != null ? decimalToNumber(mp.width) : null,
+        height: mp.height != null ? decimalToNumber(mp.height) : null,
+        diameter: mp.diameter != null ? decimalToNumber(mp.diameter) : null,
+        dimensionUnit: mp.dimensionUnit,
+        weight: mp.weight != null ? decimalToNumber(mp.weight) : null,
+        packingWeight: mp.packingWeight != null ? decimalToNumber(mp.packingWeight) : null,
+        weightUnit: mp.weightUnit,
+        batteryAttributes: mp.batteryAttributes,
+        datasheetLink: mp.datasheetLink,
       },
     };
   } catch {

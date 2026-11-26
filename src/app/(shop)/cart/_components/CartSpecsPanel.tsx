@@ -33,6 +33,7 @@ export function CartSpecsPanel({ items }: Props) {
               <th className="px-1.5 py-1 text-right font-bold">ack. Weight</th>
               <th className="px-1.5 py-1 text-left font-bold">Wt. Unit</th>
               <th className="px-1.5 py-1 text-left font-bold">Battery Attr.</th>
+              <th className="px-1.5 py-1 text-right font-bold w-[6ch]">MOQ</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100">
@@ -62,6 +63,7 @@ export function CartSpecsPanel({ items }: Props) {
                   <td className="px-1.5 py-1 text-right text-slate-600">{d.packingWeight ?? "—"}</td>
                   <td className="px-1.5 py-1 text-slate-600">{d.weightUnit || "—"}</td>
                   <td className="px-1.5 py-1 text-slate-600">{d.batteryAttributes || "—"}</td>
+                  <td className="px-1.5 py-1 text-right text-slate-600">{d.moq}</td>
                 </tr>
               );
             })}

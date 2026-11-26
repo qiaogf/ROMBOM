@@ -212,6 +212,18 @@ export function CartProvider({ children }: { children: ReactNode }) {
             leadTime: d.leadTime,
             thumbnail: d.thumbnail,
             selfOrder: d.selfOrder,
+            origin: d.origin,
+            certification: d.certification,
+            length: d.length,
+            width: d.width,
+            height: d.height,
+            diameter: d.diameter,
+            dimensionUnit: d.dimensionUnit,
+            weight: d.weight,
+            packingWeight: d.packingWeight,
+            weightUnit: d.weightUnit,
+            batteryAttributes: d.batteryAttributes,
+            datasheetLink: d.datasheetLink,
           },
         });
         saveGuestItems(next);
