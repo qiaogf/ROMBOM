@@ -70,7 +70,7 @@ const BLOCKED_UA =
   /semrushbot|ahrefsbot|mj12bot|dotbot|petalbot|bytespider|gptbot|ccbot|claudebot|anthropic|scrapy|python-requests|python-urllib|httpclient|okhttp|curl\/|wget\/|httrack|headlesschrome|phantomjs|puppeteer|playwright/i;
 
 const WINDOW_MS = 60_000;
-const LIMIT_BROWSER = 30; // 正常访客：30 次/分钟（翻页、搜索、加购浏览足够）
+const LIMIT_BROWSER = 120; // 正常访客：120 次/分钟（含 RSC 导航；预取请求不计数）
 const LIMIT_SEARCH = 120; // 搜索引擎：120 次/分钟（收录抓取）
 const LIMIT_NO_UA = 5; // 无 UA：5 次/分钟（非浏览器特征，严格限制）
 
@@ -119,7 +119,17 @@ function priceAntiScraping(request: NextRequest): NextResponse {
     return new NextResponse("Forbidden", { status: 403 });
   }
 
-  // 2) 搜索引擎白名单：宽松限流放行；普通访客标准限流；无 UA 严格限流
+  // 2) Next.js 链接预取 / 浏览器预加载：不计入限流
+  //    首页与品牌页会同时预取数十个系列链接，计入会让正常浏览误触 429
+  const isPrefetch =
+    request.headers.get("next-router-prefetch") === "1" ||
+    request.headers.get("purpose") === "prefetch" ||
+    request.headers.get("sec-purpose")?.includes("prefetch") === true;
+  if (isPrefetch) {
+    return NextResponse.next();
+  }
+
+  // 3) 搜索引擎白名单：宽松限流放行；普通访客标准限流；无 UA 严格限流
   const isSearchEngine = SEARCH_ENGINE_UA.test(ua);
   const limit = isSearchEngine ? LIMIT_SEARCH : ua ? LIMIT_BROWSER : LIMIT_NO_UA;
 
