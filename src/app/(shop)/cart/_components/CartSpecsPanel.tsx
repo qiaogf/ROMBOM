@@ -8,9 +8,11 @@ import type { CartWithItems } from "@/app/actions/cartActions";
 
 interface Props {
   items: CartWithItems["items"];
+  /** 游客不开放 Datasheet 下载（规格其余列正常展示） */
+  isLoggedIn?: boolean;
 }
 
-export function CartSpecsPanel({ items }: Props) {
+export function CartSpecsPanel({ items, isLoggedIn = true }: Props) {
   return (
     <div className="border border-slate-200 rounded bg-white overflow-hidden lg:sticky lg:top-1">
       <div className="px-2 py-1.5 bg-slate-50 border-b border-slate-200">
@@ -46,7 +48,15 @@ export function CartSpecsPanel({ items }: Props) {
                   <td className="px-1.5 py-1 text-slate-600">{d.origin || "—"}</td>
                   <td className="px-1.5 py-1 text-slate-600">{d.certification || "—"}</td>
                   <td className="px-1.5 py-1">
-                    {link ? (
+                    {!isLoggedIn ? (
+                      <a
+                        href="/auth/customer-login?redirect=/cart"
+                        title="Login to download datasheet"
+                        className="text-[#336633] underline hover:text-[#2d5a2d]"
+                      >
+                        Login
+                      </a>
+                    ) : link ? (
                       <a href={link} target="_blank" rel="noopener noreferrer" className="text-[#336633] underline hover:text-[#2d5a2d]">
                         Link
                       </a>

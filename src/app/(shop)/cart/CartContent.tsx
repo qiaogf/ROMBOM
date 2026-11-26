@@ -94,7 +94,7 @@ export function CartContent({ cart, isLoggedIn }: CartContentProps) {
 
           {/* ===== 右侧：规格参数表 ===== */}
           <div className="lg:col-span-1 min-w-0">
-            <CartSpecsPanel items={items} />
+            <CartSpecsPanel items={items} isLoggedIn={isLoggedIn} />
           </div>
         </div>
       </div>
