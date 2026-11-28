@@ -231,6 +231,8 @@ export async function POST(request: Request) {
     } else {
       // 系列归属严格按 Category + Brand + Series 三列对应匹配（同名系列跨品牌/类目不会串号）；
       // Brand 为空时回退 Generic，与确认阶段建系列的三键逻辑保持一致。
+      // 注意：不得回退到「仅系列名」匹配——同名系列（如各轴承品牌的 62 DGBB）会串到其他品牌系列，
+      // 未匹配时暂存系列名，确认阶段按 Brand + Category 新建对应品牌系列。
       if (!rowBrandName) rowBrandName = GENERIC_BRAND_NAME;
       const categoryId = categoryMap.get(normCategoryKey(categoryStr));
       const comboKey = categoryId
@@ -238,7 +240,7 @@ export async function POST(request: Request) {
         : null;
       rowSeriesId =
         (comboKey ? seriesMap.get(comboKey) : undefined) ??
-        seriesMap.get(normNavKey(seriesStr)) ??
+        seriesMap.get(normNavKey(`${rowBrandName} ${seriesStr}`)) ??
         null;
       if (!rowSeriesId) {
         stagedSeriesName = seriesStr;
